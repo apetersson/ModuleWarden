@@ -4,7 +4,8 @@ Static marketing site. Single `index.html` file, Tailwind via CDN, no build step
 
 ## Deploy
 
-- GitHub Pages: settings > Pages > source = this branch, path = /docs (then visit /site/)
+- GitHub Pages: `https://github.com/apetersson/modulewarden.com` is the public Pages mirror for this directory and serves `https://modulewarden.com`.
+- To publish: sync the contents of this directory to the root of `apetersson/modulewarden.com` and push `main`.
 - Cloudflare Pages: `npx wrangler pages deploy docs/site` from repo root
 - Local preview: `python -m http.server 8080 --directory docs/site`
 
