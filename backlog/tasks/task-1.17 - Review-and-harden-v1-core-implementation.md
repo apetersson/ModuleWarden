@@ -5,6 +5,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 20:01'
+updated_date: '2026-05-27 20:03'
 labels:
   - review
 dependencies: []
@@ -20,8 +21,20 @@ Thoroughly review the 4 completed tasks (TASK-1.1, 1.2, 1.3, 1.16) for correctne
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Gather review evidence: all tests pass, all packages typecheck
-- [ ] #2 Run advisor with evidence packet
+- [x] #1 Gather review evidence: all tests pass, all packages typecheck
+- [x] #2 Run advisor with evidence packet
 - [ ] #3 Fix all concrete findings from review
 - [ ] #4 Re-run advisor until no findings remain
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Fixed pg-boss test singleton key collisions by adding per-run unique RUN_ID
+
+- Verified all 19 tests pass (10 worker + 9 prisma)
+
+- All packages typecheck clean (shared, api-proxy, cli, worker)
+
+- Prisma schema validates, Docker Compose config validates, pnpm install clean
+<!-- SECTION:NOTES:END -->
