@@ -18,7 +18,7 @@ services:
 
   # ── Backing Registry ────────────────────────────────────
   verdaccio:
-    image: verdaccio/verdaccio:7
+    image: verdaccio/verdaccio:latest
     ports:
       - "4873:4873"
     volumes:
