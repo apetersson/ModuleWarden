@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:21'
-updated_date: '2026-05-27 19:42'
+updated_date: '2026-05-27 19:47'
 labels:
   - jobs
   - events
@@ -31,16 +31,18 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 pg-boss is the only queue/event library planned for v1; no Redis service or Redis-backed queue appears in Compose, docs, or architecture.
-- [ ] #2 Typed job definitions exist for package review enqueueing, upstream subscription polling, audit container execution, model escalation, re-audit campaigns, evidence post-processing, and Verdaccio promotion.
-- [ ] #3 Jobs use deterministic idempotency keys for package name/version/tarball hash/audit context so duplicate tarball fetches and preflights do not create duplicate audits.
-- [ ] #4 Retries, timeouts, cancellation, and dead-letter handling are documented and persist enough context to explain failed or abandoned audits.
-- [ ] #5 Worker concurrency limits are configurable per job type, especially for expensive PI/container/model workloads.
-- [ ] #6 The job layer supports initial audit campaigns for all imported lockfile package versions and emits a project-ready event only after complete decision coverage.
-- [ ] #7 Job payloads and workers keep external H100 capacity behind the model endpoint adapter; audit container execution remains ModuleWarden-controlled.
-- [ ] #8 Concurrency limits, retry policy, and metrics are configurable for model calls, container tool execution, initial campaigns, and re-audits.
-- [ ] #9 Prompt/model/pattern re-audit jobs include active override revalidation and persist superseding decision lineage.
+- [x] #1 pg-boss is the only queue/event library planned for v1; no Redis service or Redis-backed queue appears in Compose, docs, or architecture.
+- [x] #2 Typed job definitions exist for package review enqueueing, upstream subscription polling, audit container execution, model escalation, re-audit campaigns, evidence post-processing, and Verdaccio promotion.
+- [x] #3 Jobs use deterministic idempotency keys for package name/version/tarball hash/audit context so duplicate tarball fetches and preflights do not create duplicate audits.
+- [x] #4 Retries, timeouts, cancellation, and dead-letter handling are documented and persist enough context to explain failed or abandoned audits.
+- [x] #5 Worker concurrency limits are configurable per job type, especially for expensive PI/container/model workloads.
+- [x] #6 The job layer supports initial audit campaigns for all imported lockfile package versions and emits a project-ready event only after complete decision coverage.
+- [x] #7 Job payloads and workers keep external H100 capacity behind the model endpoint adapter; audit container execution remains ModuleWarden-controlled.
+- [x] #8 Concurrency limits, retry policy, and metrics are configurable for model calls, container tool execution, initial campaigns, and re-audits.
+- [x] #9 Prompt/model/pattern re-audit jobs include active override revalidation and persist superseding decision lineage.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
@@ -50,5 +52,5 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Integration tests prove enqueue/dedupe/retry/dead-letter behavior using Postgres and pg-boss only.
+- [x] #1 Integration tests prove enqueue/dedupe/retry/dead-letter behavior using Postgres and pg-boss only.
 <!-- DOD:END -->
