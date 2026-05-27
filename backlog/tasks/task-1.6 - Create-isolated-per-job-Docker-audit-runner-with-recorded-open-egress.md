@@ -1,7 +1,7 @@
 ---
 id: TASK-1.6
 title: Create isolated per-job Docker audit runner with recorded-open egress
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
@@ -55,6 +55,12 @@ The container must not receive model API credentials, core prompt files, DB cred
 <!-- SECTION:NOTES:BEGIN -->
 - ContainerRunner: disposable containers with fresh temp workspace per job\n- Only MW_RPC_TOKEN, MW_PACKAGE_NAME, MW_PACKAGE_VERSION env vars injected — no secrets\n- Dedicated bridge network (mw-audit-net) for recorded-open egress\n- --cap-drop=ALL, --read-only, no-new-privileges for container hardening\n- Entrypoint captures env, system info, package listing to /workspace/output/\n- Worker handler creates, monitors, captures artifacts, and destroys each container\n- 6 tests verify isolation, secret absence, evidence capture, cleanup
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented isolated per-job Docker audit runner (TASK-1.6). ContainerRunner service creates disposable containers from the modulewarden-audit-runner image with fresh temp workspaces, run-scoped RPC tokens, and dedicated bridge network for recorded-open egress. Containers are hardened with --cap-drop=ALL, --read-only, --security-opt=no-new-privileges. Entrypoint captures environment metadata (minus secrets), system info, and package inspection output to /workspace/output/ which is preserved as evidence before container destruction. pg-boss handler (audit-container-exec) orchestrates full lifecycle: create, start, poll for completion, capture artifacts, destroy. 6 tests verify isolation, secret absence, evidence capture, and cleanup. Audit-runner Docker image includes git, ripgrep, jq, curl, Python, corepack/pnpm.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
