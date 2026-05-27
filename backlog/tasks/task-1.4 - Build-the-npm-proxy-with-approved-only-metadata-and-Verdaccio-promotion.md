@@ -1,7 +1,7 @@
 ---
 id: TASK-1.4
 title: Build the npm proxy with approved-only metadata and Verdaccio promotion
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
@@ -54,6 +54,12 @@ For exact unapproved tarball requests, ModuleWarden should fail clearly and enqu
 
 - AC #2: non-allowed versions included with deprecation messages pointing to 'modulewarden status'\n- AC #6: e2e tests cover packument and tarball behavior with seeded decisions\n- AC #8: graph readiness check returns deterministic errors before READY state\n- DoD #1: 6 e2e integration tests pass covering all version states
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented the npm proxy with approved-only metadata and Verdaccio promotion. Fastify server with GET /:package (packument) and GET /:package/-/:filename (tarball) endpoints. Packuments filter upstream metadata to show only ALLOW decisions as installable, while BLOCK/QUARANTINE/UNREVIEWED versions are included with deprecation messages linking to 'modulewarden status'. Dist-tags rewritten to newest allowed version. Tarball endpoint serves allowed from Verdaccio, denies blocked/quarantined, and enqueues review for unreviewed. Project graph readiness check returns deterministic errors before READY state. Verdaccio promotion worker verifies decisions before promoting. Upstream fetch utilities shared between proxy and worker. 17 tests (11 filter + 6 e2e) all passing.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
