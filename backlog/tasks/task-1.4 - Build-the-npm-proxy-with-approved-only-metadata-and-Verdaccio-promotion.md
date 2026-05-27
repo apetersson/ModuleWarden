@@ -1,10 +1,11 @@
 ---
 id: TASK-1.4
 title: Build the npm proxy with approved-only metadata and Verdaccio promotion
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-27 20:03'
 labels:
   - npm
   - proxy
@@ -40,12 +41,10 @@ For exact unapproved tarball requests, ModuleWarden should fail clearly and enqu
 - [ ] #8 A project that has not completed its imported graph decisions receives deterministic registry failures that point to preflight/status rather than serving partial unreviewed results.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Proxy npm packument and tarball endpoints. Fetch upstream metadata for internal tracking. Filter packument versions to allowed decisions, rewrite dist-tags to allowed versions, serve allowed tarballs via Verdaccio, and enqueue pg-boss promotion jobs so upstream tarballs enter Verdaccio only after allow decisions.
+1. Create Fastify npm proxy server with packument (GET /:package) and tarball (GET /:package/-/:filename) endpoints\n2. Implement approved-only filtering: query decisions, filter versions, rewrite dist-tags\n3. Implement review enqueue for unapproved tarball requests via pg-boss\n4. Implement Verdaccio promotion worker (verdaccio-promotion job handler)\n5. Wire up project graph state checks for registry readiness\n6. Write integration tests\n7. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
