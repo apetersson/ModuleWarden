@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:47'
+updated_date: '2026-05-27 19:42'
 labels:
   - database
   - prisma
@@ -33,15 +33,17 @@ Important nuance: an allowed verdict is currently valid until revoked, not proof
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Package versions are keyed by package name, version, registry source, and exact tarball hash/integrity.
-- [ ] #2 A review job dedupes by package version hash and audit context so tarball fetches and CLI preflight cannot spawn duplicate work.
-- [ ] #3 A decision records verdict, reason summary, predecessor version/hash, prompt versions, model profile, scores, evidence references, PI session/run IDs, and actor type.
-- [ ] #4 Overrides record security-admin identity, scope, reason, timestamp, and the decision they supersede.
-- [ ] #5 Re-audit campaigns can select currently allowed versions in the active used graph after prompts, models, or patterns change.
-- [ ] #6 Projects store graph readiness state and cannot be marked registry-enabled until every imported package version has an effective allow, block, or quarantine decision.
-- [ ] #7 Evidence bundles are immutable once attached to an audit decision; later redaction, pruning, or superseding evidence must be represented as new records.
-- [ ] #8 Admin overrides, post-hoc relabels, and incident outcomes are stored as first-class evaluation labels linked to the original decision and evidence bundle.
+- [x] #1 Package versions are keyed by package name, version, registry source, and exact tarball hash/integrity.
+- [x] #2 A review job dedupes by package version hash and audit context so tarball fetches and CLI preflight cannot spawn duplicate work.
+- [x] #3 A decision records verdict, reason summary, predecessor version/hash, prompt versions, model profile, scores, evidence references, PI session/run IDs, and actor type.
+- [x] #4 Overrides record security-admin identity, scope, reason, timestamp, and the decision they supersede.
+- [x] #5 Re-audit campaigns can select currently allowed versions in the active used graph after prompts, models, or patterns change.
+- [x] #6 Projects store graph readiness state and cannot be marked registry-enabled until every imported package version has an effective allow, block, or quarantine decision.
+- [x] #7 Evidence bundles are immutable once attached to an audit decision; later redaction, pruning, or superseding evidence must be represented as new records.
+- [x] #8 Admin overrides, post-hoc relabels, and incident outcomes are stored as first-class evaluation labels linked to the original decision and evidence bundle.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
@@ -51,5 +53,5 @@ Important nuance: an allowed verdict is currently valid until revoked, not proof
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Database tests cover Prisma migrations, constraints, dedupe, decision history, and re-audit selection.
+- [x] #1 Database tests cover Prisma migrations, constraints, dedupe, decision history, and re-audit selection.
 <!-- DOD:END -->
