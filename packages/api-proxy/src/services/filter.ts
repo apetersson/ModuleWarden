@@ -1,4 +1,4 @@
-import type { NpmPackument, NpmPackageVersion, FilteredPackument, NpmDistTag } from '@modulewarden/shared/npm-types';
+import type { NpmPackument, NpmPackageVersion, FilteredPackument } from '@modulewarden/shared/npm-types';
 
 export interface VersionDecision {
   version: string;
@@ -7,52 +7,67 @@ export interface VersionDecision {
 }
 
 /**
- * Filter an upstream packument to only include currently allowed versions.
+ * Filter an upstream packument to include only currently allowed versions,
+ * while surfacing non-allowed versions as deprecated with a helpful message.
  * Rewrites dist-tags to point to the newest approved version.
  *
- * @param packument - The full upstream packument
- * @param decisions - Map of version -> decision for all known versions
- * @returns A filtered packument with only approved versions
+ * Non-allowed versions are included as deprecated so npm clients can show
+ * a meaningful error message rather than a cryptic "not found".
  */
 export function filterToApproved(
   packument: NpmPackument,
   decisions: Map<string, VersionDecision>
 ): FilteredPackument {
   const allowedVersions: Record<string, NpmPackageVersion> = {};
-  const approvedDistTags: NpmDistTag = {};
+  const versions: Record<string, NpmPackageVersion> = {};
 
-  // Filter versions to only those with ALLOW verdict
   for (const [version, versionData] of Object.entries(packument.versions)) {
     const decision = decisions.get(version);
+
     if (decision?.verdict === 'ALLOW') {
       allowedVersions[version] = versionData;
+      versions[version] = versionData;
+    } else if (decision?.verdict === 'BLOCK') {
+      // Include blocked versions as deprecated with explanation
+      versions[version] = {
+        ...versionData,
+        deprecated: `[BLOCKED] Package ${packument.name}@${version} is blocked by security policy. Run 'modulewarden status' for details.`,
+      };
+    } else if (decision?.verdict === 'QUARANTINE') {
+      versions[version] = {
+        ...versionData,
+        deprecated: `[QUARANTINED] Package ${packument.name}@${version} is under review. Run 'modulewarden status' for details.`,
+      };
+    } else {
+      // Unreviewed version — include with deprecation message
+      versions[version] = {
+        ...versionData,
+        deprecated: `[UNREVIEWED] Package ${packument.name}@${version} has not been reviewed yet. Run 'modulewarden preflight' to request a review.`,
+      };
     }
   }
 
   // Rewrite dist-tags to newest allowed version per tag
+  const approvedDistTags: Record<string, string> = {};
+  const sortedAllowed = Object.keys(allowedVersions).sort(semverSortDesc);
+
   for (const [tag, taggedVersion] of Object.entries(packument['dist-tags'])) {
     const decision = decisions.get(taggedVersion);
 
     if (decision?.verdict === 'ALLOW') {
-      // Tag points to an allowed version — keep it
       approvedDistTags[tag] = taggedVersion;
-    } else {
-      // Tag points to a non-allowed version — find the newest allowed
-      // version that matches the same semver range, or leave the tag empty
-      const sortedAllowed = Object.keys(allowedVersions).sort(semverSortDesc);
-      if (sortedAllowed.length > 0) {
-        // For 'latest' and other major tags, use the highest allowed version
-        approvedDistTags[tag] = sortedAllowed[0];
-      }
-      // If no allowed versions exist, the tag is omitted
+    } else if (sortedAllowed.length > 0) {
+      // Fall back to the highest allowed version
+      approvedDistTags[tag] = sortedAllowed[0];
     }
+    // If no allowed versions, omit the tag
   }
 
   const repo = packument.repository as { type?: string; url?: string } | undefined;
   return {
     name: packument.name,
     'dist-tags': approvedDistTags,
-    versions: allowedVersions,
+    versions,
     description: packument.description,
     license: packument.license,
     homepage: packument.homepage,

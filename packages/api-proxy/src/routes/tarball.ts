@@ -62,6 +62,25 @@ export async function registerTarballRoute(
 
       const prisma = getPrisma();
 
+      // Check project readiness (same logic as packument route)
+      const enabledProject = await prisma.project.findFirst({
+        where: { registryEnabled: true },
+        select: { id: true, graphState: true },
+      });
+
+      // No enabled project — no tarballs available
+      if (!enabledProject || enabledProject.graphState !== 'READY') {
+        return reply.status(503).send({
+          error: 'Registry not ready',
+          reason: enabledProject
+            ? `Project graph is still being audited. Run 'modulewarden preflight' or 'modulewarden status'.`
+            : `ModuleWarden registry is not yet configured. Run 'modulewarden preflight' to start.`,
+          package: packageName,
+          requestedVersion: version,
+          cliCommand: 'modulewarden status',
+        } satisfies RegistryError);
+      }
+
       // Find the package version in our database by name + version
       const pv = await prisma.packageVersion.findFirst({
         where: { packageName, version },

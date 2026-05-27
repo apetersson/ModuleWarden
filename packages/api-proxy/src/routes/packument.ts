@@ -42,13 +42,38 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
         return reply.status(404).send({ error: `${packageName} not found` });
       }
 
-      // No project enabled — return empty packument (proxy in standby mode)
+      // No project enabled — proxy in standby mode, return empty packument
       if (!enabledProject) {
         return reply.send({
           name: packageName,
           'dist-tags': {},
           versions: {},
           description: upstream.description,
+          modified: new Date().toISOString(),
+        });
+      }
+
+      // Check project graph readiness
+      // If the project's dependency graph is still being audited, mark all
+      // versions as deprecated to prevent npm from installing unvetted code,
+      // but still show the package exists so failures are deterministic.
+      if (enabledProject.graphState !== 'READY') {
+        const versions = Object.fromEntries(
+          Object.entries(upstream.versions).map(([v, vd]) => [
+            v,
+            {
+              ...vd,
+              deprecated: `[AUDITING] Package ${packageName} is still being audited. ` +
+                `Run 'modulewarden status' to check progress.`,
+            },
+          ])
+        );
+        return reply.send({
+          name: packageName,
+          'dist-tags': {},
+          versions,
+          description: upstream.description,
+          license: upstream.license,
           modified: new Date().toISOString(),
         });
       }
