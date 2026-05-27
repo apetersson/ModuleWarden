@@ -1,7 +1,7 @@
 ---
 id: TASK-1.17
 title: Review and harden v1 core implementation
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 20:01'
@@ -23,8 +23,8 @@ Thoroughly review the 4 completed tasks (TASK-1.1, 1.2, 1.3, 1.16) for correctne
 <!-- AC:BEGIN -->
 - [x] #1 Gather review evidence: all tests pass, all packages typecheck
 - [x] #2 Run advisor with evidence packet
-- [ ] #3 Fix all concrete findings from review
-- [ ] #4 Re-run advisor until no findings remain
+- [x] #3 Fix all concrete findings from review
+- [x] #4 Re-run advisor until no findings remain
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -38,3 +38,9 @@ Thoroughly review the 4 completed tasks (TASK-1.1, 1.2, 1.3, 1.16) for correctne
 
 - Prisma schema validates, Docker Compose config validates, pnpm install clean
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Thorough review of 4 completed tasks (TASK-1.1/1.2/1.3/1.16). Found and fixed pg-boss test singleton key collision bug: singleton keys with 24h window caused dedup collisions across test runs. Fixed by adding per-run unique RUN_ID to test keys. All 19 tests pass, all packages typecheck, Prisma schema valid, Docker Compose valid. Advisor sign-off obtained after fix.
+<!-- SECTION:FINAL_SUMMARY:END -->
