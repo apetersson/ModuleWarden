@@ -15,9 +15,10 @@
     "dev": "docker compose up -d && echo 'Services started'",
     "stop": "docker compose down",
     "generate": "pnpm --filter @modulewarden/prisma-client generate",
-    "migrate": "pnpm --filter @modulewarden/prisma-client migrate",
+    "migrate": "cd packages/prisma-client && npx prisma migrate dev",
     "compose:build": "docker compose build",
-    "compose:build:runner": "docker compose build audit-runner"
+    "compose:build:runner": "docker compose build audit-runner",
+    "finetune:scrape": "node finetune/scripts/scrape-cases.mjs"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

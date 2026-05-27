@@ -12,7 +12,7 @@ TASK-1.1 (architecture doc) -> TASK-1.2 (monorepo scaffold) -> TASK-1.3 (Prisma 
 
 ## Checklist
 - [x] TASK-1.1: Write architecture/threat-model document (`docs/architecture.md`)
-- [ ] TASK-1.2: Scaffold pnpm monorepo, Docker Compose, dev scripts, shared config
+- [x] TASK-1.2: Scaffold pnpm monorepo, Docker Compose, dev scripts, shared config
 - [ ] TASK-1.3: Implement Prisma schema, migrations, and repository APIs
 - [ ] TASK-1.16: Implement pg-boss job definitions, idempotency, workers, scheduling
 
@@ -23,3 +23,4 @@ TASK-1.1 (architecture doc) -> TASK-1.2 (monorepo scaffold) -> TASK-1.3 (Prisma 
 
 ## Notes
 - **Iteration 1 (TASK-1.1)**: Wrote docs/architecture.md covering all 11 ACs. Committed as `docs: add v1 architecture and threat model contract`. Backlog updated: all ACs checked, DoD satisfied, final summary added, status set to Done.
+- **Iteration 2 (TASK-1.2)**: Scaffolded full monorepo with 7 packages, Docker Compose, shared config, dev scripts, audit-runner image. Committed as `feat: scaffold TypeScript monorepo and Docker Compose stack`. Pushed. Advisor reviewed. Backlog updated: all ACs/DoD checked, status Done.
