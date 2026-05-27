@@ -1,10 +1,11 @@
 ---
 id: TASK-1.2
 title: Scaffold the TypeScript monorepo and Docker Compose stack
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:11'
+updated_date: '2026-05-27 18:31'
 labels:
   - infra
   - typescript
@@ -42,14 +43,10 @@ The Compose stack should include ModuleWarden API/proxy, worker, web UI, Postgre
 - [ ] #9 The API/proxy and worker share typed configuration for Postgres, Verdaccio, token auth, PI/tool orchestration, pluggable OpenAI-compatible model endpoints, fallback reviewer behavior, and audit image name.
 <!-- AC:END -->
 
-
-
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Initialize pnpm workspace packages for API/proxy, worker, CLI, web UI, shared types/config, Prisma schema/client, pg-boss job definitions, and audit-runner image assets. Add Compose services for Postgres, Verdaccio, API/proxy, worker, UI, and audit image build.
+1. Initialize pnpm workspace with root package.json, pnpm-workspace.yaml\n2. Create workspace packages: api-proxy, worker, cli, web-ui, shared, prisma-client, audit-runner\n3. Add TypeScript config, lint/prettier config, dev scripts\n4. Create Docker Compose stack with Postgres, Verdaccio, API, worker, UI, audit-runner build\n5. Add shared typed configuration module\n6. Add dogfood lockfile placeholder\n7. Commit scaffold
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
