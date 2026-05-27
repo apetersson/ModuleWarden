@@ -1,11 +1,11 @@
 ---
 id: TASK-1.1
 title: Design the v1 architecture and threat model contract
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:29'
+updated_date: '2026-05-27 18:30'
 labels:
   - architecture
   - threat-model
@@ -59,5 +59,5 @@ Created docs/architecture.md — the v1 implementation contract covering all 11 
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Architecture document reviewed against every major planning decision in this thread.
+- [x] #1 Architecture document reviewed against every major planning decision in this thread.
 <!-- DOD:END -->
