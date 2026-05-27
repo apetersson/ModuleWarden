@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:31'
+updated_date: '2026-05-27 18:45'
 labels:
   - infra
   - typescript
@@ -32,16 +32,18 @@ The Compose stack should include ModuleWarden API/proxy, worker, web UI, Postgre
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A fresh checkout can install dependencies with pnpm and start the local stack with Docker Compose.
-- [ ] #2 Verdaccio is only reachable as an internal backing service in the Compose topology; the intended developer entrypoint is ModuleWarden.
-- [ ] #3 The audit-runner image can be built separately and referenced by worker jobs.
-- [ ] #4 Development scripts exist for lint, test, typecheck, and running the API/worker/UI locally.
-- [ ] #5 The workspace includes Prisma schema/migration/client generation scripts and pg-boss dependencies/configuration, with no Redis dependency or Compose service.
-- [ ] #6 The scaffold is pnpm-first and includes a dogfood lockfile path for importing ModuleWarden workspace dependencies as the initial curated audit set.
-- [ ] #7 Configuration supports a pluggable OpenAI-compatible model endpoint, including an external H100-backed endpoint and a deterministic or lightweight fallback for development.
-- [ ] #8 Docker Compose can run the control plane, proxy, workers, UI, Postgres, Verdaccio, and local tool containers without requiring H100 credentials.
-- [ ] #9 The API/proxy and worker share typed configuration for Postgres, Verdaccio, token auth, PI/tool orchestration, pluggable OpenAI-compatible model endpoints, fallback reviewer behavior, and audit image name.
+- [x] #1 A fresh checkout can install dependencies with pnpm and start the local stack with Docker Compose.
+- [x] #2 Verdaccio is only reachable as an internal backing service in the Compose topology; the intended developer entrypoint is ModuleWarden.
+- [x] #3 The audit-runner image can be built separately and referenced by worker jobs.
+- [x] #4 Development scripts exist for lint, test, typecheck, and running the API/worker/UI locally.
+- [x] #5 The workspace includes Prisma schema/migration/client generation scripts and pg-boss dependencies/configuration, with no Redis dependency or Compose service.
+- [x] #6 The scaffold is pnpm-first and includes a dogfood lockfile path for importing ModuleWarden workspace dependencies as the initial curated audit set.
+- [x] #7 Configuration supports a pluggable OpenAI-compatible model endpoint, including an external H100-backed endpoint and a deterministic or lightweight fallback for development.
+- [x] #8 Docker Compose can run the control plane, proxy, workers, UI, Postgres, Verdaccio, and local tool containers without requiring H100 credentials.
+- [x] #9 The API/proxy and worker share typed configuration for Postgres, Verdaccio, token auth, PI/tool orchestration, pluggable OpenAI-compatible model endpoints, fallback reviewer behavior, and audit image name.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
@@ -51,5 +53,5 @@ The Compose stack should include ModuleWarden API/proxy, worker, web UI, Postgre
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 No product behavior is hidden inside Compose magic; all ports, tokens, and service roles are documented.
+- [x] #1 No product behavior is hidden inside Compose magic; all ports, tokens, and service roles are documented.
 <!-- DOD:END -->
