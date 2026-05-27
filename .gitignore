@@ -1,0 +1,97 @@
+# OS and editor noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/settings.example.json
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.test
+*.pem
+*.key
+*.cert
+*.p12
+*.keystore
+*.secret
+
+# Node, TypeScript, and frontend builds
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/*
+!.yarn/releases/
+!.yarn/plugins/
+!.yarn/sdks/
+!.yarn/versions/
+.pnp.*
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.turbo/
+.vite/
+.vitest/
+storybook-static/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+
+# Logs and diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local databases and generated Prisma artifacts
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+prisma/dev.db*
+prisma/*.db*
+
+# Docker Compose local overrides and runtime volumes
+docker-compose.override.yml
+compose.override.yml
+.docker-data/
+.local-data/
+postgres-data/
+pgdata/
+verdaccio/storage/
+verdaccio/htpasswd
+
+# ModuleWarden runtime artifacts
+.modulewarden/
+audit-runs/
+audit-workspaces/
+audit-artifacts/
+evidence/
+run-artifacts/
+tmp/
+temp/
+.tmp/
+.cache/
+
+# PI and agent local session exports
+.pi/
+pi-sessions/
+sessions/
+*.session.jsonl
+*.session.html
