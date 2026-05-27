@@ -1,8 +1,8 @@
 # ── ModuleWarden Audit Runner ─────────────────────────────────
-# This image is used by worker jobs to create disposable PI audit
-# containers. Each container gets a fresh workspace, run-specific
-# inputs, and audit tools. It does NOT include core prompts, model
-# credentials, Postgres credentials, or Verdaccio credentials.
+# Disposable container image for PI-based agentic audit runs.
+# Each container gets a fresh workspace, run-specific inputs, and
+# audit tools. Does NOT include core prompts, model credentials,
+# Postgres credentials, or Verdaccio credentials.
 
 FROM node:20-alpine AS base
 
@@ -20,23 +20,21 @@ RUN apk add --no-cache \
     build-base \
     python3
 
-# Install Node.js package managers
-RUN npm install -g pnpm@9 yarn@1
+# Enable corepack for pnpm, install pnpm and yarn
+RUN npm install -g corepack@latest && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    npm install -g yarn@1 2>/dev/null || true
 
-# Install PI runtime (agentic research harness)
-# PI is installed separately per-run or baked into a derived image.
-# For v1, we install the CLI for RPC mode.
-RUN npm install -g @earendil-works/pi-coding-agent
-
-# Create workspace directory
-RUN mkdir -p /workspace && chmod 777 /workspace
+# Create workspace directory structure
+RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence && \
+    chmod -R 777 /workspace
 
 WORKDIR /workspace
 
 # ── Runtime entrypoint ──────────────────────────────────────
 # The worker injects run-specific workspace, RPC token, and inputs
-# before starting the container. The entrypoint waits for RPC
-# instructions from ModuleWarden.
+# before starting the container. The entrypoint starts RPC mode.
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
