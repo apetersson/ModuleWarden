@@ -45,13 +45,17 @@ The document should also explain the important critique from planning: shared ve
 - [x] #11 The architecture specifies in-container PI audit execution: each run gets its own disposable container containing the audited package, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific instructions, and audit tools.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
 1. Write docs/architecture.md covering all 11 ACs\n2. Review against planning decisions in the thread\n3. Commit the document
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Created docs/architecture.md — the v1 implementation contract covering all 11 acceptance criteria. The document defines threat classification (compromised-maintainer bumps, supply-chain malware, novel vulnerabilities), core diff-review thesis, private-prompts rationale, prompt secrecy model, verdict semantics (allow/block/quarantine/override/re-audit), persistence choices (Prisma + pg-boss, Redis excluded), cold-start definition and conservative verdict rules, trust boundaries with model-endpoint operator as trusted infrastructure, recorded-open egress model, in-container PI audit execution, non-goals, success criteria, architecture diagram, component inventory, and planning critique/rationale.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
