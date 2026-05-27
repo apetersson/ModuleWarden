@@ -3,10 +3,11 @@ id: TASK-1.3
 title: >-
   Implement Postgres schema for packages, audits, decisions, and evidence
   lineage
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-27 18:47'
 labels:
   - database
   - prisma
@@ -42,12 +43,10 @@ Important nuance: an allowed verdict is currently valid until revoked, not proof
 - [ ] #8 Admin overrides, post-hoc relabels, and incident outcomes are stored as first-class evaluation labels linked to the original decision and evidence bundle.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Create the Prisma schema, migrations, generated client, and repository/service APIs for projects, lockfile imports, package subscriptions, upstream metadata snapshots, package versions, tarball artifacts, predecessor links, review jobs, audit runs, prompt packs, model profiles, evidence artifacts, decisions, scores, overrides, and re-audit campaigns. Keep pg-boss internal tables managed by pg-boss while correlating pg-boss job IDs to Prisma-owned review/audit rows.
+1. Design full Prisma schema with all required models\n2. Write schema.prisma with models for projects, lockfile imports, package subscriptions, upstream metadata, package versions, tarball artifacts, predecessor links, review jobs, audit runs, prompt packs, model profiles, evidence artifacts, decisions, scores, overrides, re-audit campaigns\n3. Generate migration via prisma migrate dev\n4. Write repository/service APIs for each domain\n5. Test schema constraints and relationships\n6. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
