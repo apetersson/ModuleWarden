@@ -1,10 +1,11 @@
 ---
 id: TASK-1.1
 title: Design the v1 architecture and threat model contract
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:15'
+updated_date: '2026-05-27 18:24'
 labels:
   - architecture
   - threat-model
@@ -44,12 +45,10 @@ The document should also explain the important critique from planning: shared ve
 - [ ] #11 The architecture specifies in-container PI audit execution: each run gets its own disposable container containing the audited package, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific instructions, and audit tools.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Create an architecture/threat-model document in the repo that defines components, data flow, trust boundaries, threat model, non-goals, and v1 success criteria. Use this as the source of truth for subsequent tasks.
+1. Write docs/architecture.md covering all 11 ACs\n2. Review against planning decisions in the thread\n3. Commit the document
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
