@@ -15,10 +15,15 @@
     "./config": "./src/config.ts",
     "./constants": "./src/constants.ts",
     "./npm-types": "./src/npm-types.ts",
-    "./services/upstream": "./src/services/upstream.ts"
+    "./services/upstream": "./src/services/upstream.ts",
+    "./services/lockfile": "./src/services/lockfile.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "js-yaml": "^4.1.1"
+  },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.9.1",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   }
