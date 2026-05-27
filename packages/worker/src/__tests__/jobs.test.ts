@@ -3,6 +3,9 @@ import { JobQueue } from '../jobs/queue.js';
 
 const TEST_DSN = 'postgresql://modulewarden:modulewarden@localhost:5422/modulewarden';
 
+// Unique run ID to prevent singleton key collisions between test runs
+const RUN_ID = `run-${Date.now()}`;
+
 describe('JobQueue — pg-boss integration', () => {
   let queue: JobQueue;
 
@@ -30,11 +33,11 @@ describe('JobQueue — pg-boss integration', () => {
   it('1. sends and processes a job with a worker', async () => {
     const processed: Array<{ id: string; data: Record<string, unknown> }> = [];
 
-    await queue.work('test-queue' as any, async (job) => {
+    await queue.work('test-process-q' as any, async (job) => {
       processed.push({ id: job.id, data: job.data });
     }, 1);
 
-    const jobId = await queue.send('test-queue' as any, { message: 'hello' } as any);
+    const jobId = await queue.send('test-process-q' as any, { message: 'hello' } as any);
     expect(jobId).toBeTruthy();
     expect(typeof jobId).toBe('string');
 
@@ -49,28 +52,22 @@ describe('JobQueue — pg-boss integration', () => {
   });
 
   it('2. deduplication with singletonKey returns null for duplicate', async () => {
-    // Create a dedicated queue for this test
-    const queueName = 'test-singleton-q';
+    const queueName = `test-singleton-${RUN_ID}`;
+    const key = `dedup-key-${RUN_ID}`;
 
     // First send should succeed
-    const id1 = await queue.send(queueName as any, { seq: 1 } as any, 'dedup-key-1');
+    const id1 = await queue.send(queueName as any, { seq: 1 } as any, key);
     expect(id1).toBeTruthy();
     expect(typeof id1).toBe('string');
 
     // Second send with same singletonKey should be deduped (null)
-    const id2 = await queue.send(queueName as any, { seq: 2 } as any, 'dedup-key-1');
+    const id2 = await queue.send(queueName as any, { seq: 2 } as any, key);
     expect(id2).toBeNull();
   });
 
   it('3. respects concurrency limits', async () => {
-    const activeCounts: number[] = [];
-    let currentActive = 0;
-
     await queue.work('test-conc-q' as any, async () => {
-      currentActive++;
-      activeCounts.push(currentActive);
       await new Promise((r) => setTimeout(r, 500));
-      currentActive--;
     }, 2);
 
     // Send 4 jobs rapidly
@@ -81,7 +78,6 @@ describe('JobQueue — pg-boss integration', () => {
       queue.send('test-conc-q' as any, { seq: 4 } as any),
     ]);
 
-    // Wait for processing
     await new Promise((r) => setTimeout(r, 4000));
   });
 
@@ -92,9 +88,7 @@ describe('JobQueue — pg-boss integration', () => {
       processedIds.push(job.id);
     }, 1);
 
-    const before = Date.now();
     await queue.sendAfter('test-delay-q' as any, { delayed: true } as any, 1);
-    const afterSend = Date.now();
 
     // Wait for processing (poll interval ~1s + delay 1s)
     for (let i = 0; i < 15; i++) {
@@ -103,8 +97,6 @@ describe('JobQueue — pg-boss integration', () => {
     }
 
     expect(processedIds.length).toBe(1);
-    // Job should have been processed at least 1s after send
-    // (can't assert exact timing due to polling, but data was received)
   });
 
   it('5. getQueueStats returns queue metrics', async () => {
@@ -117,26 +109,33 @@ describe('JobQueue — pg-boss integration', () => {
     expect(typeof stats.name).toBe('string');
   });
 
-  it('6. enqueuePackageReview builds idempotency key', async () => {
-    const id = await queue.enqueuePackageReview('test-pkg', '1.0.0', 'hash123', 'preflight:test');
+  it('6. enqueuePackageReview builds idempotency key (first send always succeeds)', async () => {
+    // Use unique key per run to avoid stale singleton state from previous test runs
+    const id = await queue.enqueuePackageReview(
+      `test-pkg-${RUN_ID}`, '1.0.0', `hash-${RUN_ID}`, `preflight-${RUN_ID}`
+    );
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
   });
 
   it('7. enqueueAuditContainerExec works', async () => {
-    const id = await queue.enqueueAuditContainerExec('review-1', 'test-pkg', '1.0.0', 'hash123', 'hash-old', 'preflight:test');
+    const id = await queue.enqueueAuditContainerExec(
+      `review-${RUN_ID}`, `test-pkg-${RUN_ID}`, '1.0.0', `hash-${RUN_ID}`, `hash-old-${RUN_ID}`, `preflight-${RUN_ID}`
+    );
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
   });
 
   it('8. enqueueModelEscalation works', async () => {
-    const id = await queue.enqueueModelEscalation('review-1', 'evidence-1');
+    const id = await queue.enqueueModelEscalation(`review-${RUN_ID}`, `evidence-${RUN_ID}`);
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
   });
 
   it('9. enqueueVerdaccioPromotion works', async () => {
-    const id = await queue.enqueueVerdaccioPromotion('decision-1', 'test-pkg', '1.0.0', 'hash123');
+    const id = await queue.enqueueVerdaccioPromotion(
+      `decision-${RUN_ID}`, `test-pkg-${RUN_ID}`, '1.0.0', `hash-${RUN_ID}`
+    );
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
   });
