@@ -3,10 +3,11 @@ id: TASK-1.5
 title: >-
   Implement lockfile import, used-graph subscriptions, and proactive upstream
   auditing
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-27 20:16'
 labels:
   - lockfile
   - subscriptions
@@ -43,12 +44,10 @@ The initial baseline decision from planning is strict: audit before allow. Exist
 - [ ] #9 Project registry enablement is blocked until the imported graph reaches complete decision coverage.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Parse npm, pnpm, and yarn lockfiles enough for v1. Store project dependency graphs through Prisma. Subscribe to all packages in the used graph. Use pg-boss schedules/workers to poll upstream npm metadata and enqueue reviews for newer versions or changed tarball metadata.
+1. Create lockfile parser service (npm package-lock.json, pnpm pnpm-lock.yaml, yarn.lock)\n2. Create lockfile import service storing packages and creating subscriptions\n3. Implement subscription poll worker for proactive upstream auditing\n4. Handle cold-start (no predecessor) marking\n5. Wire up project graph readiness check after import\n6. Write tests for all lockfile formats and import flow\n7. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
