@@ -1,7 +1,7 @@
 ---
 id: TASK-1.16
 title: Implement pg-boss event and job orchestration
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:21'
@@ -42,13 +42,17 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 - [x] #9 Prompt/model/pattern re-audit jobs include active override revalidation and persist superseding decision lineage.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
 1. Create shared job module (packages/worker/src/jobs/) wrapping pg-boss\n2. Define typed job names, payload schemas, idempotency keys\n3. Implement job queue with configurable concurrency/retry/delay\n4. Create job definitions for each job type\n5. Create worker registration and scheduling helpers\n6. Write integration tests\n7. Commit and push
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented pg-boss event and job orchestration layer with typed JobQueue wrapper. All 7 job types defined (package-review, upstream-subscription-poll, audit-container-exec, model-escalation, re-audit-campaign, evidence-post-process, verdaccio-promotion) with per-job-type retry/timeout configuration and concurrency limits. Deterministic idempotency via singletonKey prevents duplicate audits. Auto-queue creation for robustness. Worker registration with configurable concurrency. 10 integration tests verify send/process, singleton dedup, concurrency limits, delayed jobs, queue stats, and convenience methods — all passing with Postgres + pg-boss only. No Redis services.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
