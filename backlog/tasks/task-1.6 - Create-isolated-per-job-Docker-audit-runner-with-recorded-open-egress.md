@@ -1,10 +1,11 @@
 ---
 id: TASK-1.6
 title: Create isolated per-job Docker audit runner with recorded-open egress
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:15'
+updated_date: '2026-05-27 20:09'
 labels:
   - sandbox
   - docker
@@ -46,7 +47,7 @@ The container must not receive model API credentials, core prompt files, DB cred
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Build the modulewarden-audit-runner Docker image with PI runtime, Node/npm/pnpm/yarn, git, ripgrep, jq, static-rule tooling, deobfuscation helpers, network capture/proxy tools, and minimal system utilities for package inspection. Implement pg-boss worker orchestration that creates, monitors, captures artifacts from, and removes one container per audit job. Each container receives the audited package, last-known-good baseline, patch/diff, prepared evidence, run-specific instructions, useful audit tools, recorded public-internet egress, internal-network blocking, and only run-scoped RPC/model access.
+1. Create Docker container runner service (shells out to docker CLI)\n2. Implement container lifecycle: create, inject inputs, run PI, capture artifacts, destroy\n3. Implement recorded-open egress via docker network config\n4. Wire up pg-boss handler for audit-container-exec jobs\n5. Update audit-runner Dockerfile with all required tools\n6. Write sandbox tests for isolation, cleanup, evidence capture\n7. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
