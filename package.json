@@ -1,0 +1,38 @@
+{
+  "name": "modulewarden",
+  "version": "0.1.0",
+  "description": "Private agentic version-diff gate for npm dependencies",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "dev:api": "pnpm --filter @modulewarden/api-proxy dev",
+    "dev:worker": "pnpm --filter @modulewarden/worker dev",
+    "dev:ui": "pnpm --filter @modulewarden/web-ui dev",
+    "dev": "docker compose up -d && echo 'Services started'",
+    "stop": "docker compose down",
+    "generate": "pnpm --filter @modulewarden/prisma-client generate",
+    "migrate": "pnpm --filter @modulewarden/prisma-client migrate",
+    "compose:build": "docker compose build",
+    "compose:build:runner": "docker compose build audit-runner"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "prettier": "^3.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}

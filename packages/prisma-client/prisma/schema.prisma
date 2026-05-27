@@ -1,0 +1,17 @@
+// ── ModuleWarden Prisma Schema ──────────────────────────────
+// This is the v1 schema scaffold. Full schema implementation
+// is covered by TASK-1.3.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Placeholder models — full schema implemented in TASK-1.3
+model Project {
+  id String @id @default(uuid())
+}

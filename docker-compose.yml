@@ -1,0 +1,128 @@
+services:
+  # ── Data Layer ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: modulewarden
+      POSTGRES_USER: modulewarden
+      POSTGRES_PASSWORD: modulewarden
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modulewarden -d modulewarden"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Backing Registry ────────────────────────────────────
+  verdaccio:
+    image: verdaccio/verdaccio:7
+    ports:
+      - "4873:4873"
+    volumes:
+      - verdaccio-storage:/verdaccio/storage
+    # Developers do NOT talk directly to Verdaccio.
+    # ModuleWarden is the gate. This service is internal.
+    # Exposed only for ModuleWarden proxy and admin verification.
+
+  # ── Control Plane ───────────────────────────────────────
+  api-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-proxy
+    ports:
+      - "8080:8080"
+    environment:
+      MW_POSTGRES_HOST: postgres
+      MW_POSTGRES_PORT: "5432"
+      MW_POSTGRES_DB: modulewarden
+      MW_POSTGRES_USER: modulewarden
+      MW_POSTGRES_PASSWORD: modulewarden
+      MW_VERDACCIO_HOST: verdaccio
+      MW_VERDACCIO_PORT: "4873"
+      MW_MODEL_ENDPOINT_BASE_URL: http://model-endpoint:8080/v1
+      MW_MODEL_ENDPOINT_API_KEY: sk-change-me
+      MW_MODEL_ENDPOINT_MODEL: llama-3-70b
+      MW_AUTH_ADMIN_TOKENS: mw-admin-token-change-me
+      MW_AUTH_DEV_TOKENS: mw-dev-token-change-me
+    depends_on:
+      postgres:
+        condition: service_healthy
+      verdaccio:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    ports:
+      - "9090:9090"
+    environment:
+      MW_POSTGRES_HOST: postgres
+      MW_POSTGRES_PORT: "5432"
+      MW_POSTGRES_DB: modulewarden
+      MW_POSTGRES_USER: modulewarden
+      MW_POSTGRES_PASSWORD: modulewarden
+      MW_VERDACCIO_HOST: verdaccio
+      MW_VERDACCIO_PORT: "4873"
+      MW_MODEL_ENDPOINT_BASE_URL: http://model-endpoint:8080/v1
+      MW_MODEL_ENDPOINT_API_KEY: sk-change-me
+      MW_MODEL_ENDPOINT_MODEL: llama-3-70b
+      MW_AUTH_ADMIN_TOKENS: mw-admin-token-change-me
+      MW_AUTH_DEV_TOKENS: mw-dev-token-change-me
+      MW_AUDIT_IMAGE: modulewarden-audit-runner
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      verdaccio:
+        condition: service_started
+
+  # ── Web UI ──────────────────────────────────────────────
+  web-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-ui
+    ports:
+      - "3000:3000"
+    environment:
+      MW_API_BASE_URL: http://api-proxy:8080
+    depends_on:
+      - api-proxy
+
+  # ── Audit Runner Image Build ────────────────────────────
+  # This is a build target only; it produces the image used by worker
+  # for disposable PI audit containers.
+  audit-runner:
+    build:
+      context: packages/audit-runner
+      dockerfile: Dockerfile
+    # No ports needed; this is an image build target.
+    # The worker references this image by name.
+    # Run: docker compose build audit-runner
+
+  # ── Model Endpoint (Development Fallback) ──────────────
+  # Local OpenAI-compatible endpoint for development.
+  # Production deployments replace this with external H100-backed infra.
+  model-endpoint:
+    image: ghcr.io/localai/localai:latest
+    ports:
+      - "8081:8080"
+    environment:
+      - MODELS=llama-3-70b,llama-3-8b
+    command: ["--models-path", "/models", "--listen", "0.0.0.0:8080"]
+    volumes:
+      - models-cache:/models
+    # Not required for basic Compose startup.
+    # Configure MW_MODEL_ENDPOINT_BASE_URL to skip this.
+
+volumes:
+  pgdata:
+  verdaccio-storage:
+  models-cache:
