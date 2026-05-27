@@ -10,11 +10,13 @@ Thoroughly review the 4 completed tasks (TASK-1.1, 1.2, 1.3, 1.16) for correctne
 - Then expand scope to remaining tasks (TASK-1.4, 1.5, etc.)
 
 ## Checklist
-- [ ] Gather review evidence (tests, typecheck, file structure)
-- [ ] Run advisor with evidence packet
-- [ ] Implement fixes from first review pass
-- [ ] Re-run tests and advisor
-- [ ] Repeat until clean
+- [x] Gather review evidence (tests, typecheck, file structure)
+- [x] Run advisor with evidence packet
+- [x] Implement fixes from first review pass — singleton key collision
+- [x] Re-run tests and advisor — sign-off obtained
+- [x] Review clean — no remaining findings
+
+## Next: Expand scope to remaining tasks (TASK-1.4, TASK-1.6, etc.)
 
 ## Verification
 - `pnpm install` clean
