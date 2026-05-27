@@ -3,7 +3,7 @@ id: TASK-1.5
 title: >-
   Implement lockfile import, used-graph subscriptions, and proactive upstream
   auditing
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
@@ -55,6 +55,12 @@ The initial baseline decision from planning is strict: audit before allow. Exist
 <!-- SECTION:NOTES:BEGIN -->
 - Lockfile parser handles npm (v6/v7+), pnpm (yaml), and yarn formats\n- Import service upserts PackageVersions, creates PackageSubscriptions, enqueues ReviewJobs\n- Cold-start: all imported versions enqueued as cold-start (PREFLIGHT trigger, no predecessor)\n- Subscription poll: fetchUpstreamPackument, finds new versions, enqueues diff or cold-start audits\n- Project readiness: checkProjectReadiness blocks registry until all packages have decisions\n- 13 new tests (6 parser + 7 import), all passing
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented lockfile import, used-graph subscriptions, and proactive upstream auditing (TASK-1.5). Lockfile parser supports npm (v6 package-lock.json and v7+ flat packages), pnpm (pnpm-lock.yaml via js-yaml), and yarn (yarn.lock) formats. Import service upserts PackageVersions with tarball hashes, creates PackageSubscriptions for upstream monitoring, and enqueues cold-start review jobs for every imported version with deterministic idempotency keys. Subscription poll worker fetches upstream packuments, detects new versions, and enqueues version-diff audits against the last allowed predecessor (or cold-start when no predecessor exists). Project readiness check blocks registry enablement until all imported packages have decisions. 13 new tests (6 parser + 7 import), 39 total across all packages.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
