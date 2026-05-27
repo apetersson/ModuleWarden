@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ModuleWarden · the policy layer for npm</title>
+  <meta name="description" content="Stop trusting your dependencies. Start gating them. ModuleWarden audits every npm version before it lands in your codebase." />
+  <meta property="og:title" content="ModuleWarden · gate npm before it gates you" />
+  <meta property="og:description" content="The policy layer between your developers and npm. Every version, every install, audited before it ships." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://modulewarden.com" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23064e3b'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='%2334d399' font-family='monospace' font-weight='bold'%3EM%3C/text%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .gradient-text {
+      background: linear-gradient(110deg, #6ee7b7 0%, #34d399 35%, #10b981 70%, #059669 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .glow {
+      box-shadow:
+        0 0 0 1px rgba(16, 185, 129, 0.1),
+        0 0 80px -20px rgba(16, 185, 129, 0.4),
+        0 0 30px -10px rgba(16, 185, 129, 0.15);
+    }
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+      background-position: -1px -1px;
+    }
+    .radial {
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16, 185, 129, 0.08), transparent);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .cursor { animation: blink 1.1s steps(1) infinite; }
+    @keyframes type-line { from { width: 0 } to { width: 100% } }
+    details[open] summary svg { transform: rotate(180deg); }
+    summary { list-style: none; cursor: pointer; }
+    summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-100">
+
+<!-- nav -->
+<nav class="border-b border-slate-800/60 backdrop-blur-md sticky top-0 z-50 bg-slate-950/70">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5 group">
+      <div class="w-8 h-8 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center group-hover:bg-emerald-500/25 transition">
+        <span class="text-emerald-400 font-extrabold mono">M</span>
+      </div>
+      <span class="font-bold tracking-tight">ModuleWarden</span>
+    </a>
+    <div class="hidden md:flex items-center gap-7 text-sm">
+      <a href="#how" class="text-slate-400 hover:text-slate-100 transition">How it works</a>
+      <a href="#integrations" class="text-slate-400 hover:text-slate-100 transition">Integrations</a>
+      <a href="#pricing" class="text-slate-400 hover:text-slate-100 transition">Pricing</a>
+      <a href="#faq" class="text-slate-400 hover:text-slate-100 transition">FAQ</a>
+      <a href="https://github.com/apetersson/ModuleWarden" class="text-slate-400 hover:text-slate-100 transition">GitHub</a>
+    </div>
+    <a href="#early" class="bg-emerald-500 text-slate-950 px-4 py-2 rounded-md font-semibold text-sm hover:bg-emerald-400 transition">Get early access</a>
+  </div>
+</nav>
+
+<!-- hero -->
+<section class="relative grid-bg">
+  <div class="absolute inset-0 radial pointer-events-none"></div>
+  <div class="relative max-w-6xl mx-auto px-6 pt-24 pb-28 text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium mb-8">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      Built for the post-postmark-mcp era
+    </div>
+    <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-7 leading-[1.05]">
+      Stop trusting your<br/>dependencies.
+      <span class="gradient-text">Start gating them.</span>
+    </h1>
+    <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+      ModuleWarden is the policy layer between your developers and npm. Every version, every install, audited in an isolated sandbox before it lands in your codebase.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="#early" class="w-full sm:w-auto bg-emerald-500 text-slate-950 px-6 py-3 rounded-md font-semibold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20">
+        Get early access
+      </a>
+      <a href="#demo" class="w-full sm:w-auto px-6 py-3 rounded-md border border-slate-700 text-slate-200 hover:border-slate-500 hover:bg-slate-900/50 transition flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 4l10 6-10 6V4z"/></svg>
+        Watch the 90-second demo
+      </a>
+    </div>
+    <p class="text-xs text-slate-600 mt-5">Free for OSS. No credit card. Self-host or cloud.</p>
+
+    <!-- terminal preview -->
+    <div id="demo" class="mt-20 max-w-3xl mx-auto bg-slate-900/80 border border-slate-800 rounded-xl glow text-left overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/50">
+        <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+        <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+        <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+        <span class="ml-3 text-xs text-slate-500 mono">~/your-repo · npm install · routed through modulewarden</span>
+      </div>
+      <div class="p-6 mono text-sm space-y-1.5 leading-relaxed">
+        <div><span class="text-emerald-400">$</span> <span class="text-slate-100">npm install postmark-mcp@1.0.16</span></div>
+        <div class="text-slate-500">  &gt; fetching v1.0.15 baseline (last allowed)...</div>
+        <div class="text-slate-500">  &gt; fetching v1.0.16 candidate...</div>
+        <div class="text-slate-500">  &gt; running bounded diff audit (sandboxed)...</div>
+        <div class="text-yellow-300">  ⚠ new postinstall script</div>
+        <div class="text-yellow-300">  ⚠ outbound network call added: post to <span class="text-yellow-200">api.attacker.tld/exfil</span></div>
+        <div class="text-yellow-300">  ⚠ environment variable read: SMTP_USER, SMTP_PASS</div>
+        <div class="text-red-400">  ✗ BLOCKED  risk=0.94  policy=team-defaults  ref=incident-2511</div>
+        <div class="text-slate-500">  &gt; posted to #security · runbook attached · audit log: aud_7f3e2</div>
+        <div class="text-slate-500">  &gt; use <span class="text-slate-300">mw approve aud_7f3e2</span> to override (requires approver)</div>
+        <div class="pt-1"><span class="text-emerald-400">$</span> <span class="text-slate-200">_</span><span class="cursor text-emerald-400">▊</span></div>
+      </div>
+    </div>
+
+    <p class="text-xs text-slate-600 mt-5 mono">Real incident, real package. <a href="https://snyk.io/blog/malicious-mcp-server-on-npm-postmark-mcp-harvests-emails/" class="text-slate-500 underline hover:text-slate-400">postmark-mcp v1.0.16, Sep 2025</a> · ~1,500 weekly downloads at time of compromise.</p>
+  </div>
+</section>
+
+<!-- social proof / stats -->
+<section class="border-y border-slate-800/60 py-14 bg-slate-900/30">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 text-center">
+      <div>
+        <div class="text-3xl md:text-4xl font-extrabold gradient-text mb-1">847K</div>
+        <p class="text-xs text-slate-500 uppercase tracking-wider">malicious npm packages</p>
+        <p class="text-xs text-slate-600 mt-1">Sonatype, Q2 2025</p>
+      </div>
+      <div>
+        <div class="text-3xl md:text-4xl font-extrabold gradient-text mb-1">+156%</div>
+        <p class="text-xs text-slate-500 uppercase tracking-wider">YoY growth in attacks</p>
+        <p class="text-xs text-slate-600 mt-1">Sonatype Open-Source Malware Index</p>
+      </div>
+      <div>
+        <div class="text-3xl md:text-4xl font-extrabold gradient-text mb-1">~15min</div>
+        <p class="text-xs text-slate-500 uppercase tracking-wider">median dwell time</p>
+        <p class="text-xs text-slate-600 mt-1">Compromise to first install</p>
+      </div>
+      <div>
+        <div class="text-3xl md:text-4xl font-extrabold gradient-text mb-1">0</div>
+        <p class="text-xs text-slate-500 uppercase tracking-wider">audit logs by default</p>
+        <p class="text-xs text-slate-600 mt-1">npm install gives you nothing</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- problem -->
+<section class="py-24">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-3xl">
+      <h2 class="text-sm font-semibold text-emerald-400 mb-3 uppercase tracking-wider">The problem</h2>
+      <h3 class="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Your scanners run after the damage is done.</h3>
+      <p class="text-lg text-slate-400 leading-relaxed">
+        SCA tools flag known CVEs. Endpoint scanners look at what is already installed. By the time either fires, the malicious tarball is in your <span class="mono text-slate-300">node_modules/</span>, your environment variables are in someone else's S3 bucket, and your incident response clock is ticking.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4 mt-14">
+      <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition">
+        <div class="w-10 h-10 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        </div>
+        <h4 class="font-semibold text-base mb-2">CVE scanners are reactive</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">A CVE gets assigned after the attack is public. You get blocked from a malicious version that already shipped to production.</p>
+      </div>
+      <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition">
+        <div class="w-10 h-10 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/></svg>
+        </div>
+        <h4 class="font-semibold text-base mb-2">Endpoint tools are post-install</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">Bumblebee, EDR, runtime scanners. All useful. All look at packages after they are on disk, after the postinstall script ran.</p>
+      </div>
+      <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition">
+        <div class="w-10 h-10 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+        </div>
+        <h4 class="font-semibold text-base mb-2">Approval is the only sound gate</h4>
+        <p class="text-sm text-slate-400 leading-relaxed">The right time to block a malicious package is before it executes. ModuleWarden enforces that gate without slowing down legitimate work.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- how it works -->
+<section id="how" class="py-24 border-t border-slate-800/60 bg-slate-900/20">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-3xl mb-16">
+      <h2 class="text-sm font-semibold text-emerald-400 mb-3 uppercase tracking-wider">How it works</h2>
+      <h3 class="text-4xl md:text-5xl font-bold mb-6 tracking-tight">A policy gate. Not another scanner.</h3>
+      <p class="text-lg text-slate-400 leading-relaxed">
+        ModuleWarden runs between your package manager and the registry. Every <span class="mono text-slate-300">npm install</span> routes through the gate. The gate runs a bounded audit. The audit produces a decision. Your CI either gets the package or gets a clear reason it was blocked.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-10 lg:gap-16 items-start">
+      <div class="space-y-8">
+        <div class="flex gap-4">
+          <div class="flex-shrink-0 w-10 h-10 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-400 mono">1</div>
+          <div>
+            <h4 class="font-semibold text-lg mb-1.5">Bounded diff, not the whole world</h4>
+            <p class="text-slate-400 leading-relaxed">Each audit reviews version N to N+1 of one package. Not the 3M-package npm ecosystem. The signal-to-noise actually works in our favor.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="flex-shrink-0 w-10 h-10 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-400 mono">2</div>
+          <div>
+            <h4 class="font-semibold text-lg mb-1.5">Private prompts, private rubric</h4>
+            <p class="text-slate-400 leading-relaxed">Attackers cannot game what they cannot see. Your review criteria live in your org. We never publish them. Each customer's rubric drifts independently as new attack patterns emerge.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="flex-shrink-0 w-10 h-10 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-400 mono">3</div>
+          <div>
+            <h4 class="font-semibold text-lg mb-1.5">Sandboxed audit harness</h4>
+            <p class="text-slate-400 leading-relaxed">The audit runs in a one-shot Docker container with no network, no host mounts, no secrets. Even if the package is actively malicious, the blast radius is zero. The container terminates, the verdict ships, the harness disappears.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="flex-shrink-0 w-10 h-10 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-400 mono">4</div>
+          <div>
+            <h4 class="font-semibold text-lg mb-1.5">Three outcomes, every one logged</h4>
+            <p class="text-slate-400 leading-relaxed">Allow, quarantine, or block. Every decision streams to your SIEM with the reasoning, the diff, and the policy that fired. Your auditors will have actual answers.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- architecture diagram -->
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-6 mono text-xs sticky top-24">
+        <div class="text-slate-500 mb-4 text-[10px] uppercase tracking-widest">Request flow</div>
+<pre class="text-slate-300 leading-relaxed overflow-x-auto">
+  <span class="text-blue-300">developer</span> / <span class="text-blue-300">CI runner</span>
+       │
+       │  npm install foo@2.1.0
+       ▼
+  ┌──────────────────────────┐
+  │  <span class="text-emerald-400">ModuleWarden Gate</span>       │
+  │  (Verdaccio + policy)    │
+  └────────────┬─────────────┘
+               │
+               ├─ fetch v2.0.4 (last allowed)
+               ├─ fetch v2.1.0 (proposed)
+               │
+               ▼
+  ┌──────────────────────────┐
+  │  <span class="text-yellow-300">Audit Container</span>          │
+  │  Docker · no net · 1-shot │
+  │  Bounded diff + rubric    │
+  └────────────┬─────────────┘
+               │
+               ▼
+  ┌──────────────────────────┐
+  │  <span class="text-emerald-400">Policy Decision</span>          │
+  │  + audit log &gt; SIEM       │
+  └────────────┬─────────────┘
+               │
+       ┌───────┼────────┐
+       ▼       ▼        ▼
+    <span class="text-emerald-400">allow</span>  <span class="text-yellow-400">quarantine</span>  <span class="text-red-400">block</span>
+       │       │
+       │       └─&gt; Slack approval (one click)
+       ▼
+   <span class="text-slate-400">tarball &gt; cache &gt; developer</span>
+</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- integrations -->
+<section id="integrations" class="py-24 border-t border-slate-800/60">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-3xl mb-14">
+      <h2 class="text-sm font-semibold text-emerald-400 mb-3 uppercase tracking-wider">Drops into your stack</h2>
+      <h3 class="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Works with what you already run.</h3>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 text-center hover:border-slate-700 transition">
+        <div class="font-bold mono text-emerald-400 text-lg mb-1">npm</div>
+        <div class="text-xs text-slate-500">drop-in registry proxy</div>
+      </div>
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 text-center hover:border-slate-700 transition">
+        <div class="font-bold mono text-emerald-400 text-lg mb-1">pnpm</div>
+        <div class="text-xs text-slate-500">.npmrc one-liner</div>
+      </div>
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 text-center hover:border-slate-700 transition">
+        <div class="font-bold mono text-emerald-400 text-lg mb-1">yarn</div>
+        <div class="text-xs text-slate-500">v1, berry, both</div>
+      </div>
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 text-center hover:border-slate-700 transition">
+        <div class="font-bold mono text-emerald-400 text-lg mb-1">bun</div>
+        <div class="text-xs text-slate-500">bunfig.toml</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bg-gradient-to-br from-amber-500/10 to-emerald-500/5 border border-amber-500/20 rounded-xl p-6">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">🐝</div>
+          <div>
+            <h4 class="font-bold text-lg mb-2">Pairs with Bumblebee</h4>
+            <p class="text-slate-300 leading-relaxed text-sm">Perplexity's open-source endpoint scanner feeds ModuleWarden your installed-package inventory from every developer laptop and CI runner. Baseline risk score, org-wide, in one shot. The two tools are built for each other.</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gradient-to-br from-blue-500/10 to-emerald-500/5 border border-blue-500/20 rounded-xl p-6">
+        <div class="flex items-start gap-4">
+          <div class="text-4xl">📊</div>
+          <div>
+            <h4 class="font-bold text-lg mb-2">Streams to your SIEM</h4>
+            <p class="text-slate-300 leading-relaxed text-sm">Splunk, Datadog, Sumo, Elastic, raw webhooks. Every decision, every approval, every override. Compliance auditors get a real trail. Security ops get real signal.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-10 bg-slate-900/40 border border-slate-800 rounded-xl p-8">
+      <div class="text-xs text-slate-500 uppercase tracking-widest mb-4">Install in 30 seconds</div>
+<pre class="mono text-sm text-slate-300 leading-relaxed bg-slate-950/50 border border-slate-800 rounded-md p-5 overflow-x-auto">
+<span class="text-slate-500"># self-host the gate</span>
+<span class="text-emerald-400">$</span> docker run -p 4873:4873 -v mw-data:/data ghcr.io/modulewarden/gate:latest
+
+<span class="text-slate-500"># point npm at it</span>
+<span class="text-emerald-400">$</span> npm config set registry http://localhost:4873/
+
+<span class="text-slate-500"># or cloud (early access)</span>
+<span class="text-emerald-400">$</span> npm config set registry https://gate.modulewarden.com/your-org/
+</pre>
+    </div>
+  </div>
+</section>
+
+<!-- pricing -->
+<section id="pricing" class="py-24 border-t border-slate-800/60 bg-slate-900/20">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-3xl mb-14 text-center mx-auto">
+      <h2 class="text-sm font-semibold text-emerald-400 mb-3 uppercase tracking-wider">Pricing</h2>
+      <h3 class="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Pay for protection, not seats.</h3>
+      <p class="text-lg text-slate-400">Free for open source. Flat per-developer pricing for teams. No per-audit metering, no surprise bills after an incident.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-8 flex flex-col">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Open Source</div>
+        <div class="flex items-baseline gap-1 mb-1">
+          <span class="text-5xl font-extrabold">$0</span>
+        </div>
+        <div class="text-sm text-slate-500 mb-7">forever, for public projects</div>
+        <ul class="space-y-3 text-sm text-slate-300 mb-8 flex-1">
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Self-host the gate</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> 1,000 audits / month</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Community rule pack (OSSF-backed)</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> CLI + REST API</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> GitHub-issue support</li>
+        </ul>
+        <a href="https://github.com/apetersson/ModuleWarden" class="block text-center w-full py-2.5 rounded-md border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 transition font-medium text-sm">Start on GitHub</a>
+      </div>
+
+      <div class="bg-slate-900 border-2 border-emerald-500 rounded-xl p-8 relative flex flex-col shadow-2xl shadow-emerald-500/10">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 px-3 py-1 rounded-full text-xs font-extrabold tracking-wider uppercase">Recommended</div>
+        <div class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3">Team</div>
+        <div class="flex items-baseline gap-1 mb-1">
+          <span class="text-5xl font-extrabold">$12</span>
+          <span class="text-sm text-slate-500">/ dev / mo</span>
+        </div>
+        <div class="text-sm text-slate-500 mb-7">10 developer minimum · billed annually</div>
+        <ul class="space-y-3 text-sm text-slate-300 mb-8 flex-1">
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Everything in Open Source</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Unlimited audits</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Private rule packs + custom rubric</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Slack + PagerDuty + webhook alerts</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> SIEM export (Splunk, Datadog, Sumo)</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> SSO (SAML, OIDC, Google Workspace)</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Email + chat support</li>
+        </ul>
+        <a href="#early" class="block text-center w-full py-2.5 rounded-md bg-emerald-500 text-slate-950 font-semibold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20">Get early access</a>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-8 flex flex-col">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Enterprise</div>
+        <div class="flex items-baseline gap-1 mb-1">
+          <span class="text-5xl font-extrabold">Let's talk</span>
+        </div>
+        <div class="text-sm text-slate-500 mb-7">100+ developers, regulated industries</div>
+        <ul class="space-y-3 text-sm text-slate-300 mb-8 flex-1">
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Everything in Team</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Air-gapped deployment</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Bring-your-own LLM endpoint</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Custom rule pack engineering</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> 24/7 incident response</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> SOC 2 Type II, DPA, BAA</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">✓</span> Dedicated success manager</li>
+        </ul>
+        <a href="mailto:sales@modulewarden.com" class="block text-center w-full py-2.5 rounded-md border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 transition font-medium text-sm">Contact sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="py-24 border-t border-slate-800/60">
+  <div class="max-w-3xl mx-auto px-6">
+    <h2 class="text-sm font-semibold text-emerald-400 mb-3 uppercase tracking-wider text-center">FAQ</h2>
+    <h3 class="text-4xl font-bold mb-12 tracking-tight text-center">Honest answers.</h3>
+
+    <div class="space-y-3">
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>Is this just another SCA tool?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">No. SCA tools tell you which already-installed packages have known CVEs. ModuleWarden gates each install request before it executes. Different position in the stack, different problem solved. Use both.</p>
+      </details>
+
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>Doesn't this break our CI?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">Allowed versions are cached. Repeated installs hit the cache, sub-100ms. New-version installs add ~3-8 seconds for the audit. Quarantine is async, the install resolves with a clear "pending approval" message, and your CI gets a one-click resume from Slack.</p>
+      </details>
+
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>What if the audit LLM is wrong?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">False positives are reviewed by your approver in one click. False negatives are caught by the rule layer (static analysis runs in parallel with the model audit, and either can fail the policy). The model is one input. Your policy is the source of truth.</p>
+      </details>
+
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>Do you send our package contents anywhere?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">Self-host: nothing leaves your network. Cloud: only public-registry packages are audited against our hosted LLM. Private packages stay in your perimeter via the bring-your-own-endpoint option on Enterprise. Your rubric and your decisions are encrypted at rest with a customer-held KMS key.</p>
+      </details>
+
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>Why not just block everything by default?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">Your developers would mutiny. The gate is calibrated for low false-positive rates by design. The point is to keep developers fast while raising the floor on what gets through.</p>
+      </details>
+
+      <details class="bg-slate-900/40 border border-slate-800 rounded-lg p-5 group">
+        <summary class="flex items-center justify-between font-semibold">
+          <span>Will this work with PyPI / RubyGems / cargo?</span>
+          <svg class="w-5 h-5 text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <p class="mt-4 text-slate-400 text-sm leading-relaxed">npm first. The architecture is registry-agnostic; PyPI is on the immediate roadmap, RubyGems and cargo follow customer demand. Email us about your ecosystem and we will prioritize accordingly.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- early access form -->
+<section id="early" class="border-t border-slate-800/60 py-24 bg-gradient-to-b from-slate-900/30 to-slate-950">
+  <div class="max-w-xl mx-auto px-6 text-center">
+    <h2 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Get early access</h2>
+    <p class="text-slate-400 mb-10 leading-relaxed">We are rolling out to design partners now. Tell us about your stack and we will be in touch within 24 hours.</p>
+
+    <!-- IMPORTANT: replace action= with your Formspree, Buttondown, or Cloudflare Worker endpoint before going live -->
+    <form action="https://formspree.io/f/REPLACE_WITH_YOUR_FORM_ID" method="POST" class="space-y-3 text-left">
+      <div>
+        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Work email</label>
+        <input type="email" name="email" required class="w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition" placeholder="you@yourcompany.com" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Company</label>
+        <input type="text" name="company" class="w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition" placeholder="Acme Corp" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Team size</label>
+        <select name="team_size" class="w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-500 transition">
+          <option>1 to 10 developers</option>
+          <option>10 to 50 developers</option>
+          <option>50 to 200 developers</option>
+          <option>200+ developers</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">What is your biggest npm security worry? (optional)</label>
+        <textarea name="worry" rows="2" class="w-full bg-slate-900/80 border border-slate-700 rounded-md px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition resize-none" placeholder="Compromised maintainers, typosquatting, supply chain in CI..."></textarea>
+      </div>
+      <button type="submit" class="w-full bg-emerald-500 text-slate-950 py-3 rounded-md font-semibold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20">Request access</button>
+    </form>
+    <p class="text-xs text-slate-600 mt-4">No credit card. No spam. We respond within one business day.</p>
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="border-t border-slate-800/60 py-12">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
+          <span class="text-emerald-400 font-extrabold mono text-xs">M</span>
+        </div>
+        <span class="text-sm text-slate-500">ModuleWarden · 2026 · Built in Vienna 🇦🇹</span>
+      </div>
+      <div class="flex items-center gap-6 text-sm text-slate-500">
+        <a href="https://github.com/apetersson/ModuleWarden" class="hover:text-slate-300 transition">GitHub</a>
+        <a href="#" class="hover:text-slate-300 transition">Docs</a>
+        <a href="#" class="hover:text-slate-300 transition">Status</a>
+        <a href="#" class="hover:text-slate-300 transition">Privacy</a>
+        <a href="#" class="hover:text-slate-300 transition">Terms</a>
+      </div>
+    </div>
+    <div class="mt-6 pt-6 border-t border-slate-800/60 text-xs text-slate-600 text-center">
+      Sources: <a href="https://www.sonatype.com/press-releases/q2-2025-open-source-malware-index" class="hover:text-slate-400 underline">Sonatype Q2 2025 Open-Source Malware Index</a> · <a href="https://snyk.io/blog/malicious-mcp-server-on-npm-postmark-mcp-harvests-emails/" class="hover:text-slate-400 underline">Snyk postmark-mcp writeup</a> · <a href="https://github.com/ossf/malicious-packages" class="hover:text-slate-400 underline">OSSF malicious-packages corpus</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
