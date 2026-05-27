@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:18'
+updated_date: '2026-05-27 18:09'
 labels:
   - lockfile
   - subscriptions
@@ -36,7 +37,13 @@ The initial baseline decision from planning is strict: audit before allow. Exist
 - [ ] #3 The subscription worker polls upstream metadata for used packages and records upstream dist-tags separately from approved client-facing tags.
 - [ ] #4 New upstream versions for subscribed packages enqueue version-diff audits against the last allowed predecessor when one exists.
 - [ ] #5 Cold-start packages without a predecessor are marked as full-review/cold-start cases, not silently treated as normal diffs.
+- [ ] #6 Lockfile import discovers all package versions from all configured lockfiles, including direct, transitive, dev, build, optional, and CI-installed dependencies by default.
+- [ ] #7 The first dogfood import uses ModuleWarden workspace pnpm lockfile data as the curated initial campaign input.
+- [ ] #8 Initial import creates cold-start audit jobs for every imported package version and does not create admin-baseline allow decisions.
+- [ ] #9 Project registry enablement is blocked until the imported graph reaches complete decision coverage.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

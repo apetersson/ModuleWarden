@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:15'
 labels:
   - security-tests
   - prompts
@@ -38,7 +39,14 @@ Test packages should attempt to read environment variables, discover mounted fil
 - [ ] #3 Network exfiltration attempts are captured as evidence and do not receive sensitive data to exfiltrate.
 - [ ] #4 A malicious audit run cannot alter decisions for other package versions except through authenticated run-scoped verdict submission for its own job.
 - [ ] #5 Logs and evidence shown to developers are redacted while preserving enough detail for security admins to investigate.
+- [ ] #6 Security tests prove audit containers cannot access core prompts, model credentials, host services, internal/private networks, link-local metadata IPs, Postgres, or Verdaccio admin endpoints.
+- [ ] #7 Fallback and external model endpoint configurations are tested for prompt redaction in stored evidence and user-facing output.
+- [ ] #8 Prompt-injection fixtures cannot cause in-container PI to reveal hidden prompt source, change package/job scope, or submit verdicts for unrelated audit jobs.
 <!-- AC:END -->
+
+
+
+
 
 ## Implementation Plan
 

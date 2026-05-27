@@ -4,6 +4,7 @@ title: Build the npm proxy with approved-only metadata and Verdaccio promotion
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:18'
+updated_date: '2026-05-27 18:09'
 labels:
   - npm
   - proxy
@@ -34,7 +35,12 @@ For exact unapproved tarball requests, ModuleWarden should fail clearly and enqu
 - [ ] #3 An exact unapproved tarball request creates or reuses a review job and returns a clear non-success response without leaking internal prompts or credentials.
 - [ ] #4 ModuleWarden can publish/promote an allowed tarball into Verdaccio using a service token unavailable to developers.
 - [ ] #5 Known blocked versions are never served or promoted unless a security-admin override changes the effective decision.
+- [ ] #6 The pnpm-first install path is covered end to end: approved versions install through ModuleWarden, and exact blocked, quarantined, or unreviewed versions are not served.
+- [ ] #7 The proxy never falls through to upstream npm or Verdaccio for a package version without an effective allow decision bound to the exact tarball hash.
+- [ ] #8 A project that has not completed its imported graph decisions receives deterministic registry failures that point to preflight/status rather than serving partial unreviewed results.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

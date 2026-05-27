@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:09'
 labels:
   - analysis
   - diff
@@ -36,7 +37,12 @@ The risk lens includes all three categories selected in planning: exploit discov
 - [ ] #3 Intent evidence includes package purpose, changelog/release notes when available, README summary, repository/source links, and mismatch indicators.
 - [ ] #4 Cold-start audits without a predecessor are marked differently and produce a full-package evidence bundle rather than a fake diff.
 - [ ] #5 The PI agent receives ranked evidence plus raw artifact access so it can inspect beyond summaries.
+- [ ] #6 Cold-start evidence bundles include provenance, maintainer and repository signals, package purpose, scripts, capability summary, dependency graph, install/import traces, and network observations.
+- [ ] #7 Cold-start findings are scored and summarized separately from predecessor diffs so the policy layer can apply the conservative allow-or-quarantine standard.
+- [ ] #8 Golden fixtures include ModuleWarden dogfood dependencies as cold-start examples in addition to malicious and benign version-diff fixtures.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

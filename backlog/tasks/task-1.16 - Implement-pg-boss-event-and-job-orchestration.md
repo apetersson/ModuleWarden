@@ -4,6 +4,7 @@ title: Implement pg-boss event and job orchestration
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:21'
+updated_date: '2026-05-27 18:09'
 labels:
   - jobs
   - events
@@ -34,7 +35,13 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 - [ ] #3 Jobs use deterministic idempotency keys for package name/version/tarball hash/audit context so duplicate tarball fetches and preflights do not create duplicate audits.
 - [ ] #4 Retries, timeouts, cancellation, and dead-letter handling are documented and persist enough context to explain failed or abandoned audits.
 - [ ] #5 Worker concurrency limits are configurable per job type, especially for expensive PI/container/model workloads.
+- [ ] #6 The job layer supports initial audit campaigns for all imported lockfile package versions and emits a project-ready event only after complete decision coverage.
+- [ ] #7 Job payloads and workers keep external H100 capacity behind the model endpoint adapter; audit container execution remains ModuleWarden-controlled.
+- [ ] #8 Concurrency limits, retry policy, and metrics are configurable for model calls, container tool execution, initial campaigns, and re-audits.
+- [ ] #9 Prompt/model/pattern re-audit jobs include active override revalidation and persist superseding decision lineage.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

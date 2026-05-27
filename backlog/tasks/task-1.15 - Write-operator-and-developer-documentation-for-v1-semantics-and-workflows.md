@@ -4,6 +4,7 @@ title: Write operator and developer documentation for v1 semantics and workflows
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:11'
 labels:
   - docs
   - dx
@@ -26,7 +27,7 @@ Document ModuleWarden in a way that matches what it actually does.
 
 The docs must avoid vague AI security claims. They should explain the specific threat model, the private prompt/rubric idea, the approved-only registry behavior, why some versions are hidden from flexible semver resolution, what a current allow means, how re-audits happen, and how security admins handle quarantine/overrides.
 
-Developer docs should make npm install feel normal for approved packages and explain exactly what to do when something fails. Operator docs should explain Docker Compose deployment, local OpenAI-compatible endpoint configuration, Verdaccio service-token boundaries, static tokens, audit image customization, Prisma migrations, pg-boss jobs/schedules, no-Redis architecture, and evidence retention.
+Developer docs should make npm install feel normal for approved packages and explain exactly what to do when something fails. Operator docs should explain Docker Compose deployment, OpenAI-compatible model endpoint configuration, external H100-backed endpoint and fallback options, trusted endpoint logging controls, Verdaccio service-token boundaries, static tokens, audit image customization, Prisma migrations, pg-boss jobs/schedules, no-Redis architecture, and evidence retention.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -37,6 +38,10 @@ Developer docs should make npm install feel normal for approved packages and exp
 - [ ] #4 Security-admin docs cover quarantine, block, override, evidence review, prompt additions, and re-audit campaigns.
 - [ ] #5 Operator docs cover token configuration, local model endpoint, Verdaccio write isolation, audit container image, and evidence storage.
 - [ ] #6 Operator docs state that v1 uses Prisma for DB access and pg-boss for jobs/events, and that Redis is intentionally not part of the deployment.
+- [ ] #7 Docs describe the initial all-lockfiles cold-start campaign, no admin baseline shortcut, conservative allow standard, and graph-readiness requirement before registry enablement.
+- [ ] #8 Operator docs explain external H100-backed OpenAI-compatible endpoints, pluggable fallbacks, trusted endpoint logging controls, and prompt-secrecy degradation when logging is unverified.
+- [ ] #9 Docs include the pnpm-first dogfood hackathon path and the install-gating proof: allowed installs succeed and blocked or quarantined exact versions fail clearly.
+- [ ] #10 Docs define immutable evidence bundles and explain how overrides, relabels, and incident outcomes feed evaluation labels.
 <!-- AC:END -->
 
 ## Implementation Plan

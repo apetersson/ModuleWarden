@@ -4,6 +4,7 @@ title: Create real-incident replay evaluation harness and quality metrics
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:09'
 labels:
   - evaluation
   - security
@@ -32,11 +33,16 @@ This harness should not overclaim “novel vulnerability discovery.” It proves
 <!-- AC:BEGIN -->
 - [ ] #1 Corpus entries can define package name, benign predecessor, malicious/suspicious version, benign control versions, expected behavior, and incident notes.
 - [ ] #2 Evaluation runs use the same audit container, PI harness, prompts, tools, and verdict policy as production runs.
-- [ ] #6 Evaluation can run through the same pg-boss-backed job pipeline as production, while also supporting a deterministic single-run mode for local debugging.
-- [ ] #3 Reports separate caught/block, quarantine, missed, false-positive block/quarantine, escalation usage, and evidence quality.
-- [ ] #4 Scores from both first-pass and escalation runs are retained for later threshold and prompt calibration.
-- [ ] #5 The initial pass criterion is documented as catch all critical seed incidents with explainable evidence, not zero false positives.
+- [ ] #3 Evaluation can run through the same pg-boss-backed job pipeline as production, while also supporting a deterministic single-run mode for local debugging.
+- [ ] #4 Reports separate caught/block, quarantine, missed, false-positive block/quarantine, escalation usage, and evidence quality.
+- [ ] #5 Scores from both first-pass and escalation runs are retained for later threshold and prompt calibration.
+- [ ] #6 The initial pass criterion is documented as catch all critical seed incidents with explainable evidence, not zero false positives.
+- [ ] #7 Evaluation reports include the ModuleWarden dogfood campaign with package counts, allow/block/quarantine distribution, audit duration, model endpoint used, fallback usage, and throughput.
+- [ ] #8 Admin overrides, post-hoc relabels, and incident outcomes are included as labeled feedback for prompt and threshold calibration.
+- [ ] #9 The hackathon runbook records a campaign target of starting Friday 2026-05-29 and finishing by Saturday evening 2026-05-30, with measured variance reported.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

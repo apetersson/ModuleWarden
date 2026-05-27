@@ -4,6 +4,7 @@ title: 'Build the minimal web UI for queue, evidence, prompts, and overrides'
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:09'
 labels:
   - web-ui
   - security-review
@@ -31,12 +32,17 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Queue view groups reviewing, quarantined, blocked, and recently allowed versions with risk summaries and reach/used-by counts.
-- [ ] #6 Queue/re-audit views are derived from ModuleWarden APIs backed by Prisma and pg-boss state, with no direct browser access to Postgres or pg-boss internals.
-- [ ] #2 Package version page shows predecessor, tarball hash, effective decision, capability deltas, PI run metadata, evidence artifacts, network traces, and decision history.
-- [ ] #3 Security admins can approve/override quarantined or blocked versions with a required reason.
-- [ ] #4 Admins can add custom prompts/patterns and trigger or view resulting re-audit campaigns.
-- [ ] #5 The UI never exposes hidden core prompt text to normal developer roles.
+- [ ] #2 Queue/re-audit views are derived from ModuleWarden APIs backed by Prisma and pg-boss state, with no direct browser access to Postgres or pg-boss internals.
+- [ ] #3 Package version page shows predecessor, tarball hash, effective decision, capability deltas, PI run metadata, evidence artifacts, network traces, and decision history.
+- [ ] #4 Security admins can approve/override quarantined or blocked versions with a required reason.
+- [ ] #5 Admins can add custom prompts/patterns and trigger or view resulting re-audit campaigns.
+- [ ] #6 The UI never exposes hidden core prompt text to normal developer roles.
+- [ ] #7 The UI shows initial audit campaign progress, graph readiness, and the reason a project is or is not registry-enabled.
+- [ ] #8 Package/version views display immutable evidence bundles, superseding decisions, admin overrides, relabels, and incident feedback labels.
+- [ ] #9 Admin prompt/model/pattern changes show the resulting re-audit campaign, including whether active overrides are being revalidated.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

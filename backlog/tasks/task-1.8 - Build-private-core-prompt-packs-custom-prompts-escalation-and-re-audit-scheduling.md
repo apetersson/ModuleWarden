@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:18'
+updated_date: '2026-05-27 18:15'
 labels:
   - prompts
   - models
@@ -37,12 +38,15 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 - [ ] #3 Every audit records exact prompt-pack versions, custom prompt versions, model profile, and escalation path.
 - [ ] #4 Escalation runs when the first pass finds suspicious evidence, uncertainty that would quarantine, or high-risk capability deltas.
 - [ ] #5 Changing prompts, models, or known-pattern libraries schedules re-audits for currently allowed versions in the active used graph.
+- [ ] #6 Model endpoint profiles record provider, trust boundary, logging posture, and whether prompt secrecy guarantees are degraded.
+- [ ] #7 Prompt, model, or pattern changes enqueue re-audits that include versions with active admin overrides and may supersede those overrides with new effective decisions.
+- [ ] #8 Audit containers receive run-specific instructions derived from prompt packs, but long-lived core prompt source files and service credentials are not mounted into the container.
 <!-- AC:END -->
 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Create a prompt-pack registry with hidden core prompts and visible custom prompts. Implement first-pass and escalation model profiles against a local OpenAI-compatible endpoint. Add pg-boss re-audit campaign scheduling when prompt packs, model profiles, or pattern libraries change.
+Create a prompt-pack registry with hidden core prompts and visible custom prompts. Implement first-pass and escalation model profiles against pluggable OpenAI-compatible endpoints, including local, external H100-backed, and fallback profiles with explicit trust/logging metadata. Prepare run-specific instruction bundles for in-container PI runs without mounting long-lived core prompt source files or service credentials. Add pg-boss re-audit campaign scheduling when prompt packs, model profiles, or pattern libraries change, including override revalidation and superseding decision lineage.
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done

@@ -4,6 +4,7 @@ title: Build the ModuleWarden developer CLI
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:09'
 labels:
   - cli
   - dx
@@ -35,7 +36,12 @@ The recommended command surface is intentionally small: status, explain, request
 - [ ] #3 `modulewarden explain <pkg@version>` shows verdict, reason summary, evidence references, prompt/model versions as allowed by role, and alternatives.
 - [ ] #4 `modulewarden request <pkg@version>` explicitly requests an upstream version audit and returns the job/status URL.
 - [ ] #5 `modulewarden doctor` checks registry config, auth token, lockfile detection, API reachability, and CI readiness.
+- [ ] #6 The CLI is pnpm-first for v1 and detects pnpm workspace lockfiles for dogfood import, while preserving npm and yarn compatibility paths where available.
+- [ ] #7 Preflight imports all configured lockfiles and reports graph readiness, decision coverage, quarantines, blocks, and unreviewed versions before registry enablement.
+- [ ] #8 Status and explain commands surface immutable evidence references and evaluation labels without exposing hidden prompt text.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

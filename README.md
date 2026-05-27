@@ -347,21 +347,53 @@ backlog task view TASK-1 --plain
 
 ## Near-Term Build Order
 
-A sensible implementation order is:
+A sensible implementation order, derived from the task dependency graph, is:
 
-1. Architecture and threat model contract
-2. TypeScript monorepo and Docker Compose scaffold
-3. Prisma/Postgres schema
-4. pg-boss job orchestration
-5. Approved-only npm proxy and Verdaccio promotion
-6. Lockfile import and used-graph subscriptions
-7. Per-job Docker audit runner
-8. PI RPC audit harness
-9. Capability-delta evidence preparation
-10. Private prompts, escalation, and re-audit scheduling
-11. Verdict policy and overrides
-12. CLI and web UI
-13. Replay evaluation and security tests
+```mermaid
+flowchart TD
+    T11["TASK-1.1<br/>Architecture and threat model"]
+    T12["TASK-1.2<br/>Monorepo and Compose scaffold"]
+    T13["TASK-1.3<br/>Prisma/Postgres schema"]
+    T116["TASK-1.16<br/>pg-boss jobs and events"]
+    T14["TASK-1.4<br/>npm proxy and Verdaccio promotion"]
+    T16["TASK-1.6<br/>Isolated PI audit runner"]
+    T15["TASK-1.5<br/>Lockfile import and subscriptions"]
+    T17["TASK-1.7<br/>PI RPC audit harness"]
+    T18["TASK-1.8<br/>Prompts, escalation, and re-audits"]
+    T19["TASK-1.9<br/>Capability-delta evidence"]
+    T110["TASK-1.10<br/>Verdict policy and overrides"]
+    T111["TASK-1.11<br/>Developer CLI"]
+    T112["TASK-1.12<br/>Admin web UI"]
+    T113["TASK-1.13<br/>Replay evaluation"]
+    T114["TASK-1.14<br/>Security tests"]
+    T115["TASK-1.15<br/>Operator and developer docs"]
+
+    T11 --> T12 --> T13 --> T116
+    T13 --> T14
+    T116 --> T14
+    T12 --> T16
+    T13 --> T16
+    T116 --> T16
+    T14 --> T15
+    T16 --> T17
+    T13 --> T17
+    T116 --> T17
+    T17 --> T18
+    T17 --> T19
+    T17 --> T110
+    T14 --> T110
+    T15 --> T111
+    T110 --> T111
+    T18 --> T112
+    T110 --> T112
+    T19 --> T113
+    T110 --> T113
+    T18 --> T114
+    T110 --> T114
+    T111 --> T115
+    T112 --> T115
+    T116 --> T115
+```
 
 ## Guiding Principle
 

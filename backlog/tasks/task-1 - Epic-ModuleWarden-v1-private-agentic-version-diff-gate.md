@@ -4,6 +4,7 @@ title: 'Epic: ModuleWarden v1 private agentic version-diff gate'
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:18'
+updated_date: '2026-05-27 18:15'
 labels:
   - epic
   - v1
@@ -33,16 +34,19 @@ The product must preserve the nuances from planning: static heuristics are usefu
 - [ ] #3 Each audit decision stores package identity, tarball hash, predecessor baseline, prompt versions, model profile, PI session metadata, tool evidence, scores, and final verdict.
 - [ ] #4 The system can replay a seed corpus of real compromised-package incidents and reports catch/block/quarantine results plus false-positive measurements.
 - [ ] #5 Core prompts are not exposed to developers, package authors, package code, or ordinary users through CLI, web UI, audit artifacts, or package-manager failures.
+- [ ] #6 V1 dogfoods ModuleWarden by importing its curated pnpm lockfile and auditing every imported package version before the project is enabled for registry use.
+- [ ] #7 The Saturday proof path demonstrates pnpm install through ModuleWarden: allowed versions install, while blocked or quarantined exact versions fail with safe status or explain guidance.
+- [ ] #8 External H100 capacity is modeled only as a pluggable OpenAI-compatible inference endpoint; ModuleWarden still owns jobs, prompt-pack versioning, evidence, policy, and per-audit container orchestration.
 <!-- AC:END -->
 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Deliver v1 as a TypeScript/Node pnpm monorepo with Fastify API/proxy, worker service, React/Vite admin UI, Node CLI, Postgres, Prisma for DB access, pg-boss for durable events/jobs, Docker Compose, Verdaccio, and a custom per-run audit container image that runs PI in RPC mode. Do not introduce Redis or any Redis-backed queue in v1.
+Deliver v1 as a TypeScript/Node pnpm monorepo with Fastify API/proxy, worker service, React/Vite admin UI, Node CLI, Postgres, Prisma for DB access, pg-boss for durable events/jobs, Docker Compose, Verdaccio, and per-run audit containers that run PI with the audited package, baseline, patch/diff, and audit tools. Do not introduce Redis or any Redis-backed queue in v1.
 
-Use approved-only npm metadata and approved dist-tags for developer installs. Subscribe to the full used lockfile graph, including transitive dependencies, and proactively audit upstream versions before developers need them.
+Use approved-only npm metadata and approved dist-tags for developer installs. Prioritize the pnpm-first dogfood path: import ModuleWarden workspace lockfiles, audit every imported package version, and enable registry use only after complete decision coverage.
 
-Make the agent final for allow/block/quarantine decisions, with security-admin overrides and detailed evidence retained for every verdict.
+Treat external H100 capacity as a pluggable OpenAI-compatible inference endpoint used by in-container PI runs. The audit container receives only package inputs, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific audit instructions, useful audit tools, and run-scoped RPC/model access. Make the agent final for allow/block/quarantine decisions, with conservative cold-start policy, security-admin overrides, immutable evidence, and override revalidation through re-audits.
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done

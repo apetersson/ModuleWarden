@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-27 17:19'
+updated_date: '2026-05-27 18:09'
 labels:
   - policy
   - auth
@@ -38,7 +39,13 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 - [ ] #3 Quarantine decisions prevent serve/promotion until a later agent run or security-admin override changes the effective decision.
 - [ ] #4 Only security-admin tokens can override a quarantined or blocked version in v1.
 - [ ] #5 Developer-facing errors include package/version, current state, status command/URL, and next action, but never core prompt content or secrets.
+- [ ] #6 Cold-start allow is permitted only when required provenance, behavior, install-trace, and heuristic checks are clean; missing or ambiguous evidence resolves to quarantine.
+- [ ] #7 No admin-baseline allow shortcut exists in v1; security admins can override block or quarantine decisions only with recorded reasons.
+- [ ] #8 Project registry enablement requires complete decision coverage for the imported graph, and partial coverage produces safe developer-facing failures.
+- [ ] #9 Prompt, model, pattern, or incident relabel changes revalidate affected overrides and can produce superseding effective decisions.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
