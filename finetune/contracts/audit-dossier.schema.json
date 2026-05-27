@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modulewarden.local/schemas/audit-dossier.v1.json",
+  "title": "ModuleWarden AuditDossier v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_id",
+    "audit_mode",
+    "ecosystem",
+    "package",
+    "baseline",
+    "release_context",
+    "diff_summary",
+    "dependency_changes",
+    "capability_deltas",
+    "dynamic_observations",
+    "evidence_index",
+    "policy_context"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "modulewarden.audit_dossier.v1"
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audit_mode": {
+      "enum": [
+        "version_diff",
+        "cold_start",
+        "re_audit",
+        "override_revalidation",
+        "incident_replay"
+      ]
+    },
+    "ecosystem": {
+      "const": "npm"
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "candidate_version",
+        "candidate_integrity",
+        "candidate_tarball_sha256",
+        "published_at"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_integrity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_tarball_sha256": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "previous_allowed",
+            "none_cold_start",
+            "same_version_reaudit",
+            "override_revalidation"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "integrity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tarball_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "release_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semver_delta",
+        "declared_package_purpose",
+        "readme_summary",
+        "changelog_summary",
+        "repository_url",
+        "source_tarball_mismatch"
+      ],
+      "properties": {
+        "semver_delta": {
+          "enum": [
+            "major",
+            "minor",
+            "patch",
+            "prerelease",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "declared_package_purpose": {
+          "type": "string"
+        },
+        "readme_summary": {
+          "type": "string"
+        },
+        "changelog_summary": {
+          "type": "string"
+        },
+        "repository_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_tarball_mismatch": {
+          "type": "boolean"
+        }
+      }
+    },
+    "diff_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files_added",
+        "files_modified",
+        "files_removed",
+        "notable_file_changes"
+      ],
+      "properties": {
+        "files_added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_modified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notable_file_changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_change"
+          }
+        }
+      }
+    },
+    "dependency_changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dependency_change"
+      }
+    },
+    "capability_deltas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capability_delta"
+      }
+    },
+    "dynamic_observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "install_trace_refs",
+        "import_trace_refs",
+        "network_trace_refs"
+      ],
+      "properties": {
+        "install_trace_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "import_trace_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "network_trace_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence_index": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "policy_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cold_start",
+        "conservative_default",
+        "forbidden_output"
+      ],
+      "properties": {
+        "cold_start": {
+          "type": "boolean"
+        },
+        "conservative_default": {
+          "enum": [
+            "quarantine_on_uncertainty"
+          ]
+        },
+        "forbidden_output": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref",
+        "path",
+        "summary"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "dependency_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref",
+        "name",
+        "change",
+        "version",
+        "risk_note"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "added",
+            "removed",
+            "updated",
+            "unchanged"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "risk_note": {
+          "type": "string"
+        }
+      }
+    },
+    "capability_delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref",
+        "capability",
+        "change",
+        "severity_hint",
+        "summary"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "string"
+        },
+        "capability": {
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "added",
+            "removed",
+            "modified",
+            "unchanged"
+          ]
+        },
+        "severity_hint": {
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "summary",
+        "raw_excerpt_available"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "raw_excerpt_available": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

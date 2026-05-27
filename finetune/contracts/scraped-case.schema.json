@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modulewarden.local/schemas/scraped-case.v1.json",
+  "title": "ModuleWarden ScrapedCase v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "source",
+    "case_type",
+    "package",
+    "advisory_ids",
+    "severity",
+    "affected_range",
+    "first_patched_version",
+    "candidate_versions",
+    "benign_neighbor_versions",
+    "references",
+    "triage_status",
+    "scraped_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "modulewarden.scraped_case.v1"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "github_advisory",
+        "osv",
+        "npm_packument",
+        "manual"
+      ]
+    },
+    "case_type": {
+      "enum": [
+        "incident_replay",
+        "benign_neighbor",
+        "cve_diff",
+        "dogfood_dependency",
+        "synthetic_teacher",
+        "manual_golden"
+      ]
+    },
+    "package": {
+      "type": "string"
+    },
+    "advisory_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "severity": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cwes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "affected_range": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "first_patched_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "candidate_versions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate_version"
+      }
+    },
+    "benign_neighbor_versions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate_version"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_code_location": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "npm": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "osv_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "triage_status": {
+      "enum": [
+        "candidate",
+        "needs_enrichment",
+        "promoted",
+        "rejected"
+      ]
+    },
+    "scraped_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "candidate_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "version"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "likely_affected",
+            "first_patched",
+            "benign_before",
+            "benign_after",
+            "unknown"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

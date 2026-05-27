@@ -1,0 +1,30 @@
+{
+  "schema_version": "modulewarden.scrape_config.v1",
+  "output_path": "finetune/corpus/scraped-cases.jsonl",
+  "github_advisories": {
+    "enabled": true,
+    "api_url": "https://api.github.com/advisories",
+    "ecosystem": "npm",
+    "types": [
+      "reviewed",
+      "malware"
+    ],
+    "severities": [
+      "high",
+      "critical"
+    ],
+    "published": null,
+    "updated": null,
+    "per_page": 100,
+    "max_pages_per_query": 2
+  },
+  "npm_registry": {
+    "enabled": true,
+    "registry_url": "https://registry.npmjs.org"
+  },
+  "osv": {
+    "enabled": true,
+    "api_url": "https://api.osv.dev",
+    "ecosystem": "npm"
+  }
+}

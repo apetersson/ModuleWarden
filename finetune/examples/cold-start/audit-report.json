@@ -1,0 +1,64 @@
+{
+  "schema_version": "modulewarden.audit_report.v1",
+  "audit_id": "audit_demo_cold_start_001",
+  "verdict": "quarantine",
+  "confidence": "medium",
+  "risk_level": "medium",
+  "summary": "Cold-start package lacks a trusted predecessor and import-time evidence shows sensitive filesystem access inconsistent with the stated string-formatting purpose.",
+  "primary_findings": [
+    {
+      "finding_id": "finding.001",
+      "category": "cold_start_insufficient_evidence",
+      "severity": "medium",
+      "evidence_refs": [
+        "ev.meta.001"
+      ],
+      "claim": "There is no previously allowed predecessor for a normal version-diff comparison.",
+      "why_it_matters": "Cold-start reviews are weaker than predecessor diffs and require conservative treatment when behavior is not fully explained."
+    },
+    {
+      "finding_id": "finding.002",
+      "category": "filesystem_sensitive_access",
+      "severity": "medium",
+      "evidence_refs": [
+        "ev.cap.001",
+        "ev.run.002"
+      ],
+      "claim": "The package attempts to read ~/.npmrc during import.",
+      "why_it_matters": "Reading npm configuration can expose registry tokens and is unexpected for string formatting helpers."
+    },
+    {
+      "finding_id": "finding.003",
+      "category": "release_context_mismatch",
+      "severity": "medium",
+      "evidence_refs": [
+        "ev.cap.001",
+        "ev.run.002"
+      ],
+      "claim": "The README describes string formatting but does not explain npm configuration file access.",
+      "why_it_matters": "Behavior outside the declared package purpose should not be allowed in a cold-start audit without stronger justification."
+    }
+  ],
+  "benign_explanations_considered": [
+    {
+      "explanation": "The package may read ~/.npmrc to infer terminal or registry formatting preferences.",
+      "assessment": "Not supported by the README, and npm token-bearing config is a sensitive source for a formatting utility."
+    }
+  ],
+  "recommended_agent_checks": [
+    {
+      "check": "Inspect the code path around the ~/.npmrc read and determine whether file contents can leave the process.",
+      "reason": "The current evidence shows sensitive read behavior but not confirmed exfiltration."
+    },
+    {
+      "check": "Run import with a synthetic .npmrc and observe whether contents affect network, process, or filesystem behavior.",
+      "reason": "Dynamic testing can distinguish suspicious unused reads from exploitable credential handling."
+    }
+  ],
+  "developer_safe_summary": "This package is quarantined during initial review because it reads sensitive npm configuration during import.",
+  "security_admin_summary": "Cold-start review found import-time ~/.npmrc access in a package whose stated purpose is string formatting. No exfiltration is confirmed, but the behavior is unjustified and should be escalated before allow.",
+  "output_integrity": {
+    "all_claims_have_evidence_refs": true,
+    "invented_evidence_refs": []
+  }
+}

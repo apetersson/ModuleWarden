@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modulewarden.local/schemas/audit-report.v1.json",
+  "title": "ModuleWarden AuditReport v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_id",
+    "verdict",
+    "confidence",
+    "risk_level",
+    "summary",
+    "primary_findings",
+    "benign_explanations_considered",
+    "recommended_agent_checks",
+    "developer_safe_summary",
+    "security_admin_summary",
+    "output_integrity"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "modulewarden.audit_report.v1"
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "enum": [
+        "allow",
+        "quarantine",
+        "block"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "risk_level": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "primary_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "benign_explanations_considered": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/benign_explanation"
+      }
+    },
+    "recommended_agent_checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/agent_check"
+      }
+    },
+    "developer_safe_summary": {
+      "type": "string"
+    },
+    "security_admin_summary": {
+      "type": "string"
+    },
+    "output_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_claims_have_evidence_refs",
+        "invented_evidence_refs"
+      ],
+      "properties": {
+        "all_claims_have_evidence_refs": {
+          "type": "boolean"
+        },
+        "invented_evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "category",
+        "severity",
+        "evidence_refs",
+        "claim",
+        "why_it_matters"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "lifecycle_script_added",
+            "credential_or_env_access",
+            "network_access_added",
+            "process_execution_added",
+            "filesystem_sensitive_access",
+            "dynamic_code_execution",
+            "obfuscation_added",
+            "native_or_wasm_added",
+            "dependency_indirection",
+            "source_tarball_mismatch",
+            "repository_or_maintainer_anomaly",
+            "release_context_mismatch",
+            "semver_risk_mismatch",
+            "cold_start_insufficient_evidence",
+            "install_time_behavior",
+            "import_time_behavior",
+            "network_trace_observed",
+            "exfiltration_indicator",
+            "benign_change",
+            "documented_behavior",
+            "test_or_build_only"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "claim": {
+          "type": "string"
+        },
+        "why_it_matters": {
+          "type": "string"
+        }
+      }
+    },
+    "benign_explanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explanation",
+        "assessment"
+      ],
+      "properties": {
+        "explanation": {
+          "type": "string"
+        },
+        "assessment": {
+          "type": "string"
+        }
+      }
+    },
+    "agent_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check",
+        "reason"
+      ],
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

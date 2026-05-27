@@ -1,0 +1,80 @@
+{
+  "schema_version": "modulewarden.audit_report.v1",
+  "audit_id": "audit_demo_version_diff_001",
+  "verdict": "quarantine",
+  "confidence": "high",
+  "risk_level": "high",
+  "summary": "Patch release adds install-time execution, credential-like environment access, and outbound network behavior that are not justified by the package purpose or changelog.",
+  "primary_findings": [
+    {
+      "finding_id": "finding.001",
+      "category": "lifecycle_script_added",
+      "severity": "high",
+      "evidence_refs": [
+        "ev.file.001",
+        "ev.cap.001"
+      ],
+      "claim": "The candidate version adds a postinstall lifecycle script in a patch release.",
+      "why_it_matters": "Install-time code runs automatically during package installation and is a common npm supply-chain abuse point."
+    },
+    {
+      "finding_id": "finding.002",
+      "category": "credential_or_env_access",
+      "severity": "high",
+      "evidence_refs": [
+        "ev.file.002",
+        "ev.cap.002"
+      ],
+      "claim": "The new postinstall script reads NPM_TOKEN and GITHUB_TOKEN from the environment.",
+      "why_it_matters": "Credential access is inconsistent with a terminal color helper and creates exfiltration risk in developer or CI environments."
+    },
+    {
+      "finding_id": "finding.003",
+      "category": "network_access_added",
+      "severity": "high",
+      "evidence_refs": [
+        "ev.cap.003",
+        "ev.net.001"
+      ],
+      "claim": "The candidate adds outbound network behavior during install.",
+      "why_it_matters": "Network access combined with token access during install is a strong supply-chain compromise indicator."
+    },
+    {
+      "finding_id": "finding.004",
+      "category": "release_context_mismatch",
+      "severity": "medium",
+      "evidence_refs": [
+        "ev.file.001",
+        "ev.file.002"
+      ],
+      "claim": "The changelog describes a Windows color detection fix but does not justify install-time credential or network behavior.",
+      "why_it_matters": "Behavior that is inconsistent with the stated release intent should not be allowed without further review."
+    }
+  ],
+  "benign_explanations_considered": [
+    {
+      "explanation": "The maintainer may have added telemetry or install diagnostics.",
+      "assessment": "Not sufficient: telemetry is not documented, and reading NPM_TOKEN/GITHUB_TOKEN is not necessary for color detection."
+    },
+    {
+      "explanation": "The postinstall helper may be part of a build-system migration.",
+      "assessment": "Not supported by the changelog or README, and the behavior runs during consumer installation."
+    }
+  ],
+  "recommended_agent_checks": [
+    {
+      "check": "Run npm install in an isolated container with network capture and synthetic token-like environment variables.",
+      "reason": "Confirm whether the postinstall script attempts to transmit credential-like data."
+    },
+    {
+      "check": "Inspect tiny-postinstall-helper tarball and maintainer metadata.",
+      "reason": "The new dependency may hide or route install-time behavior outside the package diff."
+    }
+  ],
+  "developer_safe_summary": "This version is quarantined because it adds unexpected install-time behavior in a patch release.",
+  "security_admin_summary": "Candidate adds postinstall execution, token-like environment access, and outbound network behavior despite a changelog claiming only a color-detection fix. Escalate before any override.",
+  "output_integrity": {
+    "all_claims_have_evidence_refs": true,
+    "invented_evidence_refs": []
+  }
+}

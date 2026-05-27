@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modulewarden.local/schemas/sft-record.v1.json",
+  "title": "ModuleWarden SFT Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "split",
+    "source",
+    "messages"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "modulewarden.sft_record.v1"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "split": {
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ]
+    },
+    "source": {
+      "enum": [
+        "incident_replay",
+        "benign_neighbor",
+        "cve_diff",
+        "dogfood_dependency",
+        "synthetic_teacher",
+        "manual_golden"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    }
+  },
+  "$defs": {
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "content"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

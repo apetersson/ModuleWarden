@@ -1,0 +1,38 @@
+{
+  "schema_version": "modulewarden.audit_report.v1",
+  "audit_id": "audit_REPLACE_ME",
+  "verdict": "quarantine",
+  "confidence": "medium",
+  "risk_level": "medium",
+  "summary": "REPLACE_EVIDENCE_GROUNDED_SUMMARY",
+  "primary_findings": [
+    {
+      "finding_id": "finding.001",
+      "category": "release_context_mismatch",
+      "severity": "medium",
+      "evidence_refs": [
+        "ev.meta.001"
+      ],
+      "claim": "REPLACE_CLAIM",
+      "why_it_matters": "REPLACE_WHY_IT_MATTERS"
+    }
+  ],
+  "benign_explanations_considered": [
+    {
+      "explanation": "REPLACE_PLAUSIBLE_BENIGN_EXPLANATION",
+      "assessment": "REPLACE_ASSESSMENT"
+    }
+  ],
+  "recommended_agent_checks": [
+    {
+      "check": "REPLACE_AGENTIC_CHECK",
+      "reason": "REPLACE_REASON"
+    }
+  ],
+  "developer_safe_summary": "REPLACE_DEVELOPER_SAFE_SUMMARY",
+  "security_admin_summary": "REPLACE_SECURITY_ADMIN_SUMMARY",
+  "output_integrity": {
+    "all_claims_have_evidence_refs": true,
+    "invented_evidence_refs": []
+  }
+}

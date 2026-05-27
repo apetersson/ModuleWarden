@@ -1,0 +1,36 @@
+{
+  "schema_version": "modulewarden.golden_cases.v1",
+  "description": "Hand-promoted cases for ModuleWarden audit-dossier generation. Keep test packages disjoint from train packages.",
+  "cases": [
+    {
+      "case_id": "manual_demo_version_diff_001",
+      "source": "manual_golden",
+      "case_type": "incident_replay",
+      "package": "pretty-cli-colors",
+      "baseline_version": "1.4.6",
+      "candidate_version": "1.4.7",
+      "expected_verdict": "quarantine",
+      "expected_risk_level": "high",
+      "split": "train",
+      "why_it_matters": "Teaches the model to quarantine a patch release that adds postinstall, credential-like env access, and network behavior.",
+      "dossier_path": "finetune/examples/version-diff/audit-dossier.json",
+      "report_path": "finetune/examples/version-diff/audit-report.json",
+      "references": []
+    },
+    {
+      "case_id": "manual_demo_cold_start_001",
+      "source": "manual_golden",
+      "case_type": "dogfood_dependency",
+      "package": "left-pad-format-tools",
+      "baseline_version": null,
+      "candidate_version": "0.3.1",
+      "expected_verdict": "quarantine",
+      "expected_risk_level": "medium",
+      "split": "validation",
+      "why_it_matters": "Teaches conservative cold-start behavior for sensitive filesystem access without confirmed exfiltration.",
+      "dossier_path": "finetune/examples/cold-start/audit-dossier.json",
+      "report_path": "finetune/examples/cold-start/audit-report.json",
+      "references": []
+    }
+  ]
+}
