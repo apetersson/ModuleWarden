@@ -3,7 +3,7 @@ id: TASK-1.3
 title: >-
   Implement Postgres schema for packages, audits, decisions, and evidence
   lineage
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
@@ -43,13 +43,17 @@ Important nuance: an allowed verdict is currently valid until revoked, not proof
 - [x] #8 Admin overrides, post-hoc relabels, and incident outcomes are stored as first-class evaluation labels linked to the original decision and evidence bundle.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
 1. Design full Prisma schema with all required models\n2. Write schema.prisma with models for projects, lockfile imports, package subscriptions, upstream metadata, package versions, tarball artifacts, predecessor links, review jobs, audit runs, prompt packs, model profiles, evidence artifacts, decisions, scores, overrides, re-audit campaigns\n3. Generate migration via prisma migrate dev\n4. Write repository/service APIs for each domain\n5. Test schema constraints and relationships\n6. Commit and push
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented full Prisma schema for ModuleWarden v1 with 16 models: Project, LockfileImport, PackageSubscription, UpstreamMetadataSnapshot, PackageVersion (keyed by name+version+registry+tarballHash with @@unique), TarballArtifact, ReviewJob (dedup by packageVersionId+auditContext), AuditRun, PromptPack, ModelProfile, EvidenceArtifact (immutable), Decision (with verdict, predecessor, prompt/model versions, scores, PI session/run IDs), Score, Override (admin identity, scope, reason, supersedes), ReAuditCampaign, and EvaluationLabel (ADMIN_OVERRIDE, POST_HOC_RELABEL, INCIDENT_OUTCOME, EVALUATION_RESULT). Auto-generated migration via prisma migrate dev. Repository APIs for all domains with upsert/dedup/create/list/get patterns. 9 integration tests verifying constraints, dedup, decision history, evidence immutability, and graph state transitions all pass.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
