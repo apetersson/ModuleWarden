@@ -1,10 +1,11 @@
 ---
 id: TASK-1.16
 title: Implement pg-boss event and job orchestration
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:21'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-27 19:42'
 labels:
   - jobs
   - events
@@ -41,12 +42,10 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 - [ ] #9 Prompt/model/pattern re-audit jobs include active override revalidation and persist superseding decision lineage.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Add a shared job module that wraps pg-boss with typed job names, payload schemas, idempotency keys, retry policies, scheduling helpers, and worker registration. Wire API/proxy, CLI/preflight handlers, subscription pollers, audit workers, prompt re-audit campaigns, escalation runs, and Verdaccio promotion through this module.
+1. Create shared job module (packages/worker/src/jobs/) wrapping pg-boss\n2. Define typed job names, payload schemas, idempotency keys\n3. Implement job queue with configurable concurrency/retry/delay\n4. Create job definitions for each job type\n5. Create worker registration and scheduling helpers\n6. Write integration tests\n7. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
