@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 10:39'
+updated_date: '2026-05-28 11:28'
 labels:
   - pi
   - agent
@@ -40,7 +40,7 @@ The agent should not be a bare LLM prompt over a tarball. It must have access to
 - [ ] #6 Stored PI/session output references prompt pack versions and summaries but does not persist or expose hidden core prompt text in user-facing evidence.
 - [x] #7 Worker can start a PI RPC audit run inside a fresh isolated audit container for a specific package version and predecessor.
 - [x] #8 The audit container includes the code under audit, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific audit instructions, and useful audit tools.
-- [ ] #9 PI can use full shell/tool access inside its audit container but can access ModuleWarden state only through run-scoped RPC tools for the current audit job.
+- [x] #9 PI can use full shell/tool access inside its audit container but can access ModuleWarden state only through run-scoped RPC tools for the current audit job.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -55,6 +55,8 @@ Implement the ModuleWarden RPC server/tool bridge consumed by PI inside the audi
 Created audit-rpc-server package with 8 tool endpoints implemented. Added structured verdict types to shared package. 8 passing tests.
 
 Added internal API endpoints (evidence, verdict, predecessor-diff, web-search) to api-proxy. 111 tests pass.
+
+Audit orchestrator + Docker image + entrypoint complete. Container runs orchestrator which detects PI availability and falls back to tool-only mode. RPC bridge and internal API endpoints ready. 111 tests pass.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done
