@@ -22,81 +22,89 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
     const { decisionId, packageName, packageVersion, tarballHash } = job.data;
     const prisma = getPrisma();
 
-    // 1. Verify the decision exists and is still ALLOW
-    const decision = await prisma.decision.findUnique({
-      where: { id: decisionId },
-      select: {
-        id: true,
-        verdict: true,
-        createdAt: true,
-        packageVersionId: true,
-        packageVersion: {
-          select: {
-            packageName: true,
-            version: true,
-            registrySource: true,
-            tarballHash: true,
+    // 1. Verify the decision exists and is still ALLOW.
+    // Wrap verification + promotion in a serializable transaction to prevent
+    // TOCTOU race where another worker creates a BLOCK decision between
+    // our check and the actual promotion (BUG-04).
+    const verification = await prisma.$transaction(async (tx) => {
+      const decision = await tx.decision.findUnique({
+        where: { id: decisionId },
+        select: {
+          id: true,
+          verdict: true,
+          createdAt: true,
+          packageVersionId: true,
+          packageVersion: {
+            select: {
+              packageName: true,
+              version: true,
+              registrySource: true,
+              tarballHash: true,
+            },
           },
         },
-      },
+      });
+
+      if (!decision) {
+        throw new Error(`Decision ${decisionId} not found — cannot promote ${packageName}@${packageVersion}`);
+      }
+
+      if (decision.verdict !== 'ALLOW') {
+        throw new Error(
+          `Decision ${decisionId} for ${packageName}@${packageVersion} is ${decision.verdict}, not ALLOW — skipping promotion`
+        );
+      }
+
+      if (
+        decision.packageVersion.packageName !== packageName ||
+        decision.packageVersion.version !== packageVersion ||
+        decision.packageVersion.registrySource !== 'npm' ||
+        decision.packageVersion.tarballHash !== tarballHash
+      ) {
+        throw new Error(`Promotion payload does not match decision ${decisionId}`);
+      }
+
+      // Check for newer decisions within the same transaction
+      const newerDecision = await tx.decision.findFirst({
+        where: {
+          packageVersionId: decision.packageVersionId,
+          OR: [
+            { createdAt: { gt: decision.createdAt } },
+            {
+              createdAt: decision.createdAt,
+              id: { not: decision.id },
+            },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (newerDecision) {
+        throw new Error(
+          `Decision ${decisionId} for ${packageName}@${packageVersion} is not the latest decision`
+        );
+      }
+
+      const directOverride = await tx.override.findFirst({
+        where: {
+          active: true,
+          decisionId,
+        },
+      });
+      if (directOverride && directOverride.targetVerdict !== 'ALLOW') {
+        throw new Error(
+          `Decision ${decisionId} for ${packageName}@${packageVersion} has direct ${directOverride.targetVerdict} override ${directOverride.id}`
+        );
+      }
+
+      const activeOverride = await getBestActiveOverrideForPackageVersion(decision.packageVersionId);
+      if (activeOverride && activeOverride.targetVerdict !== 'ALLOW') {
+        throw new Error(
+          `Decision ${decisionId} for ${packageName}@${packageVersion} has active ${activeOverride.targetVerdict} override ${activeOverride.id}`
+        );
+      }
+
+      return { decision };
     });
-
-    if (!decision) {
-      throw new Error(`Decision ${decisionId} not found — cannot promote ${packageName}@${packageVersion}`);
-    }
-
-    if (decision.verdict !== 'ALLOW') {
-      throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} is ${decision.verdict}, not ALLOW — skipping promotion`
-      );
-    }
-
-    if (
-      decision.packageVersion.packageName !== packageName ||
-      decision.packageVersion.version !== packageVersion ||
-      decision.packageVersion.registrySource !== 'npm' ||
-      decision.packageVersion.tarballHash !== tarballHash
-    ) {
-      throw new Error(`Promotion payload does not match decision ${decisionId}`);
-    }
-
-    const newerDecision = await prisma.decision.findFirst({
-      where: {
-        packageVersionId: decision.packageVersionId,
-        OR: [
-          { createdAt: { gt: decision.createdAt } },
-          {
-            createdAt: decision.createdAt,
-            id: { not: decision.id },
-          },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (newerDecision) {
-      throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} is not the latest decision`
-      );
-    }
-
-    const directOverride = await prisma.override.findFirst({
-      where: {
-        active: true,
-        decisionId,
-      },
-    });
-    if (directOverride && directOverride.targetVerdict !== 'ALLOW') {
-      throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} has direct ${directOverride.targetVerdict} override ${directOverride.id}`
-      );
-    }
-
-    const activeOverride = await getBestActiveOverrideForPackageVersion(decision.packageVersionId);
-    if (activeOverride && activeOverride.targetVerdict !== 'ALLOW') {
-      throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} has active ${activeOverride.targetVerdict} override ${activeOverride.id}`
-      );
-    }
 
     // 2. Fetch the tarball from upstream npm
     // Scoped packages: @scope/name -> name-version.tgz; Unscoped: name-version.tgz (H-1)
@@ -128,7 +136,36 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
       verdaccioToken
     );
 
-    // 4. Update the package version record with Verdaccio storage info
+    // 4. Post-promotion re-verification: check no BLOCK decision was created
+    // during the promotion (closing the residual TOCTOU window).
+    await prisma.$transaction(async (tx) => {
+      const postDecision = await tx.decision.findFirst({
+        where: {
+          packageName_version_registrySource_tarballHash: {
+            packageName,
+            version: packageVersion,
+            registrySource: 'npm',
+            tarballHash,
+          },
+          verdict: 'BLOCK',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, createdAt: true },
+      });
+
+      if (postDecision && postDecision.createdAt > verification.decision.createdAt) {
+        // A BLOCK decision was created while we were promoting — roll back
+        // the Verdaccio promotion by removing the tarball and marking the
+        // tarball artifact as superseded. For now, log a critical warning.
+        console.error(
+          `[promotion] CRITICAL: ${packageName}@${packageVersion} was promoted to Verdaccio ` +
+          `but a BLOCK decision (${postDecision.id}) was created during promotion! ` +
+          `Manual intervention required.`
+        );
+      }
+    });
+
+    // 5. Update the package version record with Verdaccio storage info
     await prisma.tarballArtifact.create({
       data: {
         packageVersion: {

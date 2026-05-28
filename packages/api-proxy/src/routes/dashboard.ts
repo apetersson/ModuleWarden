@@ -5,6 +5,8 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { checkAdmin } from '../middleware/auth.js';
+import { JOB_TYPES } from '@modulewarden/shared/types';
 import type {
   DashboardState,
   AuditRunCard,
@@ -35,30 +37,6 @@ function assignColumn(status: string, verdict: string | null): KanbanColumn {
  * Register dashboard admin API routes.
  */
 export async function registerDashboardRoutes(app: FastifyInstance): Promise<void> {
-  // Auth middleware helper — same pattern as routes/admin.ts
-  function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      reply.status(401).send({ error: 'Authentication required' });
-      return false;
-    }
-
-    const token = authHeader.slice(7);
-    const adminEnv = process.env.MW_AUTH_ADMIN_TOKENS;
-    if (!adminEnv) {
-      reply.status(503).send({ error: 'Admin auth not configured: set MW_AUTH_ADMIN_TOKENS' });
-      return false;
-    }
-    const adminTokens = adminEnv.split(',');
-
-    if (!adminTokens.includes(token)) {
-      reply.status(403).send({ error: 'Forbidden: admin token required' });
-      return false;
-    }
-
-    return true;
-  }
-
   // ── GET /admin/dashboard ─────────────────────────────────────
 
   app.get('/admin/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -155,31 +133,47 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     if (!checkAdmin(request, reply)) return;
 
     const prisma = getPrisma();
-    const queueNames = [
-      'package-review', 'upstream-subscription-poll', 'audit-container-exec',
-      'model-escalation', 're-audit-campaign', 'evidence-post-process',
-      'verdaccio-promotion', 'project-ready',
-    ];
+    const queueNames = Object.values(JOB_TYPES);
+    // S-7: Use aggregate ReviewJob counts by status for overall queue health.
+    // Per-queue breakdown is approximated via auditContext prefix matching.
     const stats: QueueStats[] = [];
 
+    // Get overall status counts first
+    const overallCounts = await prisma.$queryRawUnsafe<Array<Record<string, bigint>>>(`
+      SELECT
+        "status",
+        COUNT(*) as cnt
+      FROM "ReviewJob"
+      GROUP BY "status"
+    `);
+    const countByStatus = Object.fromEntries(
+      (overallCounts ?? []).map((r) => [String(r.status), Number(r.cnt ?? 0n)])
+    );
+
     for (const q of queueNames) {
-      const pattern = `%${q}%`;
-      const counts = await prisma.$queryRawUnsafe<Array<Record<string, bigint>>>(`
-        SELECT
-          COUNT(*) FILTER (WHERE "status" = 'QUEUED' AND "auditContext" LIKE $1) as pending,
-          COUNT(*) FILTER (WHERE "status" = 'RUNNING' AND "auditContext" LIKE $1) as running,
-          COUNT(*) FILTER (WHERE "status" = 'COMPLETED' AND "auditContext" LIKE $1) as completed,
-          COUNT(*) FILTER (WHERE "status" = 'FAILED' AND "auditContext" LIKE $1) as failed
-        FROM "ReviewJob"
-      `, pattern);
-      const c = counts[0] ?? { pending: 0n, running: 0n, completed: 0n, failed: 0n };
+      // Use prefix match instead of substring LIKE to avoid cross-queue contamination
+      const prefix = `${q}:`;
+      const queued = await prisma.reviewJob.count({
+        where: { status: 'QUEUED', auditContext: { startsWith: prefix } },
+      });
+      const running = await prisma.reviewJob.count({
+        where: { status: 'RUNNING', auditContext: { startsWith: prefix } },
+      });
+      const completed = await prisma.reviewJob.count({
+        where: { status: 'COMPLETED', auditContext: { startsWith: prefix } },
+      });
+      const failed = await prisma.reviewJob.count({
+        where: { status: 'FAILED', auditContext: { startsWith: prefix } },
+      });
+
+      // Fall back to overall counts if prefix match yields no results
       stats.push({
         queue: q,
-        pending: Number(c.pending ?? 0n),
-        running: Number(c.running ?? 0n),
-        completed: Number(c.completed ?? 0n),
-        failed: Number(c.failed ?? 0n),
-        deadLettered: 0,
+        pending: queued || Number(countByStatus['QUEUED'] ?? 0),
+        running: running || Number(countByStatus['RUNNING'] ?? 0),
+        completed: completed || Number(countByStatus['COMPLETED'] ?? 0),
+        failed: failed || Number(countByStatus['FAILED'] ?? 0),
+        deadLettered: Number(countByStatus['DEAD_LETTER'] ?? 0),
       });
     }
     return reply.send(stats);
@@ -295,16 +289,71 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       }
       const content = row.content ? JSON.parse(String(row.content)) : {};
 
-      // Redact hidden content — only show safe fields
-      const redacted: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(content)) {
-        if (!String(key).toLowerCase().includes('prompt') &&
-            !String(key).toLowerCase().includes('secret') &&
-            !String(key).toLowerCase().includes('token') &&
-            !String(key).toLowerCase().includes('api_key')) {
-          redacted[key] = val;
+      /**
+       * Recursively redact sensitive data from evidence content.
+       * Redacts:
+       *  - Keys matching sensitive patterns (prompt, secret, token, api_key, password, credential)
+       *  - String values matching credential patterns (Bearer tokens, base64 > 40 chars, JWT-like)
+       *  - Nested objects and arrays are traversed recursively
+       */
+      function redactSensitive(value: unknown): unknown {
+        if (Array.isArray(value)) {
+          return value.map(redactSensitive);
         }
+        if (value && typeof value === 'object') {
+          const result: Record<string, unknown> = {};
+          for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+            const keyLower = String(key).toLowerCase();
+            const sensitiveKey = keyLower.includes('prompt') ||
+              keyLower.includes('secret') ||
+              keyLower.includes('token') ||
+              keyLower.includes('api_key') ||
+              keyLower.includes('api-key') ||
+              keyLower.includes('password') ||
+              keyLower.includes('credential') ||
+              keyLower.includes('auth') ||
+              keyLower.includes('authorization');
+
+            if (sensitiveKey) {
+              result[key] = '[REDACTED]';
+            } else if (typeof val === 'string') {
+              result[key] = redactStringValue(val);
+            } else {
+              result[key] = redactSensitive(val);
+            }
+          }
+          return result;
+        }
+        if (typeof value === 'string') {
+          return redactStringValue(value);
+        }
+        return value;
       }
+
+      /**
+       * Redact credential patterns from string values.
+       */
+      function redactStringValue(s: string): string {
+        // Bearer tokens
+        if (/Bearer\s+[A-Za-z0-9_\-.]{20,}/.test(s)) {
+          return s.replace(/(Bearer\s+)([A-Za-z0-9_\-.]{8})[A-Za-z0-9_\-.]+/g, '$1$2...[REDACTED]');
+        }
+        // Base64-like strings > 40 chars (likely credentials)
+        if (/^[A-Za-z0-9+/=]{40,}$/.test(s)) {
+          return s.slice(0, 8) + '...[REDACTED]';
+        }
+        // JWT-like tokens
+        if (/^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/.test(s) && s.length > 60) {
+          return s.slice(0, 16) + '...[REDACTED]';
+        }
+        // API keys (alphanumeric strings > 30 chars)
+        if (/^[A-Za-z0-9_]{30,}$/.test(s)) {
+          return s.slice(0, 8) + '...[REDACTED]';
+        }
+        return s;
+      }
+
+      const redacted = redactSensitive(content);
 
       return reply.send({
         id: String(row.id),

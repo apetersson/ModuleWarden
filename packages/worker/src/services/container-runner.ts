@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
+import { logger } from '@modulewarden/shared/services/logger';
 
 const execAsync = promisify(execCb);
 
@@ -111,13 +112,12 @@ export class ContainerRunner {
     const outputDir = join(workspacePath, 'output');
     mkdirSync(outputDir, { recursive: true });
 
-    // 2. Write run configuration
+    // 2. Write run configuration (S-4: rpcToken omitted — passed via MW_RPC_TOKEN env var)
     const configPath = join(workspacePath, 'run-config.json');
     writeFileSync(configPath, JSON.stringify({
       rpcPort: inputs.rpcPort,
       packageName: inputs.packageName,
       packageVersion: inputs.packageVersion,
-      rpcToken: inputs.rpcToken,
     }, null, 2));
 
     // Write run instructions if provided
@@ -240,7 +240,9 @@ export class ContainerRunner {
       if (exitCode === null) {
         try {
           await execAsync(`docker kill ${containerId}`);
-        } catch { /* ignore kill errors */ }
+        } catch (err) {
+          logger.warn('Container kill failed (best-effort)', { containerId, error: err instanceof Error ? err.message : String(err) });
+        }
         // Get final state after kill
         try {
           const { stdout } = await execAsync(
@@ -249,7 +251,9 @@ export class ContainerRunner {
           const finalState = JSON.parse(stdout);
           exitCode = finalState.ExitCode;
           signal = finalState.Signal;
-        } catch { /* container may have crashed */ }
+        } catch (err) {
+          logger.warn('Container inspect failed (may have crashed)', { containerId, error: err instanceof Error ? err.message : String(err) });
+        }
       }
 
       try {
@@ -259,7 +263,9 @@ export class ContainerRunner {
           stdio: 'pipe',
         });
         writeFileSync(join(outputDir, 'container.log'), logs);
-      } catch { /* preserve audit result even if log capture fails */ }
+      } catch (err) {
+        logger.warn('Container log capture failed (preserving audit result)', { containerId, error: err instanceof Error ? err.message : String(err) });
+      }
 
       // 7. Capture evidence artifacts from workspace/output
       const evidenceArtifacts: string[] = [];
@@ -275,7 +281,9 @@ export class ContainerRunner {
           try {
             execSync(`cp "${file}" "${destPath}"`, { stdio: 'pipe' });
             evidenceArtifacts.push(destPath);
-          } catch { /* skip if file disappeared */ }
+          } catch (err) {
+            logger.warn('Failed to copy artifact from container (file may have disappeared)', { containerId, path, error: err instanceof Error ? err.message : String(err) });
+          }
         }
       }
 
@@ -343,6 +351,9 @@ export class ContainerRunner {
   }
 
   private redactArchivedRunConfig(archivePath: string): void {
+    // S-4: rpcToken is no longer written to new run-config.json.
+    // This function handles backward compatibility with archived workspaces
+    // that may still contain the legacy token field.
     const configPath = join(archivePath, 'run-config.json');
     if (!existsSync(configPath)) return;
 
@@ -350,8 +361,8 @@ export class ContainerRunner {
       const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
       if ('rpcToken' in config) {
         config.rpcToken = '[redacted-after-run]';
+        writeFileSync(configPath, JSON.stringify(config, null, 2));
       }
-      writeFileSync(configPath, JSON.stringify(config, null, 2));
     } catch {
       // Preserve the session even if redaction cannot parse the config.
     }

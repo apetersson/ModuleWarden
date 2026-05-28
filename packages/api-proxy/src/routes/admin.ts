@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma, createOverride, listActiveOverrides, deactivateOverride } from '@modulewarden/prisma-client';
+import { checkAdmin } from '../middleware/auth.js';
 
 interface OverrideBody {
   packageName: string;
@@ -16,31 +17,6 @@ interface OverrideBody {
  * Only accessible with security-admin tokens.
  */
 export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
-  // Auth middleware helper
-  function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      reply.status(401).send({ error: 'Authentication required' });
-      return false;
-    }
-
-    const token = authHeader.slice(7);
-    // H-2: Use MW_AUTH_ADMIN_TOKENS (matching config) and fail closed
-    const adminEnv = process.env.MW_AUTH_ADMIN_TOKENS;
-    if (!adminEnv) {
-      reply.status(503).send({ error: 'Admin auth not configured: set MW_AUTH_ADMIN_TOKENS' });
-      return false;
-    }
-    const adminTokens = adminEnv.split(',');
-
-    if (!adminTokens.includes(token)) {
-      reply.status(403).send({ error: 'Forbidden: admin token required' });
-      return false;
-    }
-
-    return true;
-  }
-
   /**
    * POST /admin/override — Create a security-admin override.
    */
@@ -63,43 +39,66 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'targetVerdict must be ALLOW, BLOCK, or QUARANTINE' });
       }
 
+      // Input validation for scope, packageName, version, reason (QUAL-06)
+      if (scope && !['SPECIFIC_VERSION', 'PACKAGE', 'PROJECT', 'GLOBAL'].includes(scope)) {
+        return reply.status(400).send({ error: 'scope must be SPECIFIC_VERSION, PACKAGE, PROJECT, or GLOBAL' });
+      }
+
+      if (!/^@?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
+        return reply.status(400).send({ error: 'Invalid package name format. Must be a valid npm package name.' });
+      }
+
+      if (!/^\d+\.\d+\.\d+/.test(version)) {
+        return reply.status(400).send({ error: 'Invalid version format. Must be a valid semver (e.g. 1.0.0).' });
+      }
+
+      if (reason.length < 10) {
+        return reply.status(400).send({ error: 'Reason must be at least 10 characters.' });
+      }
+
+      if (reason.length > 2000) {
+        return reply.status(400).send({ error: 'Reason must not exceed 2000 characters.' });
+      }
+
       const prisma = getPrisma();
 
       // Find the specific package version
-      const where = tarballHash
-        ? {
-            packageName_version_registrySource_tarballHash: {
-              packageName,
-              version,
-              registrySource: 'npm',
-              tarballHash,
-            } as const,
-          }
-        : {
-            packageName_version_registrySource_tarballHash: {
-              packageName,
-              version,
-              registrySource: 'npm',
-              tarballHash: '',
-            } as const,
-          };
-
       let pv = tarballHash
-        ? await prisma.packageVersion.findUnique({ where: where as any })
+        ? await prisma.packageVersion.findUnique({
+            where: {
+              packageName_version_registrySource_tarballHash: {
+                packageName,
+                version,
+                registrySource: 'npm',
+                tarballHash,
+              },
+            },
+          })
         : await prisma.packageVersion.findFirst({
             where: { packageName, version, registrySource: 'npm' },
             orderBy: { createdAt: 'desc' },
           });
 
       // Create the package version record if it doesn't exist
-      pv ??= await prisma.packageVersion.create({
-        data: {
-          packageName,
-          version,
-          registrySource: 'npm',
-          tarballHash: tarballHash ?? `override:${packageName}:${version}`,
-        },
-      });
+      // L-3: Reject if no tarballHash provided and no existing record found.
+      // Synthetic hashes create orphan records that never match real tarballs.
+      if (!pv) {
+        if (!tarballHash) {
+          return reply.status(400).send({
+            error: 'tarballHash is required',
+            reason: 'Package version not found and no tarball hash was provided. ' +
+              'Specify the tarballHash to create an override for this version.',
+          });
+        }
+        pv = await prisma.packageVersion.create({
+          data: {
+            packageName,
+            version,
+            registrySource: 'npm',
+            tarballHash,
+          },
+        });
+      }
 
       // Find the latest decision for this version
       const latestDecision = await prisma.decision.findFirst({
@@ -133,13 +132,24 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         },
       });
 
-      // Create the override record
+      // Extract token identity from the auth header for audit trail (O-3)
+      const authHeader = request.headers.authorization;
+      const tokenPrefix = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7, 15) + '…'
+        : 'unknown';
+      const clientIp = request.ip;
+      const userAgent = request.headers['user-agent'] ?? 'unknown';
+
+      // Augment reason with metadata for audit trail (O-3)
+      const auditReason = `${reason} [admin:${tokenPrefix}, ip:${clientIp}, ua:${(userAgent as string).slice(0, 80)}]`;
+
+      // Create the override record with audit trail metadata
       const override = await createOverride({
         decisionId: decision.id,
-        adminIdentity: 'admin', // Extracted from token context in production
+        adminIdentity: tokenPrefix,
         scope,
         targetVerdict,
-        reason,
+        reason: auditReason,
         ...((supersedesDecisionId ?? latestDecision?.id)
           ? { supersedesDecisionId: supersedesDecisionId ?? latestDecision!.id }
           : {}),

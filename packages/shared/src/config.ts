@@ -50,8 +50,14 @@ export interface ModuleWardenConfig {
 }
 
 export function buildPostgresConnectionString(config: ModuleWardenConfig, includeSchema = false): string {
-  const baseUrl = `postgresql://${config.postgres.user}:${config.postgres.password}` +
-    `@${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`;
+  // S-6: Use PGPASSWORD env var if available to avoid embedding the password
+  // in the connection URI (visible via /proc/<pid>/cmdline on Linux).
+  // Prisma and pg-boss both respect PGPASSWORD from the environment.
+  const pgPassword = process.env.PGPASSWORD ?? config.postgres.password;
+  const userInfo = pgPassword === process.env.PGPASSWORD
+    ? config.postgres.user  // PGPASSWORD is set separately, omit from URI
+    : `${config.postgres.user}:${pgPassword}`;
+  const baseUrl = `postgresql://${userInfo}@${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`;
 
   if (!includeSchema) {
     return baseUrl;
@@ -89,6 +95,7 @@ function readRequiredString(name: string): string {
 
 /**
  * Read a required comma-separated list env var. At least one value required.
+ * Each value must be at least 16 characters and contain only URL-safe characters.
  */
 function readRequiredList(name: string): string[] {
   const raw = readRequiredString(name);
@@ -98,6 +105,20 @@ function readRequiredList(name: string): string[] {
       `${name} is set but contains no valid comma-separated values. ` +
       `Provide at least one token.`
     );
+  }
+  for (const val of values) {
+    if (val.length < 16) {
+      throw new Error(
+        `${name} value "${val.slice(0, 8)}…" is too short. ` +
+        `Each token must be at least 16 characters.`
+      );
+    }
+    if (!/^[A-Za-z0-9_\-]+$/.test(val)) {
+      throw new Error(
+        `${name} value "${val.slice(0, 8)}…" contains invalid characters. ` +
+        `Only alphanumeric, underscore, and hyphen are allowed.`
+      );
+    }
   }
   return values;
 }

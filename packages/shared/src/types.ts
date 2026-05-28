@@ -1,5 +1,20 @@
 export type Verdict = 'allow' | 'block' | 'quarantine';
 
+/**
+ * Canonical job type names for use with pg-boss queues.
+ * Import this constant instead of using magic strings.
+ */
+export const JOB_TYPES: Record<string, JobType> = {
+  PACKAGE_REVIEW: 'package-review',
+  UPSTREAM_SUBSCRIPTION_POLL: 'upstream-subscription-poll',
+  AUDIT_CONTAINER_EXEC: 'audit-container-exec',
+  MODEL_ESCALATION: 'model-escalation',
+  RE_AUDIT_CAMPAIGN: 're-audit-campaign',
+  EVIDENCE_POST_PROCESS: 'evidence-post-process',
+  VERDACCIO_PROMOTION: 'verdaccio-promotion',
+  PROJECT_READY: 'project-ready',
+} as const;
+
 export type JobType =
   | 'package-review'
   | 'upstream-subscription-poll'

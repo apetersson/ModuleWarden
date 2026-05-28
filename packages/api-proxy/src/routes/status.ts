@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { requireAnyAuth } from '../middleware/auth.js';
 import { getStatusInfo } from '../services/policy.js';
 
 interface StatusParams {
@@ -16,9 +17,9 @@ interface ExplainParams {
  */
 export async function registerStatusRoutes(app: FastifyInstance): Promise<void> {
   /**
-   * GET /status — List all packages with their status.
+   * GET /status — List all packages with their status. (A-2: requires auth)
    */
-  app.get('/status', async (_request, reply) => {
+  app.get('/status', { preHandler: [requireAnyAuth] }, async (_request, reply) => {
     const prisma = (await import('@modulewarden/prisma-client')).getPrisma();
     const packages = await prisma.packageVersion.findMany({
       distinct: ['packageName'],
@@ -37,10 +38,10 @@ export async function registerStatusRoutes(app: FastifyInstance): Promise<void> 
   });
 
   /**
-   * GET /status/:package — Get status of all known versions of a package.
+   * GET /status/:package — Get status of all known versions of a package. (A-2: requires auth)
    */
   app.get<{ Params: StatusParams }>(
-    '/status/:package',
+    '/status/:package', { preHandler: [requireAnyAuth] },
     async (request: FastifyRequest<{ Params: StatusParams }>, reply: FastifyReply) => {
       const packageName = request.params.package;
 
@@ -77,10 +78,10 @@ export async function registerStatusRoutes(app: FastifyInstance): Promise<void> 
   );
 
   /**
-   * GET /status/:package/:version — Get detailed status for a specific version.
+   * GET /status/:package/:version — Get detailed status for a specific version. (A-2: requires auth)
    */
   app.get<{ Params: ExplainParams }>(
-    '/status/:package/:version',
+    '/status/:package/:version', { preHandler: [requireAnyAuth] },
     async (request: FastifyRequest<{ Params: ExplainParams }>, reply: FastifyReply) => {
       const { package: packageName, version } = request.params;
 
@@ -98,10 +99,10 @@ export async function registerStatusRoutes(app: FastifyInstance): Promise<void> 
   );
 
   /**
-   * GET /explain/:package/:version — Alias for /status/:package/:version
+   * GET /explain/:package/:version — Alias for /status/:package/:version (A-2: requires auth)
    */
   app.get<{ Params: ExplainParams }>(
-    '/explain/:package/:version',
+    '/explain/:package/:version', { preHandler: [requireAnyAuth] },
     async (request: FastifyRequest<{ Params: ExplainParams }>, reply: FastifyReply) => {
       const { package: packageName, version } = request.params;
 

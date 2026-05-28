@@ -117,18 +117,36 @@ function decisionKey(version: string, tarballHash: string): string {
 }
 
 /**
- * Simple semver sort (descending) for finding the highest version.
+ * Parse a semver string into numeric parts and pre-release (L-4).
+ */
+function parseSemver(v: string): { major: number; minor: number; patch: number; preRelease: string | null } {
+  const cleaned = v.replace(/^[vV]/, '');
+  const preReleaseMatch = cleaned.match(/-([a-zA-Z0-9.]+)/);
+  const preRelease = preReleaseMatch?.[1] ?? null;
+  const matchIdx = preReleaseMatch?.index;
+  const numeric = preRelease != null && matchIdx != null ? cleaned.slice(0, matchIdx) : cleaned;
+  const parts = numeric.split('.').map(Number);
+  while (parts.length < 3) parts.push(0);
+  return { major: parts[0] ?? 0, minor: parts[1] ?? 0, patch: parts[2] ?? 0, preRelease };
+}
+
+/**
+ * Proper semver sort (descending) that handles pre-release suffixes (L-4).
  */
 function semverSortDesc(a: string, b: string): number {
-  // Strip pre-release suffix, compare numeric parts (M-5)
-  const cleanA = a.replace(/-.*$/, '');
-  const cleanB = b.replace(/-.*$/, '');
-  const pa = cleanA.split('.').map(Number);
-  const pb = cleanB.split('.').map(Number);
-  const maxLen = Math.max(pa.length, pb.length);
-  for (let i = 0; i < maxLen; i++) {
-    const diff = (pb[i] || 0) - (pa[i] || 0);
-    if (diff !== 0) return diff;
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+
+  if (pa.major !== pb.major) return pb.major - pa.major;
+  if (pa.minor !== pb.minor) return pb.minor - pa.minor;
+  if (pa.patch !== pb.patch) return pb.patch - pa.patch;
+
+  // Same numeric version — release > pre-release, compare pre-release strings
+  if (pa.preRelease && !pb.preRelease) return -1; // b (release) sorts before a (pre-release)
+  if (!pa.preRelease && pb.preRelease) return 1;   // a (release) sorts before b (pre-release)
+  if (pa.preRelease && pb.preRelease) {
+    // Simple string comparison for pre-release identifiers
+    return pb.preRelease.localeCompare(pa.preRelease);
   }
   return 0;
 }

@@ -11,9 +11,11 @@
  */
 
 import Fastify, { type FastifyInstance } from 'fastify';
-import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { execSync, execFileSync } from 'node:child_process';
 import type {
   PackageInfoResponse,
   PredecessorDiffResponse,
@@ -35,9 +37,9 @@ import type {
 const PORT = parseInt(process.env.MW_RPC_PORT ?? '9090', 10);
 const HOST = process.env.MW_RPC_HOST ?? '127.0.0.1';
 const RPC_TOKEN = process.env.MW_RPC_TOKEN ?? '';
+const MW_API_TOKEN = process.env.MW_API_TOKEN ?? process.env.MW_RPC_TOKEN ?? ''; // Distinct token for outbound API calls; falls back to RPC token for backward compat
 const WORKSPACE = process.env.MW_WORKSPACE ?? '/workspace';
 const MW_API_BASE = process.env.MW_API_BASE ?? 'http://modulewarden-api:4000';
-const MW_API_TOKEN = RPC_TOKEN; // Same run-scoped token for API calls
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -153,63 +155,38 @@ function handleSourceMetadata(requestId: string): RpcToolResult {
 
 function handleStaticChecks(requestId: string): RpcToolResult {
   const packageDir = pkgDir();
-  const findings: StaticCheckResponse['findings'] = [];
-  const summary: StaticCheckResponse['summary'] = {
-    network: 'none', filesystem: 'none', process: 'none',
-    'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none',
-    obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none',
-  };
-  const suspiciousPatterns: string[] = [];
 
   if (!existsSync(packageDir)) {
     return {
       tool: 'static-checks', requestId, success: true,
-      data: { findings, summary, obfuscationDetected: false, suspiciousPatterns },
+      data: { findings: [], summary: {
+        network: 'none', filesystem: 'none', process: 'none',
+        'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none',
+        obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none',
+      }, obfuscationDetected: false, suspiciousPatterns: [] },
     };
   }
 
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) { if (entry.name !== 'node_modules') walk(full); }
-      else if (entry.isFile() && /\.(js|mjs|cjs|ts)$/i.test(entry.name)) {
-        try {
-          const content = readFileSync(full, 'utf-8');
-          const rel = full.replace(packageDir, '').replace(/^\//, '');
-          if (/(require\(['"](http|https|net|dgram)['"]\)|fetch\(|WebSocket)/.test(content)) {
-            findings.push({ category: 'network', severity: 'medium', description: 'Network access', files: [rel], evidence: ['HTTP/net module or fetch/WebSocket'] });
-            summary.network = 'medium';
-          }
-          if (/(require\(['"]fs['"]\)|\.writeFile(Sync)?\()/.test(content)) {
-            findings.push({ category: 'filesystem', severity: 'medium', description: 'Filesystem access', files: [rel], evidence: ['fs module or file write'] });
-            summary.filesystem = 'medium';
-          }
-          if (/(require\(['"]child_process['"]\)|\.exec\(|\.spawn\(|\.fork\()/.test(content)) {
-            findings.push({ category: 'process', severity: 'high', description: 'Process execution', files: [rel], evidence: ['child_process or exec/spawn/fork'] });
-            summary.process = 'high';
-          }
-          if (/(eval\(|Function\(|setTimeout\([^,)]*['"])/.test(content)) {
-            findings.push({ category: 'dynamic-code', severity: 'high', description: 'Dynamic code execution', files: [rel], evidence: ['eval/Function/setTimeout string'] });
-            summary['dynamic-code'] = 'high';
-          }
-          if (/\\x[0-9a-f]{2}|String\.fromCharCode|atob\(|btoa\(|0x[0-9a-f]{5,}/i.test(content)) {
-            summary.obfuscation = 'medium';
-            suspiciousPatterns.push(`Obfuscation in ${rel}`);
-          }
-        } catch { /* skip */ }
+  // Use shared AST-based capability extraction (ARCH-03)
+  const { findings: capFindings, summary } = extractCapabilities(packageDir);
+
+  const suspiciousPatterns: string[] = [];
+  for (const f of capFindings) {
+    if (f.category === 'obfuscation') {
+      for (const file of f.files) {
+        suspiciousPatterns.push(`Obfuscation in ${file}`);
       }
     }
-  };
-  walk(packageDir);
-
-  const pkg = readPackageJson();
-  if (pkg) {
-    const scripts = (pkg.scripts ?? {}) as Record<string, string>;
-    if (scripts.preinstall || scripts.install || scripts.postinstall) {
-      summary['install-time'] = 'high';
-      findings.push({ category: 'install-time', severity: 'high', description: 'Lifecycle scripts', files: ['package.json'], evidence: ['preinstall/install/postinstall defined'] });
-    }
   }
+
+  // Convert shared capability findings to RPC StaticCheckResponse format
+  const findings: StaticCheckResponse['findings'] = capFindings.map((f: CapabilityFinding) => ({
+    category: f.category,
+    severity: f.severity,
+    description: f.description,
+    files: f.files,
+    evidence: f.evidence,
+  }));
 
   return {
     tool: 'static-checks', requestId, success: true,
@@ -237,14 +214,22 @@ function handleSandboxExecute(requestId: string, params: SandboxExecuteParams): 
       case 'import':
         if (!params.moduleName) return { tool: 'sandbox-execute', requestId, success: false, error: 'moduleName required' };
         try {
-          stdout = execSync(`node -e "try { const m = require('${params.moduleName.replace(/'/g, "\\'")}'); console.log('Import OK:', typeof m); } catch(e) { console.error('Import failed:', e.message); }"`, { cwd: packageDir, encoding: 'utf-8', timeout: 30_000 });
+          // Use execFileSync with temp script to avoid shell injection
+          const tmpDir = mkdtempSync(join(tmpdir(), 'mw-import-'));
+          const scriptPath = join(tmpDir, 'import-check.mjs');
+          const safeModuleName = params.moduleName.replace(/[^a-zA-Z0-9_/@\-.]/g, '');
+          const importCode = safeModuleName.startsWith('node:')
+            ? `import { createRequire } from 'module'; const require = createRequire(import.meta.url); const m = require('${safeModuleName.replace(/'/g, "\\'")}'); console.log('Import OK:', typeof m);`
+            : `import m from '${safeModuleName.replace(/'/g, "\\'")}'; console.log('Import OK:', typeof (m?.default ?? m));`;
+          writeFileSync(scriptPath, importCode);
+          stdout = execFileSync('node', [scriptPath], { cwd: packageDir, encoding: 'utf-8', timeout: 30_000 });
           exitCode = 0;
         } catch (e) { stdout = String(e); exitCode = 1; }
         break;
       case 'run-script':
         if (!params.scriptName) return { tool: 'sandbox-execute', requestId, success: false, error: 'scriptName required' };
         try {
-          stdout = execSync(`npm run ${params.scriptName} 2>&1 || true`, { cwd: packageDir, encoding: 'utf-8', timeout: 60_000 });
+          stdout = execFileSync('npm', ['run', params.scriptName], { cwd: packageDir, encoding: 'utf-8', timeout: 60_000 });
           exitCode = 0;
         } catch (e) { stdout = String(e); exitCode = 1; }
         break;
@@ -397,7 +382,7 @@ async function main(): Promise<void> {
 }
 
 // Only start when run directly (not imported for tests)
-const isMainModule = process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('dist/index.js');
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMainModule) {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main();

@@ -104,6 +104,10 @@ model PackageVersion {
   reviewJobs            ReviewJob[]
   importedByProjects    ImportedPackageVersion[]
   predecessorOf         PackageVersion[] @relation("PredecessorLink")
+  // Decisions where this version's record is referenced as the predecessor version.
+  // Named "predecessorDecisions" per Prisma's convention from the Decision model's
+  // predecessorVersion field — these are decisions *made about successor versions*
+  // where this PackageVersion is the predecessor.
   predecessorDecisions  Decision[]       @relation("PredecessorDecision")
 
   @@unique([packageName, version, registrySource, tarballHash])
@@ -243,6 +247,7 @@ model ModelProfile {
   apiKeyHash String?
   temperature Float?
   maxTokens  Int?
+  active     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -261,6 +266,7 @@ model EvidenceArtifact {
   filePath      String?
   sizeBytes     Int?
   status        EvidenceStatus @default(ACTIVE)
+  schemaVersion Int      @default(1)
   supersedesEvidenceArtifactId String?
   createdAt     DateTime @default(now())
 

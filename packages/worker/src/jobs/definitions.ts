@@ -1,32 +1,5 @@
 import type { JobType, WorkerConfig } from '@modulewarden/shared/types';
-
-/**
- * All ModuleWarden job types with documentation.
- */
-export const JOB_TYPES: Record<string, JobType> = {
-  /** Review a new package version against its predecessor. */
-  PACKAGE_REVIEW: 'package-review',
-
-  /** Poll upstream registry for new versions of subscribed packages. */
-  UPSTREAM_SUBSCRIPTION_POLL: 'upstream-subscription-poll',
-
-  /** Execute a PI audit inside an isolated Docker container. */
-  AUDIT_CONTAINER_EXEC: 'audit-container-exec',
-
-  /** Escalate a first-pass audit to a more capable model pass. */
-  MODEL_ESCALATION: 'model-escalation',
-
-  /** Re-audit currently allowed versions after prompt/model/pattern changes. */
-  RE_AUDIT_CAMPAIGN: 're-audit-campaign',
-
-  /** Post-process evidence artifacts after an audit run completes. */
-  EVIDENCE_POST_PROCESS: 'evidence-post-process',
-
-  /** Promote an allowed package tarball into Verdaccio. */
-  VERDACCIO_PROMOTION: 'verdaccio-promotion',
-  /** Evaluate whether a project is fully reviewed and enable registry access. */
-  PROJECT_READY: 'project-ready',
-} as const;
+import { JOB_TYPES } from '@modulewarden/shared/types';
 
 /**
  * Default worker configuration for each job type.

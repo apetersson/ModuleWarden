@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { logger } from '@modulewarden/shared/services/logger';
 import { getEffectiveVerdictByHash } from '../services/decisions.js';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
@@ -130,7 +131,9 @@ export async function registerTarballRoute(
             registrySource: 'npm',
             tarballHash: resolvedHash,
             hasLifecycleScript: typeof versionData?.scripts === 'object' &&
-              Object.keys(versionData.scripts ?? {}).length > 0,
+              ['preinstall', 'install', 'postinstall', 'prepare'].some(
+                (hook) => (versionData.scripts as Record<string, string> | undefined)?.[hook]
+              ),
           },
           update: {},
           select: {
@@ -184,11 +187,21 @@ export async function registerTarballRoute(
         }
       }
 
-      // Version not found or no decision — enqueue review
+      // Version not found or no decision — reject if hash is unresolvable
+      if (!effectiveHash) {
+        return reply.status(502).send({
+          error: 'Backend unavailable',
+          reason: `Could not resolve integrity hash for ${packageName}@${version}. The upstream registry did not provide a valid integrity hash.`,
+          package: packageName,
+          requestedVersion: version,
+        } satisfies RegistryError);
+      }
+
+      // Enqueue review if hash was resolved
       let enqueued = false;
       if (pgBossSend) {
         const auditContext = `preflight:tarball:${packageName}@${version}`;
-        const tarballHash = effectiveHash || `unresolved:${packageName}@${version}`;
+        const tarballHash = effectiveHash;
         try {
           const jobId = await pgBossSend({
             packageName,
@@ -198,8 +211,12 @@ export async function registerTarballRoute(
             idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
           });
           enqueued = Boolean(jobId);
-        } catch {
-          // Queueing failure shouldn't crash the proxy
+        } catch (err) {
+          logger.warn('Failed to enqueue review job for tarball', {
+            packageName,
+            version,
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 

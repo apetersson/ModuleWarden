@@ -1,5 +1,6 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
+import { logger } from '@modulewarden/shared/services/logger';
 import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
@@ -92,7 +93,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
           packageTarballPath = streamPath;
         }
       }
-    } catch { /* tarball fetch is best-effort */ }
+    } catch (err) {
+      logger.warn('Tarball fetch failed (best-effort)', { packageName, packageVersion, error: err instanceof Error ? err.message : String(err) });
+    }
 
     // Try to fetch predecessor tarball
     if (predecessorHash) {
@@ -123,7 +126,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
             }
           }
         }
-      } catch { /* predecessor fetch is best-effort */ }
+      } catch (err) {
+        logger.warn('Predecessor fetch failed (best-effort)', { error: err instanceof Error ? err.message : String(err) });
+      }
     }
 
     // 4. Build container inputs with all available artifacts
@@ -230,22 +235,45 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
         data: { status: 'FAILED' },
       });
 
+      // O-2: Fire notification webhook for terminal failures
+      const webhookUrl = process.env.MW_FAILURE_WEBHOOK_URL;
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'audit_failed',
+              packageName,
+              packageVersion,
+              status: finalStatus,
+              error: result.error ?? 'Unknown error',
+              reviewJobId,
+              auditRunId: auditRun.id,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (err) {
+          logger.warn('Failed to send failure webhook', { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
       // Clean up workspace
       runner.cleanupWorkspace(result.workspacePath);
 
       throw new Error(result.error ?? `Audit container failed with status ${finalStatus}`);
     }
 
-    // Prevent regression: only transition to RUNNING if still QUEUED/PENDING
-    // (the /internal/verdict endpoint may have already set COMPLETED) (A-1)
+    // L-2: Proper state machine transition — transition from RUNNING to finalStatus
+    // unless the verdict endpoint already set COMPLETED/FAILED.
     const currentJob = await prisma.reviewJob.findUnique({
       where: { id: reviewJobId },
       select: { status: true },
     });
-    if (currentJob?.status === 'QUEUED' || currentJob?.status === 'PENDING') {
+    if (currentJob?.status === 'RUNNING') {
       await prisma.reviewJob.update({
         where: { id: reviewJobId },
-        data: { status: 'RUNNING' },
+        data: { status: finalStatus },
       });
     }
 

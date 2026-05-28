@@ -1,5 +1,5 @@
 import { getPrisma } from '../index.js';
-import type { ReviewJob } from '@prisma/client';
+import type { ReviewJob, JobStatus } from '@prisma/client';
 
 export interface ReviewJobInput {
   packageVersionId: string;
@@ -39,9 +39,9 @@ export async function getReviewJobByIdempotencyKey(key: string): Promise<ReviewJ
   return getPrisma().reviewJob.findUnique({ where: { idempotencyKey: key } });
 }
 
-export async function listReviewJobsByStatus(status: string): Promise<ReviewJob[]> {
+export async function listReviewJobsByStatus(status: JobStatus): Promise<ReviewJob[]> {
   return getPrisma().reviewJob.findMany({
-    where: { status: status as any },
+    where: { status },
     orderBy: { createdAt: 'asc' },
   });
 }

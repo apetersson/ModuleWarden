@@ -9,9 +9,12 @@
 
 import type { FastifyInstance } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { logger } from '@modulewarden/shared/services/logger';
+import { JOB_TYPES } from '@modulewarden/shared/types';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { shouldEscalateVerdict } from '../services/escalation.js';
 import type { PredecessorDiffResponse, WebSearchResponse } from '@modulewarden/shared/services/rpc-tools';
+import type { JobQueue } from '@modulewarden/worker/jobs/queue.js';
 import { createHash } from 'node:crypto';
 
 function hashToken(token: string): string {
@@ -36,7 +39,7 @@ async function findAuditRunByToken(token: string): Promise<{ id: string; reviewJ
  * Routes are registered inside a scoped plugin so that the auth hook
  * only applies to /internal/* paths (C-1).
  */
-export async function registerInternalRoutes(app: FastifyInstance): Promise<void> {
+export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQueue): Promise<void> {
   await app.register(async function internalScope(scoped: FastifyInstance) {
     // Routes inside this plugin get /internal/ prefix via app.register's prefix option
     // ── Auth middleware (scoped to /internal/* only) ──────────
@@ -109,18 +112,12 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
 
       const predecessorPv = predecessors[0] ?? null;
 
-      if (!predecessorPv) {
-        return reply.send({
-          hasPredecessor: false,
-          fileDiff: { added: [], removed: [], changed: [], totalAddedBytes: 0, totalRemovedBytes: 0 },
-          dependencyDiff: { added: {}, removed: {}, changed: {} },
-          lifecycleScriptDiff: { added: [], removed: [], changed: [] },
-          capabilityDelta: [],
-        } satisfies PredecessorDiffResponse);
-      }
-
+      // L-1: Predecessor diff computation not yet implemented.
+      // Return hasPredecessor=false so PI applies cold-start conservative standards
+      // instead of believing it has predecessor context.
+      // Once actual tarball diff computation is implemented, remove this override.
       return reply.send({
-        hasPredecessor: true,
+        hasPredecessor: false,
         fileDiff: { added: [], removed: [], changed: [], totalAddedBytes: 0, totalRemovedBytes: 0 },
         dependencyDiff: { added: {}, removed: {}, changed: {} },
         lifecycleScriptDiff: { added: [], removed: [], changed: [] },
@@ -147,7 +144,9 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
                 source: 'npm',
               });
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            logger.warn('Web search upstream fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
         }
 
         if (!sources || sources.includes('advisories')) {
@@ -166,7 +165,9 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
                 });
               }
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            logger.warn('Web search advisory fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
         }
 
         return reply.send({ results } satisfies WebSearchResponse);
@@ -224,7 +225,12 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
 
       const reviewJob = await prisma.reviewJob.findUnique({
         where: { id: reviewJobId },
-        select: { packageVersionId: true, id: true, status: true },
+        select: {
+          packageVersionId: true, id: true, status: true,
+          packageVersion: {
+            select: { packageName: true, version: true, tarballHash: true },
+          },
+        },
       });
 
       if (!reviewJob) {
@@ -247,6 +253,26 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
         },
         select: { id: true },
       });
+
+      // A-4: Enqueue verdaccio promotion when verdict is ALLOW
+      const verdictUpper = verdict.toUpperCase();
+      if (verdictUpper === 'ALLOW' && queue && reviewJob.packageVersion) {
+        const { packageName, version: pkgVersion, tarballHash } = reviewJob.packageVersion;
+        try {
+          await queue.send('verdaccio-promotion', {
+            decisionId: decision.id,
+            packageName,
+            packageVersion: pkgVersion,
+            tarballHash,
+          });
+          logger.info('Promotion enqueued for ALLOWed package', { packageName, packageVersion: pkgVersion });
+        } catch (err) {
+          logger.warn('Failed to enqueue promotion', {
+            packageName,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       await prisma.auditRun.update({
         where: { id: auditRunId },
@@ -271,7 +297,21 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
               labeledBy: 'system',
             },
           });
-        } catch { /* best-effort */ }
+
+          // L-5: Enqueue actual model-escalation job for second-pass review
+          if (queue && reviewJob.packageVersion) {
+            await queue.send('model-escalation', {
+              reviewJobId: reviewJob.id,
+              evidenceBundleId: auditRunId, // Use auditRunId as evidence bundle identifier
+            });
+            logger.info('Model escalation enqueued', { reviewJobId: reviewJob.id });
+          }
+        } catch (err) {
+            logger.warn('Failed to process escalation', {
+              decisionId: decision.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
       }
 
       return reply.status(201).send({ decisionId: decision.id, success: true, needsEscalation });
