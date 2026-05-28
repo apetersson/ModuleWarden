@@ -52,15 +52,9 @@ function StatusPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      // Fetch all package statuses via the explain endpoint listing
-      // (In v1, this uses the status route for individual packages.
-      // A bulk status endpoint can be added in a later iteration.)
-      try {
-        const resp = await fetch(`${API_BASE}/health`);
-        if (resp.ok) {
-          setPackages([]); // No bulk status endpoint yet
-        }
-      } catch { /* */ }
+      const resp = await fetch(`${API_BASE}/health`);
+      if (resp.ok) {
+        setPackages([]);
       }
     } catch { /* server may not be running */ }
     setLoading(false);
@@ -73,7 +67,7 @@ function StatusPage() {
   }, [fetchStatus]);
 
   const filtered = filter
-    ? packages.filter((p) =>
+    ? packages.filter((p: PackageStatus) =>
         p.packageName.toLowerCase().includes(filter.toLowerCase()) ||
         p.version.includes(filter)
       )

@@ -25,7 +25,13 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const token = authHeader.slice(7);
-    const adminTokens = (process.env.MW_ADMIN_TOKENS ?? 'mw-admin-token-change-me').split(',');
+    // H-2: Use MW_AUTH_ADMIN_TOKENS (matching config) and fail closed
+    const adminEnv = process.env.MW_AUTH_ADMIN_TOKENS;
+    if (!adminEnv) {
+      reply.status(503).send({ error: 'Admin auth not configured: set MW_AUTH_ADMIN_TOKENS' });
+      return false;
+    }
+    const adminTokens = adminEnv.split(',');
 
     if (!adminTokens.includes(token)) {
       reply.status(403).send({ error: 'Forbidden: admin token required' });

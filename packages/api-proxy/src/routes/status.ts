@@ -16,6 +16,27 @@ interface ExplainParams {
  */
 export async function registerStatusRoutes(app: FastifyInstance): Promise<void> {
   /**
+   * GET /status — List all packages with their status.
+   */
+  app.get('/status', async (_request, reply) => {
+    const prisma = (await import('@modulewarden/prisma-client')).getPrisma();
+    const packages = await prisma.packageVersion.findMany({
+      distinct: ['packageName'],
+      select: { packageName: true, version: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const result = await Promise.all(
+      packages.map(async (p) => {
+        const info = await getStatusInfo(p.packageName, p.version);
+        return { ...info, updatedAt: p.createdAt.toISOString() };
+      })
+    );
+
+    return reply.send({ packages: result });
+  });
+
+  /**
    * GET /status/:package — Get status of all known versions of a package.
    */
   app.get<{ Params: StatusParams }>(

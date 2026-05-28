@@ -62,39 +62,58 @@ async function cmdStatus(args: string[]): Promise<void> {
   }
 }
 
+function parsePackageArg(arg: string): { name: string; version?: string } | null {
+  // Scoped packages: @scope/name@version (H-1)
+  // Unscoped: name@version
+  // Split on the LAST @ only (after the scope @)
+  if (!arg) return null;
+  if (arg.startsWith('@')) {
+    // @scope/name@version -> ['@scope/name', 'version'] or ['@scope/name']
+    const atIndex = arg.indexOf('@', 1);
+    if (atIndex === -1) return { name: arg };
+    return { name: arg.slice(0, atIndex), version: arg.slice(atIndex + 1) };
+  }
+  const parts = arg.split('@');
+  if (parts.length === 1) return { name: arg };
+  return { name: parts[0], version: parts.slice(1).join('@') };
+}
+
 async function cmdExplain(args: string[]): Promise<void> {
   const pkgArg = args[0];
-  if (!pkgArg || !pkgArg.includes('@')) {
+  const parsed = parsePackageArg(pkgArg);
+  if (!parsed || !parsed.version) {
     console.error('Usage: modulewarden explain <package>@<version>');
+    console.error('Examples:');
+    console.error('  modulewarden explain lodash@4.17.21');
+    console.error('  modulewarden explain @babel/core@7.21.0');
     process.exit(1);
   }
-  const [name, version] = pkgArg.split('@');
 
   try {
-    const resp = await fetch(`${API_BASE}/status/${encodeURIComponent(name)}`, {
+    // API uses /explain/:package/:version (two path segments)
+    const explainResp = await fetch(
+      `${API_BASE}/explain/${encodeURIComponent(parsed.name)}/${encodeURIComponent(parsed.version)}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
+      }
+    );
+    if (explainResp.ok) {
+      const explainData = await explainResp.json();
+      console.log(JSON.stringify(explainData, null, 2));
+      return;
+    }
+
+    // Fallback: try status
+    const resp = await fetch(`${API_BASE}/status/${encodeURIComponent(parsed.name)}`, {
       headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
     });
     if (!resp.ok) {
       console.error(`Error: ${resp.status} ${resp.statusText}`);
+      const body = await resp.text().catch(() => '');
+      if (body) console.error(body.slice(0, 300));
       process.exit(1);
     }
     const data = await resp.json();
-
-    if (version && version !== data.version) {
-      // Try the explain endpoint
-      const explainResp = await fetch(
-        `${API_BASE}/explain/${encodeURIComponent(name)}@${encodeURIComponent(version)}`,
-        {
-          headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
-        }
-      );
-      if (explainResp.ok) {
-        const explainData = await explainResp.json();
-        console.log(JSON.stringify(explainData, null, 2));
-        return;
-      }
-    }
-
     console.log(JSON.stringify(data, null, 2));
   } catch (err) {
     console.error(`Failed to reach ModuleWarden API:`, err instanceof Error ? err.message : String(err));

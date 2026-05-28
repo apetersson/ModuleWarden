@@ -45,11 +45,6 @@ export async function getDecisionsForVersions(
       tarballHash: pv.tarballHash,
     };
     decisions.set(decisionKey(pv.version, pv.tarballHash), value);
-    // fallback key by version remains for compatibility with code paths that do not
-    // yet pass the exact hash through.
-    if (!decisions.has(pv.version)) {
-      decisions.set(pv.version, value);
-    }
   }
 
   return decisions;
