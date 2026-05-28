@@ -21,7 +21,9 @@
     "./services/capability-extract": "./src/services/capability-extract.ts",
     "./services/evidence-bundle": "./src/services/evidence-bundle.ts",
     "./services/rpc-tools": "./src/services/rpc-tools.ts",
-    "./services/capability-delta": "./src/services/capability-delta.ts"
+    "./services/capability-delta": "./src/services/capability-delta.ts",
+    "./services/evaluation-corpus": "./src/services/evaluation-corpus.ts",
+    "./services/evaluation-runner": "./src/services/evaluation-runner.ts"
   },
   "dependencies": {
     "js-yaml": "^4.1.1"
