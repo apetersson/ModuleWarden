@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 20:01'
-updated_date: '2026-05-27 20:03'
+updated_date: '2026-05-28 10:25'
 labels:
   - review
 dependencies: []
@@ -37,10 +37,14 @@ Thoroughly review the 4 completed tasks (TASK-1.1, 1.2, 1.3, 1.16) for correctne
 - All packages typecheck clean (shared, api-proxy, cli, worker)
 
 - Prisma schema validates, Docker Compose config validates, pnpm install clean
+
+Expanded review to remaining completed tasks (TASK-1.4, 1.5, 1.6, 1.10) -- all clean. Fixed tarball route upstream fetch and Verdaccio proxy missing error handling (502 instead of crash 500). Fixed capability.test.ts typecheck (missing as const on summary literals). Built Docker audit-runner image. All 102 tests pass, all packages typecheck clean.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Thorough review of 4 completed tasks (TASK-1.1/1.2/1.3/1.16). Found and fixed pg-boss test singleton key collision bug: singleton keys with 24h window caused dedup collisions across test runs. Fixed by adding per-run unique RUN_ID to test keys. All 19 tests pass, all packages typecheck, Prisma schema valid, Docker Compose valid. Advisor sign-off obtained after fix.
+
+Expanded review to TASK-1.4 (npm proxy), 1.5 (lockfile import), 1.6 (audit runner), 1.10 (verdict policy). Found and fixed: tarball route upstream fetch lacked try/catch (unhandled 500 on upstream failure), Verdaccio proxy fetch likewise unguarded. Both now return 502. Fixed capability.test.ts typecheck (missing as const on CapabilityReport summary literals). Built modulewarden-audit-runner Docker image. Full test suite: 102 tests pass across 5 packages, all packages typecheck clean.
 <!-- SECTION:FINAL_SUMMARY:END -->
