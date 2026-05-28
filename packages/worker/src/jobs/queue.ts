@@ -289,6 +289,41 @@ export class JobQueue {
     deadLetter: boolean
   ): Promise<void> {
     const status = deadLetter ? 'DEAD_LETTER' : 'FAILED';
+    await this.updateReviewJobFailureState(reviewJobId, status, failureReason);
+  }
+
+  /**
+   * Cancel a queued/active job and persist cancellation context on the review row.
+   */
+  async cancelJob<T extends JobType>(name: T, jobId: string): Promise<boolean> {
+    const job = await this.boss.getJobById(name as string, jobId);
+    if (!job) {
+      return false;
+    }
+
+    const payload = job.data as { reviewJobId?: string };
+    const reviewJobId = payload?.reviewJobId;
+
+    await this.boss.cancel(name as string, jobId);
+
+    if (reviewJobId) {
+      await this.updateReviewJobFailureState(reviewJobId, 'CANCELLED', 'Job cancelled before completion');
+      await this.persistFailureContext({
+        reviewJobId,
+        name,
+        jobId,
+        error: 'job cancelled before completion',
+      });
+    }
+
+    return true;
+  }
+
+  private async updateReviewJobFailureState(
+    reviewJobId: string,
+    status: 'FAILED' | 'DEAD_LETTER' | 'CANCELLED',
+    failureReason: string
+  ): Promise<void> {
     const prisma = getPrisma();
 
     const existing = await prisma.reviewJob.findUnique({

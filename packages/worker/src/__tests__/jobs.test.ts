@@ -778,6 +778,63 @@ beforeAll(async () => {
     }
   });
 
+  it('16c. persists cancellation context for review jobs', async () => {
+    if (!hasFailureReasonColumn) {
+      return;
+    }
+
+    const prisma = getPrisma();
+    const packageVersion = await prisma.packageVersion.create({
+      data: {
+        packageName: `cancel-${RUN_ID}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-cancel-${RUN_ID}`,
+      },
+    });
+
+    const reviewJobId = await createReviewJobRow(
+      packageVersion.id,
+      `manual:cancel-${packageVersion.packageName}`,
+      'MANUAL',
+      `cancel-${packageVersion.packageName}`
+    );
+
+    await queue.work('model-escalation', async () => {
+      await sleep(5000);
+    }, 1);
+
+    const queuedJobId = await queue.enqueueModelEscalation(reviewJobId, `evidence-cancel-${RUN_ID}`);
+    expect(queuedJobId).toBeTruthy();
+
+    const cancelled = await queue.cancelJob('model-escalation', queuedJobId!);
+    expect(cancelled).toBe(true);
+
+    let cancellationStatus = '';
+    for (let i = 0; i < 12; i++) {
+      const latest = await getReviewJobStatus(reviewJobId, true);
+      if (latest?.status === 'CANCELLED') {
+        cancellationStatus = latest.status;
+        break;
+      }
+      await sleep(250);
+    }
+
+    const cancelledRow = await getReviewJobStatus(reviewJobId, true);
+    expect(cancelledRow?.status).toBe('CANCELLED');
+    expect(cancelledRow?.failureReason ?? '').toContain('Job cancelled before completion');
+    expect(cancellationStatus).toBe('CANCELLED');
+
+    const cancelRun = await prisma.auditRun.findFirst({
+      where: { reviewJobId },
+    });
+    expect(cancelRun).toBeDefined();
+    expect(cancelRun?.errorMessage).toContain('job cancelled before completion');
+
+    await deleteReviewJobs([reviewJobId]);
+    await prisma.packageVersion.delete({ where: { id: packageVersion.id } }).catch(() => undefined);
+  });
+
   it('17. keeps stale promotion requests from promoting older decisions after retries', async () => {
     if (!hasFailureReasonColumn) {
       return;
