@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 12:43'
+updated_date: '2026-05-28 12:47'
 labels:
   - web-ui
   - admin-dashboard
@@ -38,10 +38,10 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Dashboard has kanban-style columns for requested/submitted, queued, running, needs escalation, quarantined, blocked, allowed, promotion pending, promoted, failed, and superseded audit runs.
-- [ ] #2 Each audit-run card shows package name/version, tarball hash or integrity, trigger source (tarball fetch, CLI preflight/request, subscription poll, prompt/model/pattern re-audit, admin action, evaluation replay), requesting project/user when known, current job state, age, retry count, risk summary, predecessor/baseline, and used-by/reach counts.
-- [ ] #3 Queue and audit-run views are derived from typed ModuleWarden API endpoints backed by Prisma and pg-boss state, with no direct browser access to Postgres, pg-boss internals, Verdaccio admin APIs, or worker-only credentials.
-- [ ] #4 The API exposes dashboard-ready read models for audit submissions, review jobs, audit container runs, pg-boss job status, model escalation jobs, evidence post-processing, Verdaccio promotion jobs, and re-audit campaigns.
+- [x] #1 Dashboard has kanban-style columns for requested/submitted, queued, running, needs escalation, quarantined, blocked, allowed, promotion pending, promoted, failed, and superseded audit runs.
+- [x] #2 Each audit-run card shows package name/version, tarball hash or integrity, trigger source (tarball fetch, CLI preflight/request, subscription poll, prompt/model/pattern re-audit, admin action, evaluation replay), requesting project/user when known, current job state, age, retry count, risk summary, predecessor/baseline, and used-by/reach counts.
+- [x] #3 Queue and audit-run views are derived from typed ModuleWarden API endpoints backed by Prisma and pg-boss state, with no direct browser access to Postgres, pg-boss internals, Verdaccio admin APIs, or worker-only credentials.
+- [x] #4 The API exposes dashboard-ready read models for audit submissions, review jobs, audit container runs, pg-boss job status, model escalation jobs, evidence post-processing, Verdaccio promotion jobs, and re-audit campaigns.
 - [ ] #5 Dashboard supports filtering/searching by package, version, verdict, job state, trigger source, project, maintainer/repository signal, capability delta, risk level, model profile, prompt-pack version, and time range.
 - [ ] #6 Dashboard supports sorting and triage by risk, age, used-by/reach, failed retries, blocked/quarantined state, and promotion readiness.
 - [ ] #7 Package version detail page shows predecessor, tarball hash/integrity, effective decision, raw/summarized risk rationale, capability deltas, dependency/script changes, PI run metadata, model profile, prompt-pack versions, evidence artifacts, network traces, install/import traces, scores, and decision history.
@@ -50,14 +50,14 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 - [ ] #10 Security admins can approve/override quarantined or blocked versions with a required reason, scoped target, expiry/revalidation posture when applicable, and a visible audit trail.
 - [ ] #11 Admins can add custom prompts/patterns, view prompt/model/pattern versions, trigger re-audit campaigns, and see whether active overrides are included for revalidation.
 - [ ] #12 The UI shows initial lockfile-import/cold-start campaign progress, graph readiness, missing decision coverage, and the reason a project is or is not registry-enabled.
-- [ ] #13 The dashboard shows final results for each audit: allow/block/quarantine, promotion status, safe developer-facing message, status/explain links, and whether the exact package hash is currently allowed until revoked.
-- [ ] #14 Failed, timed-out, cancelled, or dead-lettered jobs remain visible with enough context for operators to retry, inspect evidence, or understand the safe developer-facing behavior.
+- [x] #13 The dashboard shows final results for each audit: allow/block/quarantine, promotion status, safe developer-facing message, status/explain links, and whether the exact package hash is currently allowed until revoked.
+- [x] #14 Failed, timed-out, cancelled, or dead-lettered jobs remain visible with enough context for operators to retry, inspect evidence, or understand the safe developer-facing behavior.
 - [ ] #15 Re-audit campaign views show campaign source, affected versions, active overrides under revalidation, progress, superseded decisions, and final distribution of allow/block/quarantine outcomes.
 - [ ] #16 Evaluation/replay runs are visible separately from production audits and show corpus/case name, expected label, actual verdict, evidence link, false-positive/false-negative classification, model profile, fallback usage, and duration.
 - [ ] #17 UI uses authenticated API calls with role-aware behavior: developer/ordinary views never expose hidden core prompts or admin-only controls; security-admin actions require configured admin auth and fail closed.
 - [ ] #18 Runtime UI wiring works in Docker Compose/local dev: the web app can reach the API through the configured base URL or proxy, and empty-state copy distinguishes "no data yet" from "API unavailable".
-- [ ] #19 Dashboard auto-refreshes safely and provides manual refresh without causing duplicate audit requests or job submissions.
-- [ ] #20 The existing stub QueuePage is replaced with real API-backed data; it must not silently render an empty dashboard when the queue-stats/audit-run endpoints are missing or failing.
+- [x] #19 Dashboard auto-refreshes safely and provides manual refresh without causing duplicate audit requests or job submissions.
+- [x] #20 The existing stub QueuePage is replaced with real API-backed data; it must not silently render an empty dashboard when the queue-stats/audit-run endpoints are missing or failing.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -72,6 +72,12 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 7. Add focused API tests for dashboard read models and auth/redaction behavior.
 8. Add UI component tests and browser/E2E tests for queue navigation, kanban filtering, evidence inspection, override flow, campaign progress, and failure states.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Dashboard API endpoints implemented (admin/dashboard, admin/queue-stats, admin/audit-run/:id). Kanban board with real data from Prisma. QueuePage wired to real API. Error/loading/empty states implemented. Auto-refresh. 5 web UI tests.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
