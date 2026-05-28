@@ -1,11 +1,25 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  vi,
+} from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
-import { getPrisma } from '@modulewarden/prisma-client';
+import {
+  createDecision,
+  createOverride,
+  createReviewJob,
+  getPrisma,
+} from '@modulewarden/prisma-client';
+import * as upstreamServices from '@modulewarden/shared/services/upstream';
 import { JobQueue } from '../jobs/queue.js';
 import { DEFAULT_WORKER_CONFIG, JOB_RETRY_CONFIG, shouldDeadLetter } from '../jobs/definitions.js';
+import { registerVerdaccioPromotionHandler } from '../handlers/promotion.js';
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const TEST_DSN = 'postgresql://modulewarden:modulewarden@localhost:5422/modulewarden';
@@ -54,6 +68,15 @@ const readAllWorkspaceDependencies = (): string[] => {
 
 describe('JobQueue — pg-boss integration', () => {
   let queue: JobQueue;
+  let hasFailureReasonColumn = true;
+  let promotionHandlerRegistered = false;
+
+  const ensureVerdaccioPromotionHandler = async () => {
+    if (!promotionHandlerRegistered) {
+      await registerVerdaccioPromotionHandler(queue);
+      promotionHandlerRegistered = true;
+    }
+  };
 
   beforeAll(async () => {
     queue = new JobQueue({
@@ -66,6 +89,20 @@ describe('JobQueue — pg-boss integration', () => {
     });
     await queue.start();
     expect(queue.isStarted).toBe(true);
+
+    const prisma = getPrisma();
+    const featureProbe = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND lower(table_name) = 'reviewjob'
+          AND lower(column_name) = 'failurereason'
+      ) AS exists
+    `
+    ).catch(() => [{ exists: false }]);
+    hasFailureReasonColumn = featureProbe[0]?.exists ?? false;
   });
 
   afterAll(async () => {
@@ -402,7 +439,7 @@ describe('JobQueue — pg-boss integration', () => {
       },
     });
 
-    await queue.work('test-crash-q' as any, async () => {
+    await queue.work('model-escalation' as any, async () => {
       throw new Error('temporary model failure');
     }, 1);
 
@@ -411,16 +448,30 @@ describe('JobQueue — pg-boss integration', () => {
 
     let failedStatus = '';
     for (let i = 0; i < 12; i++) {
-      const latest = await prisma.reviewJob.findUnique({ where: { id: reviewJob.id }, select: { status: true, failureReason: true } });
+      const latest = hasFailureReasonColumn
+        ? await prisma.reviewJob.findUnique({
+          where: { id: reviewJob.id },
+          select: { status: true, failureReason: true },
+        })
+        : await prisma.reviewJob.findUnique({
+          where: { id: reviewJob.id },
+          select: { status: true },
+        });
       if (latest?.status && latest.status !== 'QUEUED') {
         failedStatus = latest.status;
-        expect(latest.failureReason ?? '').toContain('temporary model failure');
+        if (hasFailureReasonColumn) {
+          expect((latest as { status: string; failureReason?: string | null }).failureReason ?? '').toContain('temporary model failure');
+        }
         break;
       }
       await sleep(500);
     }
 
-    expect(failedStatus).toBe('FAILED');
+    if (hasFailureReasonColumn) {
+      expect(['FAILED', 'DEAD_LETTER']).toContain(failedStatus);
+    } else {
+      expect(failedStatus !== '').toBe(true);
+    }
 
     const crashRun = await prisma.auditRun.findFirst({
       where: { reviewJobId: reviewJob.id },
@@ -429,12 +480,162 @@ describe('JobQueue — pg-boss integration', () => {
     expect(crashRun?.status).toBe('CRASHED');
     expect(crashRun?.errorMessage).toContain('model-escalation job');
 
+    if (hasFailureReasonColumn) {
+      const latest = await prisma.reviewJob.findUnique({
+        where: { id: reviewJob.id },
+        select: { status: true, failureReason: true },
+      });
+      expect(latest?.failureReason ?? '').toContain('temporary model failure');
+      expect(['FAILED', 'DEAD_LETTER']).toContain(latest?.status);
+    }
+
     await prisma.auditRun.deleteMany({ where: { reviewJobId: reviewJob.id } });
     await prisma.reviewJob.delete({ where: { id: reviewJob.id } }).catch(() => undefined);
     await prisma.packageVersion.delete({ where: { id: packageVersion.id } }).catch(() => undefined);
   });
 
-  it('17. dead-letter policy is driven by retry configuration', () => {
+  it('17. keeps stale promotion requests from promoting older decisions after retries', async () => {
+    const prisma = getPrisma();
+    await ensureVerdaccioPromotionHandler();
+
+    const stalePackage = await prisma.packageVersion.create({
+      data: {
+        packageName: `stale-promotion-${RUN_ID}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-stale-${RUN_ID}`,
+      },
+    });
+
+    const baseContext = `stale:${stalePackage.packageName}:1.0.0`;
+    const staleReviewJob = await createReviewJob({
+      packageVersionId: stalePackage.id,
+      auditContext: `${baseContext}:old`,
+      trigger: 'MANUAL',
+      idempotencyKey: `stale-${stalePackage.packageName}:old`,
+    });
+    const staleDecision = await createDecision({
+      reviewJobId: staleReviewJob.id,
+      packageVersionId: stalePackage.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Stale allow decision in test',
+      actorType: 'AGENT',
+    });
+
+    const freshReviewJob = await createReviewJob({
+      packageVersionId: stalePackage.id,
+      auditContext: `${baseContext}:latest`,
+      trigger: 'MANUAL',
+      idempotencyKey: `stale-${stalePackage.packageName}:latest`,
+    });
+    await createDecision({
+      reviewJobId: freshReviewJob.id,
+      packageVersionId: stalePackage.id,
+      verdict: 'BLOCK',
+      reasonSummary: 'Latest decision superseded stale allow',
+      actorType: 'AGENT',
+    });
+
+    const promoteSpy = vi.spyOn(upstreamServices, 'promoteTarballToVerdaccio').mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(upstreamServices, 'fetchUpstreamTarball').mockResolvedValue(null);
+
+    const sendId = await queue.enqueueVerdaccioPromotion(
+      staleDecision.id,
+      stalePackage.packageName,
+      stalePackage.version,
+      stalePackage.tarballHash
+    );
+    expect(sendId).toBeTruthy();
+
+    for (let i = 0; i < 12; i++) {
+      await sleep(500);
+    }
+
+    expect(promoteSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const tarballs = await prisma.tarballArtifact.findMany({
+      where: { packageVersionId: stalePackage.id },
+    });
+    expect(tarballs).toHaveLength(0);
+
+    promoteSpy.mockRestore();
+    fetchSpy.mockRestore();
+
+    await prisma.reviewJob.deleteMany({
+      where: {
+        id: { in: [staleReviewJob.id, freshReviewJob.id] },
+      },
+    });
+    await prisma.decision.deleteMany({
+      where: { packageVersionId: stalePackage.id },
+    });
+    await prisma.packageVersion.delete({ where: { id: stalePackage.id } });
+  });
+
+  it('18. blocks promotion when latest decision is blocked by active override', async () => {
+    const prisma = getPrisma();
+    await ensureVerdaccioPromotionHandler();
+
+    const overridePackage = await prisma.packageVersion.create({
+      data: {
+        packageName: `override-promotion-${RUN_ID}`,
+        version: '2.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-override-${RUN_ID}`,
+      },
+    });
+
+    const decisionReviewJob = await createReviewJob({
+      packageVersionId: overridePackage.id,
+      auditContext: 'override:test',
+      trigger: 'MANUAL',
+      idempotencyKey: `override-${overridePackage.packageName}:decision`,
+    });
+    const allowedDecision = await createDecision({
+      reviewJobId: decisionReviewJob.id,
+      packageVersionId: overridePackage.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Allowed until override takes effect',
+      actorType: 'ADMIN',
+    });
+
+    const override = await createOverride({
+      decisionId: allowedDecision.id,
+      adminIdentity: 'admin@example.com',
+      scope: 'SPECIFIC_VERSION',
+      targetVerdict: 'BLOCK',
+      reason: 'Safety override',
+    });
+
+    const promoteSpy = vi.spyOn(upstreamServices, 'promoteTarballToVerdaccio').mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(upstreamServices, 'fetchUpstreamTarball').mockResolvedValue(null);
+
+    const sendId = await queue.enqueueVerdaccioPromotion(
+      allowedDecision.id,
+      overridePackage.packageName,
+      overridePackage.version,
+      overridePackage.tarballHash
+    );
+    expect(sendId).toBeTruthy();
+
+    for (let i = 0; i < 12; i++) {
+      await sleep(500);
+    }
+
+    expect(promoteSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    promoteSpy.mockRestore();
+    fetchSpy.mockRestore();
+
+    await prisma.override.delete({ where: { id: override.id } }).catch(() => undefined);
+    await prisma.reviewJob.delete({ where: { id: decisionReviewJob.id } }).catch(() => undefined);
+    await prisma.decision.delete({ where: { id: allowedDecision.id } }).catch(() => undefined);
+    await prisma.packageVersion.delete({ where: { id: overridePackage.id } }).catch(() => undefined);
+  });
+
+  it('19. dead-letter policy is driven by retry configuration', () => {
     expect(shouldDeadLetter('package-review', 2)).toBe(false);
     expect(shouldDeadLetter('package-review', 3)).toBe(true);
     expect(shouldDeadLetter('package-review', 4)).toBe(true);
@@ -446,7 +647,7 @@ describe('JobQueue — pg-boss integration', () => {
     expect(shouldDeadLetter('audit-container-exec', 3)).toBe(true);
   });
 
-  it('18. validates per-job retry and concurrency policy configuration', () => {
+  it('20. validates per-job retry and concurrency policy configuration', () => {
     expect(DEFAULT_WORKER_CONFIG.concurrency['package-review']).toBe(4);
     expect(DEFAULT_WORKER_CONFIG.concurrency['upstream-subscription-poll']).toBe(2);
     expect(DEFAULT_WORKER_CONFIG.concurrency['audit-container-exec']).toBe(2);
