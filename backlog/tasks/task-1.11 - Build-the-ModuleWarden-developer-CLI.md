@@ -1,10 +1,11 @@
 ---
 id: TASK-1.11
 title: Build the ModuleWarden developer CLI
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-28 11:52'
 labels:
   - cli
   - dx
@@ -40,8 +41,6 @@ The recommended command surface is intentionally small: status, explain, request
 - [ ] #7 Preflight imports all configured lockfiles and reports graph readiness, decision coverage, quarantines, blocks, and unreviewed versions before registry enablement.
 - [ ] #8 Status and explain commands surface immutable evidence references and evaluation labels without exposing hidden prompt text.
 <!-- AC:END -->
-
-
 
 ## Implementation Plan
 
