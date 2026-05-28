@@ -10,7 +10,10 @@
       "finding_id": "finding.001",
       "category": "lifecycle_script_added",
       "severity": "high",
-      "evidence_refs": ["ev.file.001", "ev.cap.001"],
+      "evidence_refs": [
+        "ev.file.001",
+        "ev.cap.001"
+      ],
       "claim": "Candidate version adds a postinstall lifecycle script that did not exist in 1.0.15.",
       "why_it_matters": "Install-time code runs automatically during npm install with no user interaction and is the single most common npm supply-chain abuse point."
     },
@@ -18,7 +21,10 @@
       "finding_id": "finding.002",
       "category": "credential_or_env_access",
       "severity": "high",
-      "evidence_refs": ["ev.file.003", "ev.cap.002"],
+      "evidence_refs": [
+        "ev.file.003",
+        "ev.cap.002"
+      ],
       "claim": "The new postinstall reads POSTMARK_API_TOKEN, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and GITHUB_TOKEN from the environment.",
       "why_it_matters": "Reading credential-shaped environment variables at install time is inconsistent with an MCP email server and indicates exfiltration intent."
     },
@@ -26,41 +32,46 @@
       "finding_id": "finding.003",
       "category": "network_access_added",
       "severity": "high",
-      "evidence_refs": ["ev.file.003", "ev.cap.003", "ev.net.001"],
+      "evidence_refs": [
+        "ev.file.003",
+        "ev.cap.003",
+        "ev.net.001"
+      ],
       "claim": "Outbound HTTPS POST to api.attacker.tld is constructed during postinstall and confirmed by DNS trace.",
       "why_it_matters": "A package that previously had no install-time network egress now opens an outbound channel to a non-Postmark host on every install."
     },
     {
       "finding_id": "finding.004",
-      "category": "behavioral_change_runtime",
+      "category": "exfiltration_indicator",
       "severity": "high",
-      "evidence_refs": ["ev.file.002", "ev.cap.004"],
+      "evidence_refs": [
+        "ev.file.002",
+        "ev.cap.004"
+      ],
       "claim": "The sendEmail handler unconditionally adds a BCC recipient to every outbound mail; recipient is hardcoded and not configurable.",
       "why_it_matters": "Silent BCC injection routes every email a customer sends through this MCP server to a third party. This is the same pattern as the September 2025 incident writeup."
     }
   ],
   "benign_explanations_considered": [
     {
-      "hypothesis": "The new postinstall is benign telemetry that the maintainer simply forgot to document in the changelog.",
-      "why_rejected": "Telemetry would not require reading POSTMARK_API_TOKEN or AWS_* credentials. The capability profile is inconsistent with telemetry."
+      "explanation": "The new postinstall is benign telemetry that the maintainer simply forgot to document in the changelog.",
+      "assessment": "Rejected. Telemetry would not require reading POSTMARK_API_TOKEN or AWS_* credentials. The capability profile is inconsistent with telemetry."
     },
     {
-      "hypothesis": "The BCC field is part of a new feature that the README and changelog skip discussing.",
-      "why_rejected": "A hardcoded non-configurable BCC recipient is not consistent with any user-facing feature. The recipient is not a Postmark-controlled address."
+      "explanation": "The BCC field is part of a new feature that the README and changelog skip discussing.",
+      "assessment": "Rejected. A hardcoded non-configurable BCC recipient is not consistent with any user-facing feature. The recipient is not a Postmark-controlled address."
     }
   ],
   "recommended_agent_checks": [
-    "Confirm api.attacker.tld is not a Postmark-controlled host (whois + ASN check).",
-    "Compute the SHA256 of dist/telemetry.js against the maintainer's GitHub releases page to confirm provenance mismatch.",
-    "Diff src/handlers/sendEmail.ts against the 1.0.15 baseline inside the audit container to locate the BCC injection.",
-    "Check npm publish history: was 1.0.16 published from a different IP or maintainer login than 1.0.15?"
+    {"check": "Confirm api.attacker.tld is not a Postmark-controlled host", "reason": "whois + ASN check; result determines whether the network egress is legitimate Postmark infrastructure or third-party."},
+    {"check": "Compute the SHA256 of dist/telemetry.js against the maintainer's GitHub releases page", "reason": "Provenance mismatch between the tarball and the public source tree is a strong supply-chain compromise signal."},
+    {"check": "Diff src/handlers/sendEmail.ts against the 1.0.15 baseline inside the audit container", "reason": "Locate the exact BCC injection lines for the Control Evidence Memo and to confirm the manual review's claim."},
+    {"check": "Check npm publish history for 1.0.16 against the maintainer's prior publish provenance", "reason": "A different publish IP or maintainer login indicates account compromise rather than maintainer intent."}
   ],
   "developer_safe_summary": "ModuleWarden blocked postmark-mcp@1.0.16. The release adds install-time code that reads your environment credentials and silently CC-routes every email through a third party. Pin postmark-mcp@1.0.15 until the maintainer publishes a clean version.",
   "security_admin_summary": "BLOCK postmark-mcp@1.0.16 across all consumers. Multi-capability supply-chain compromise: lifecycle script addition + credential reads + undeclared network egress + runtime BCC injection. Notify the Postmark security team; the public maintainer account may be compromised. Last known clean: 1.0.15.",
   "output_integrity": {
-    "signature_scheme": "ed25519",
-    "evidence_index_resolved": true,
-    "generated_by": "modulewarden-demo-runner v1",
-    "generated_at": "2026-05-28T12:50:00Z"
+    "all_claims_have_evidence_refs": true,
+    "invented_evidence_refs": []
   }
 }

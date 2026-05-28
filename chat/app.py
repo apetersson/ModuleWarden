@@ -27,7 +27,7 @@ except ImportError as exc:  # pragma: no cover - documented requirement
         "Streamlit is required to run chat/app.py: pip install streamlit"
     ) from exc
 
-from chat.agent import _list_incidents, handle_query
+from chat.agent import _list_incidents, handle_query, lookup_by_incident_id
 
 st.set_page_config(
     page_title="ModuleWarden Underwriter Assistant",
@@ -72,10 +72,12 @@ with st.sidebar:
             st.session_state.messages.append(
                 {"role": "user", "content": f"look up {incident}"}
             )
-            turn = handle_query(
-                f"look up {incident.split('-')[0]}-{incident.split('-')[1]}@{incident.rsplit('-', 1)[1]}",
-                history=st.session_state.messages,
-            )
+            # Direct id lookup; no regex round-trip and no
+            # package-name reconstruction. The previous
+            # implementation built `lodash-4.17.21@4.17.21` for
+            # single-token package names and silently fell into
+            # lookup_unknown.
+            turn = lookup_by_incident_id(incident)
             st.session_state.messages.append(
                 {"role": "assistant", "content": turn.response_md}
             )
