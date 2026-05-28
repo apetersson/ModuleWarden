@@ -3,7 +3,7 @@ import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
-import { JobQueue } from '@modulewarden/worker/dist/jobs/queue.js';
+import { JobQueue } from '@modulewarden/worker';
 
 export async function buildServer() {
   const config = defaultConfig();

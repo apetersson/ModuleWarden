@@ -6,7 +6,7 @@ import { createReviewJob, deduplicateReviewJob, updateReviewJobStatus } from '..
 import { createDecision, listDecisionsForPackage, getEffectiveDecision } from '../repositories/decisions.js';
 import { createOverride, listActiveOverrides, getEffectiveVerdict } from '../repositories/overrides.js';
 import { createReAuditCampaign, listCampaignsByProject } from '../repositories/campaigns.js';
-import { createEvidenceArtifact, listEvidenceByAuditRun } from '../repositories/evidence.js';
+import { createEvidenceArtifact, listEvidenceByAuditRun, supersedeEvidenceArtifact } from '../repositories/evidence.js';
 import { subscribePackage, listActiveSubscriptions } from '../repositories/subscriptions.js';
 
 const TEST_PKG = 'test-package';
@@ -251,5 +251,33 @@ describe('Prisma Schema & Repositories', () => {
     const ready = await prisma.project.findUnique({ where: { id: projectId } });
     expect(ready!.registryEnabled).toBe(true);
     expect(ready!.graphState).toBe('READY');
+  });
+
+  it('10. preserves evidence immutability and prompt lineage', async () => {
+    const superseding = await supersedeEvidenceArtifact(evidenceId, {
+      auditRunId,
+      artifactType: 'DIFF_SUMMARY',
+      name: 'diff-summary-v2.json',
+      content: { added: ['src/newer.ts'], removed: [], changed: 4 } as any,
+      contentHash: 'sha256-of-content-v2',
+      status: 'SUPERSEDED',
+    });
+
+    const evidenceSet = await listEvidenceByAuditRun(auditRunId);
+    const original = evidenceSet.find((artifact) => artifact.id === evidenceId);
+    expect(superseding.supersedesEvidenceArtifactId).toBe(evidenceId);
+    expect(superseding.status).toBe('SUPERSEDED');
+    expect(original?.status).toBe('ACTIVE');
+
+    const lineage = await createDecision({
+      reviewJobId,
+      packageVersionId: pkgVersionId,
+      verdict: 'BLOCK',
+      reasonSummary: 'Policy drift requires additional checks',
+      actorType: 'AGENT',
+      promptVersion: ['v1-core-1', 'v2-core-6'],
+    });
+
+    expect(lineage.promptVersion).toBe(JSON.stringify(['v1-core-1', 'v2-core-6']));
   });
 });

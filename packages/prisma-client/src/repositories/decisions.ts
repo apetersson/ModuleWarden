@@ -9,7 +9,7 @@ export interface DecisionInput {
   reasonSummary: string;
   predecessorVersion?: string;
   predecessorHash?: string;
-  promptVersion?: string;
+  promptVersion?: string | string[];
   promptPackId?: string;
   modelProfileId?: string;
   scores?: Record<string, number>;
@@ -26,11 +26,21 @@ export interface DecisionInput {
 }
 
 export async function createDecision(input: DecisionInput): Promise<Decision> {
-  const { scores, evidenceArtifactIds, scoreEntries, ...decisionData } = input;
+  const {
+    scores,
+    evidenceArtifactIds,
+    scoreEntries,
+    promptVersion,
+    ...decisionData
+  } = input;
+  const normalizedPromptVersion = Array.isArray(promptVersion)
+    ? JSON.stringify(promptVersion)
+    : promptVersion;
 
   return getPrisma().decision.create({
     data: {
       ...decisionData,
+      promptVersion: normalizedPromptVersion,
       scores: scores ?? undefined,
       scoresData:
         scoreEntries?.length

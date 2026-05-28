@@ -65,10 +65,5 @@ export async function supersedeEvidenceArtifact(
     status: 'SUPERSEDED',
   });
 
-  await getPrisma().evidenceArtifact.update({
-    where: { id: existingEvidenceArtifactId },
-    data: { status: 'REDACTED' },
-  });
-
   return next;
 }

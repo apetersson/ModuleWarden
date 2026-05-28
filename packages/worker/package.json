@@ -2,6 +2,8 @@
   "name": "@modulewarden/worker",
   "version": "0.1.0",
   "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -10,6 +12,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "tsx watch src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs/index.ts",
+    "./jobs/queue": "./src/jobs/queue.ts",
+    "./jobs/index": "./src/jobs/index.ts"
   },
   "dependencies": {
     "@modulewarden/shared": "workspace:*",

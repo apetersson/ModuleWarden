@@ -8,6 +8,7 @@ import { registerPackageReviewHandler } from './handlers/reviews.js';
 import { registerModelEscalationHandler } from './handlers/model-escalation.js';
 import { registerEvidencePostProcessHandler } from './handlers/evidence-post-process.js';
 import { registerReAuditCampaignHandler } from './handlers/reaudit.js';
+import { registerProjectReadyHandler } from './handlers/project-ready.js';
 import { SCHEDULED_JOBS } from './jobs/definitions.js';
 
 const config = defaultConfig();
@@ -34,6 +35,7 @@ async function main() {
   await registerModelEscalationHandler(queue);
   await registerEvidencePostProcessHandler(queue);
   await registerReAuditCampaignHandler(queue);
+  await registerProjectReadyHandler(queue);
 
   // Register scheduled jobs
   for (const scheduled of SCHEDULED_JOBS) {
@@ -67,3 +69,5 @@ main().catch((err) => {
   console.error('[worker] Failed to start:', err);
   process.exit(1);
 });
+
+export { JobQueue } from './jobs/queue.js';

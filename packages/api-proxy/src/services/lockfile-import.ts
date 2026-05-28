@@ -162,6 +162,13 @@ export async function importLockfile(
     data: { graphState: 'AUDITING' },
   });
 
+  await tryEnableProjectRegistry(
+    projectId,
+    pgBossSend
+      ? (readyProjectId, reason) => pgBossSend('project-ready', { projectId: readyProjectId, reason })
+      : undefined
+  );
+
   return result;
 }
 
@@ -217,17 +224,25 @@ export async function refreshProjectReadinessForPackageVersion(packageVersionId:
 /**
  * Enable the project registry if all imported packages have decisions.
  */
-export async function tryEnableProjectRegistry(projectId: string): Promise<boolean> {
+export async function tryEnableProjectRegistry(
+  projectId: string,
+  onProjectReady?: (projectId: string, reason: string) => Promise<string | null>
+): Promise<boolean> {
   const readiness = await checkProjectReadiness(projectId);
 
-  if (readiness.ready) {
-    const prisma = getPrisma();
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { graphState: 'READY', registryEnabled: true },
-    });
-    return true;
+  if (!readiness.ready) {
+    return false;
   }
 
-  return false;
+  const prisma = getPrisma();
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { graphState: 'READY', registryEnabled: true },
+  });
+
+  if (onProjectReady) {
+    await onProjectReady(projectId, `Project ${projectId} is now ready for registry enablement`);
+  }
+
+  return true;
 }

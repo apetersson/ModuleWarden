@@ -144,4 +144,13 @@ describe('JobQueue — pg-boss integration', () => {
     const status = await queue.hasActiveJobs('test-stats-q');
     expect(typeof status).toBe('boolean');
   });
+
+  it('11. enqueueProjectReady builds a singleton job', async () => {
+    const idFirst = await queue.enqueueProjectReady(`project-${RUN_ID}`, `lockfile-${RUN_ID}`);
+    expect(idFirst).toBeTruthy();
+    expect(typeof idFirst).toBe('string');
+
+    const idSecond = await queue.enqueueProjectReady(`project-${RUN_ID}`, `lockfile-${RUN_ID}`);
+    expect(idSecond).toBeNull();
+  });
 });

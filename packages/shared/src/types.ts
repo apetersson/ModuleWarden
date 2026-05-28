@@ -6,6 +6,7 @@ export type JobType =
   | 'audit-container-exec'
   | 'model-escalation'
   | 're-audit-campaign'
+  | 'project-ready'
   | 'evidence-post-process'
   | 'verdaccio-promotion';
 
@@ -69,6 +70,10 @@ export interface JobPayloads {
   'model-escalation': {
     reviewJobId: string;
     evidenceBundleId: string;
+  };
+  'project-ready': {
+    projectId: string;
+    reason: string;
   };
   're-audit-campaign': {
     campaignId?: string;

@@ -24,6 +24,8 @@ export const JOB_TYPES: Record<string, JobType> = {
 
   /** Promote an allowed package tarball into Verdaccio. */
   VERDACCIO_PROMOTION: 'verdaccio-promotion' as JobType,
+  /** Evaluate whether a project is fully reviewed and enable registry access. */
+  PROJECT_READY: 'project-ready' as JobType,
 } as const;
 
 /**
@@ -42,6 +44,7 @@ export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
     're-audit-campaign': 1,
     'evidence-post-process': 4,
     'verdaccio-promotion': 4,
+    'project-ready': 1,
   },
   retryPolicy: {
     maxRetries: 3,
@@ -115,6 +118,11 @@ export const JOB_RETRY_CONFIG: Record<
     maxRetries: 3,
     timeoutMs: 120_000,  // 2 min
     backoffMs: 15_000,
+  },
+  'project-ready': {
+    maxRetries: 5,
+    timeoutMs: 30_000,  // 30 sec
+    backoffMs: 5_000,
   },
 };
 

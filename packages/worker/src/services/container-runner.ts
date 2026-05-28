@@ -172,7 +172,6 @@ export class ContainerRunner {
       '--security-opt=no-new-privileges:true', // No privilege escalation
       '--read-only',                       // Read-only root filesystem
       `--tmpfs /tmp:rw,noexec,nosuid,size=100m`, // Writable temp
-      '--add-host=host.docker.internal:host-gateway', // Allow resolving host.docker.internal
       '--label', `mw.audit=${inputs.packageName}@${inputs.packageVersion}`,
       this.imageName,
     ].join(' ');

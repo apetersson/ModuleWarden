@@ -187,6 +187,13 @@ export class JobQueue {
   }
 
   /**
+   * Enqueue a project-ready evaluation job.
+   */
+  async enqueueProjectReady(projectId: string, reason: string): Promise<string | null> {
+    return this.send('project-ready', { projectId, reason }, `mw:project-ready:${projectId}`);
+  }
+
+  /**
    * Enqueue an evidence post-processing job.
    */
   async enqueueEvidencePostProcess(

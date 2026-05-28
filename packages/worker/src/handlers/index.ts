@@ -5,3 +5,4 @@ export { registerSubscriptionPollHandler } from './subscriptions.js';
 export { registerModelEscalationHandler } from './model-escalation.js';
 export { registerEvidencePostProcessHandler } from './evidence-post-process.js';
 export { registerReAuditCampaignHandler } from './reaudit.js';
+export { registerProjectReadyHandler } from './project-ready.js';

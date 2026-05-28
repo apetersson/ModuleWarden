@@ -25,14 +25,14 @@ afterAll(async () => {
   const prisma = getPrisma();
   // Clean up test data
   await prisma.importedPackageVersion.deleteMany({
-    where: { packageVersion: { packageName: { startsWith: 'import-test-' } } },
+    where: { packageVersion: { packageName: { startsWith: 'import-' } } },
   });
   await prisma.reviewJob.deleteMany({
-    where: { packageVersion: { packageName: { startsWith: 'import-test-' } } },
+    where: { packageVersion: { packageName: { startsWith: 'import-' } } },
   });
   await prisma.packageSubscription.deleteMany({ where: { projectId } });
   await prisma.packageVersion.deleteMany({
-    where: { packageName: { startsWith: 'import-test-' } },
+    where: { packageName: { startsWith: 'import-' } },
   });
   await prisma.lockfileImport.deleteMany({ where: { projectId } });
   await prisma.project.deleteMany({ where: { id: projectId } });
@@ -123,7 +123,82 @@ describe('lockfile import', () => {
     expect(readiness.ready).toBe(false);
   });
 
-  it('6. tryEnableProjectRegistry fails without complete decisions', async () => {
+  it('6b. tryEnableProjectRegistry enqueues project-ready callback after decisions', async () => {
+    const prisma = getPrisma();
+    const readyProject = await prisma.project.create({
+      data: { name: 'lockfile-import-ready-registry', graphState: 'IMPORTING' },
+    });
+    const readyProjectId = readyProject.id;
+
+    const lockfilePath = writeNpmLockfile({
+      'import-ready-pkg-a': { version: '1.0.0' },
+      'import-ready-pkg-b': { version: '1.0.1' },
+    });
+
+    await importLockfile(readyProjectId, lockfilePath);
+
+    const projectPackages = await prisma.importedPackageVersion.findMany({
+      where: {
+        projectId: readyProjectId,
+        packageVersion: {
+          packageName: { startsWith: 'import-ready-pkg-' },
+        },
+      },
+      include: { packageVersion: true },
+    });
+
+    for (const link of projectPackages) {
+      const reviewJob = await prisma.reviewJob.create({
+        data: {
+          packageVersionId: link.packageVersion.id,
+          auditContext: `preflight:${link.packageVersion.packageName}`,
+          trigger: 'PREFLIGHT',
+          status: 'COMPLETED',
+          idempotencyKey: `ready-${link.packageVersion.packageName}-${link.packageVersion.version}`,
+        },
+      });
+
+      await getPrisma().decision.create({
+        data: {
+          reviewJobId: reviewJob.id,
+          packageVersionId: link.packageVersion.id,
+          verdict: 'ALLOW',
+          reasonSummary: 'Ready test decision',
+          actorType: 'AGENT',
+        },
+      });
+    }
+
+    const callbacks: Array<{ projectId: string; reason: string }> = [];
+    const callbackResult = await tryEnableProjectRegistry(readyProjectId, async (projectId, reason) => {
+      callbacks.push({ projectId, reason });
+      return `project-ready-${projectId}`;
+    });
+
+    expect(callbackResult).toBe(true);
+    expect(callbacks).toEqual([
+      {
+        projectId: readyProjectId,
+        reason: `Project ${readyProjectId} is now ready for registry enablement`,
+      },
+    ]);
+
+    const packageVersionIds = projectPackages.map((link) => link.packageVersion.id);
+    await prisma.decision.deleteMany({ where: { packageVersionId: { in: packageVersionIds } } });
+    await prisma.reviewJob.deleteMany({ where: { packageVersionId: { in: packageVersionIds } } });
+    await prisma.importedPackageVersion.deleteMany({
+      where: { projectId: readyProjectId },
+    });
+    await prisma.lockfileImport.deleteMany({
+      where: { projectId: readyProjectId },
+    });
+    await prisma.packageSubscription.deleteMany({
+      where: { projectId: readyProjectId },
+    });
+    await prisma.project.deleteMany({ where: { id: readyProjectId } });
+  });
+
+  it('7. tryEnableProjectRegistry fails without complete decisions', async () => {
     const enabled = await tryEnableProjectRegistry(projectId);
     expect(enabled).toBe(false);
 
@@ -133,7 +208,7 @@ describe('lockfile import', () => {
     expect(project?.graphState).toBe('AUDITING');
   });
 
-  it('7. handles missing lockfile gracefully', async () => {
+  it('8. handles missing lockfile gracefully', async () => {
     const result = await importLockfile(projectId, '/nonexistent/lockfile.json');
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.totalEntries).toBe(0);
