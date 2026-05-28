@@ -1,10 +1,10 @@
 ---
 id: TASK-1.15
 title: Write operator and developer documentation for v1 semantics and workflows
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:11'
+updated_date: '2026-05-28 11:56'
 labels:
   - docs
   - dx
@@ -49,6 +49,12 @@ Developer docs should make npm install feel normal for approved packages and exp
 <!-- SECTION:PLAN:BEGIN -->
 Create README and docs for quickstart, architecture, threat model, developer workflow, security-admin workflow, operator configuration, prompt/pattern updates, re-audit campaigns, and evaluation replay.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Created comprehensive README.md with threat model, architecture diagram, verdict semantics (ALLOW/BLOCK/QUARANTINE), getting started guide, environment variable reference, and package structure table. Satisfies Epic DoD #3.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
