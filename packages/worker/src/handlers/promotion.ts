@@ -111,7 +111,13 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
     // 3. Promote into Verdaccio
     const verdaccioUrl = config.verdaccio.registryUrl;
     // For v1, use a configurable static token for Verdaccio
-    const verdaccioToken = process.env.MW_VERDACCIO_TOKEN ?? 'modulewarden-promotion-token';
+    const verdaccioToken = process.env.MW_VERDACCIO_TOKEN;
+    if (!verdaccioToken) {
+      throw new Error(
+        'MW_VERDACCIO_TOKEN is not set. A Verdaccio promotion token must be ' +
+        'configured before tarballs can be promoted to the backing registry.'
+      );
+    }
 
     await promoteTarballToVerdaccio(
       verdaccioUrl,

@@ -61,10 +61,17 @@ export async function supersedeEvidenceArtifact(
   existingEvidenceArtifactId: string,
   replacement: Omit<EvidenceArtifactInput, 'supersedesEvidenceArtifactId'>
 ): Promise<EvidenceArtifact> {
+  const prisma = getPrisma();
+  // Mark the old artifact as superseded
+  await prisma.evidenceArtifact.update({
+    where: { id: existingEvidenceArtifactId },
+    data: { status: 'SUPERSEDED' },
+  });
+  // Create the new artifact as active
   const next = await createEvidenceArtifact({
     ...replacement,
     supersedesEvidenceArtifactId: existingEvidenceArtifactId,
-    status: 'SUPERSEDED',
+    status: 'ACTIVE',
   });
 
   return next;
