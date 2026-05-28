@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 11:39'
+updated_date: '2026-05-28 11:43'
 labels:
   - analysis
   - diff
@@ -40,7 +40,7 @@ The risk lens includes all three categories selected in planning: exploit discov
 - [x] #5 The PI agent receives ranked evidence plus raw artifact access so it can inspect beyond summaries.
 - [x] #6 Cold-start evidence bundles include provenance, maintainer and repository signals, package purpose, scripts, capability summary, dependency graph, install/import traces, and network observations.
 - [x] #7 Cold-start findings are scored and summarized separately from predecessor diffs so the policy layer can apply the conservative allow-or-quarantine standard.
-- [ ] #8 Golden fixtures include ModuleWarden dogfood dependencies as cold-start examples in addition to malicious and benign version-diff fixtures.
+- [x] #8 Golden fixtures include ModuleWarden dogfood dependencies as cold-start examples in addition to malicious and benign version-diff fixtures.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -53,9 +53,11 @@ The risk lens includes all three categories selected in planning: exploit discov
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented capability-delta extraction service (computeCapabilityDelta, analyzeDependencyIndirection). Added buildColdStartEvidence for full-package cold-start bundles. Addressed GPT-1 review findings: internal auth fail-closed, semver predecessor lookup, evidence inline storage, container inputs (tarballs, baseline). 121 tests pass.
+
+Golden fixtures created: 5 fixture packages (benign, malicious, benign-diff, obfuscated, dependency-only) with 13 tests. 40 shared tests pass.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Golden-fixture tests verify capability extraction on benign diffs, malicious-looking diffs, obfuscated changes, and dependency-only attacks.
+- [x] #1 Golden-fixture tests verify capability extraction on benign diffs, malicious-looking diffs, obfuscated changes, and dependency-only attacks.
 <!-- DOD:END -->
