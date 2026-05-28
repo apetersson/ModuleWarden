@@ -19,13 +19,13 @@ services:
   # ── Backing Registry ────────────────────────────────────
   verdaccio:
     image: verdaccio/verdaccio:latest
-    ports:
-      - "4873:4873"
+    expose:
+      - "4873"
     volumes:
       - verdaccio-storage:/verdaccio/storage
     # Developers do NOT talk directly to Verdaccio.
     # ModuleWarden is the gate. This service is internal.
-    # Exposed only for ModuleWarden proxy and admin verification.
+    # It is exposed only on the Compose network for ModuleWarden services.
 
   # ── Control Plane ───────────────────────────────────────
   api-proxy:
@@ -36,6 +36,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      DATABASE_URL: postgresql://modulewarden:modulewarden@postgres:5432/modulewarden?schema=public
       MW_POSTGRES_HOST: postgres
       MW_POSTGRES_PORT: "5432"
       MW_POSTGRES_DB: modulewarden
@@ -62,6 +63,7 @@ services:
     ports:
       - "9090:9090"
     environment:
+      DATABASE_URL: postgresql://modulewarden:modulewarden@postgres:5432/modulewarden?schema=public
       MW_POSTGRES_HOST: postgres
       MW_POSTGRES_PORT: "5432"
       MW_POSTGRES_DB: modulewarden
@@ -100,6 +102,7 @@ services:
   # This is a build target only; it produces the image used by worker
   # for disposable PI audit containers.
   audit-runner:
+    image: modulewarden-audit-runner
     build:
       context: packages/audit-runner
       dockerfile: Dockerfile
