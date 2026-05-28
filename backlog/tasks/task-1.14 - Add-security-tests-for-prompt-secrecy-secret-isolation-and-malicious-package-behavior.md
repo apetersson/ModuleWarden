@@ -3,11 +3,11 @@ id: TASK-1.14
 title: >-
   Add security tests for prompt secrecy, secret isolation, and malicious package
   behavior
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 11:52'
+updated_date: '2026-05-28 11:57'
 labels:
   - security-tests
   - prompts
@@ -56,6 +56,12 @@ Create adversarial fixtures and integration tests that run through the real audi
 <!-- SECTION:NOTES:BEGIN -->
 10 security tests created covering prompt secrecy, secret isolation (container env vars), and malicious package detection (network, filesystem, process, dynamic-code, obfuscation, env-credential). All 56 shared tests pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+10 security tests covering prompt secrecy (instruction file excludes full prompt text), secret isolation (container env vars safe), and malicious package detection (network, filesystem, process, dynamic-code, obfuscation, env-credential, combined attack patterns).
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
