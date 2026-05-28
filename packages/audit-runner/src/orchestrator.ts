@@ -179,13 +179,15 @@ async function main(): Promise<void> {
     throw new Error('PI is required for agentic audit but was not available in the audit container');
   }
 
+  const modelProvider = process.env.MW_MODEL_PROVIDER ?? 'openai-compatible';
+  const modelName = process.env.MW_MODEL_NAME ?? process.env.MW_MODEL_ENDPOINT_MODEL ?? 'gpt-4o';
   if (!process.env.MW_MODEL_ENDPOINT_BASE_URL) {
     throw new Error('MW_MODEL_ENDPOINT_BASE_URL is required for agentic audit but was not configured');
   }
 
-  // Start PI in RPC mode
-  console.log('[orchestrator] Starting PI RPC session...');
-  const piProc = spawn('pi', ['--mode', 'rpc', '--no-session', '--provider', 'openai-compatible', '--model', 'gpt-4o'], {
+  // Start PI in RPC mode (N-1: model/provider from env vars, not hardcoded)
+  console.log(`[orchestrator] Starting PI RPC session (provider=${modelProvider}, model=${modelName})...`);
+  const piProc = spawn('pi', ['--mode', 'rpc', '--no-session', '--provider', modelProvider, '--model', modelName], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,

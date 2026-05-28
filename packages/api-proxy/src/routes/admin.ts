@@ -80,15 +80,22 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
           });
 
       // Create the package version record if it doesn't exist
-      // Use a timestamp-based suffix for synthetic hashes to avoid collisions
+      // L-3: Reject if no tarballHash provided and no existing record found.
+      // Synthetic hashes create orphan records that never match real tarballs.
       if (!pv) {
-        const syntheticHash = tarballHash ?? `override:${packageName}:${version}:${Date.now()}`;
+        if (!tarballHash) {
+          return reply.status(400).send({
+            error: 'tarballHash is required',
+            reason: 'Package version not found and no tarball hash was provided. ' +
+              'Specify the tarballHash to create an override for this version.',
+          });
+        }
         pv = await prisma.packageVersion.create({
           data: {
             packageName,
             version,
             registrySource: 'npm',
-            tarballHash: syntheticHash,
+            tarballHash,
           },
         });
       }
