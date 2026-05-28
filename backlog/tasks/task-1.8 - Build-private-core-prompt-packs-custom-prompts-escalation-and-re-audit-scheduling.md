@@ -3,10 +3,11 @@ id: TASK-1.8
 title: >-
   Build private core prompt packs, custom prompts, escalation, and re-audit
   scheduling
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:15'
+updated_date: '2026-05-28 11:43'
 labels:
   - prompts
   - models
@@ -46,7 +47,7 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Create a prompt-pack registry with hidden core prompts and visible custom prompts. Implement first-pass and escalation model profiles against pluggable OpenAI-compatible endpoints, including local, external H100-backed, and fallback profiles with explicit trust/logging metadata. Prepare run-specific instruction bundles for in-container PI runs without mounting long-lived core prompt source files or service credentials. Add pg-boss re-audit campaign scheduling when prompt packs, model profiles, or pattern libraries change, including override revalidation and superseding decision lineage.
+1. Create prompt pack and model profile repositories\n2. Create prompt pack service for run-specific instruction assembly\n3. Wire re-audit campaign triggers on prompt/model changes\n4. Wire escalation path in reviews handler\n5. Add prompt version logging to decision creation\n6. Write tests
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done
