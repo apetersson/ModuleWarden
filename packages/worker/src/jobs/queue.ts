@@ -1,6 +1,7 @@
 import PgBoss from 'pg-boss';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import type { JobType, JobPayloads } from '@modulewarden/shared/types';
+import { JOB_RETRY_CONFIG } from './definitions.js';
 
 export type JobHandler<T extends JobType> = (job: { id: string; data: JobPayloads[T] }) => Promise<void>;
 
@@ -70,13 +71,15 @@ export class JobQueue {
 
   private buildSendOptions(
     singletonKey?: string,
+    jobType?: JobType,
     extra?: Partial<PgBoss.SendOptions>
   ): PgBoss.SendOptions {
+    const policy = jobType ? JOB_RETRY_CONFIG[jobType] : null;
     const options: PgBoss.SendOptions = {
-      retryLimit: this.options.maxRetries,
+      retryLimit: policy?.maxRetries ?? this.options.maxRetries,
       retryBackoff: true,
-      retryDelay: this.options.backoffDelayMs,
-      expireInSeconds: Math.ceil(this.options.timeoutMs / 1000),
+      retryDelay: policy?.backoffMs ?? this.options.backoffDelayMs,
+      expireInSeconds: Math.ceil((policy?.timeoutMs ?? this.options.timeoutMs) / 1000),
       priority: 0,
       ...extra,
     };
@@ -96,7 +99,7 @@ export class JobQueue {
     singletonKey?: string
   ): Promise<string | null> {
     await this.ensureQueue(name);
-    return this.boss.send(name, data as Record<string, unknown>, this.buildSendOptions(singletonKey));
+    return this.boss.send(name, data as Record<string, unknown>, this.buildSendOptions(singletonKey, name));
   }
 
   /**
@@ -112,7 +115,7 @@ export class JobQueue {
     return this.boss.send(
       name,
       data as Record<string, unknown>,
-      this.buildSendOptions(singletonKey, { startAfter: delaySeconds })
+      this.buildSendOptions(singletonKey, name, { startAfter: delaySeconds })
     );
   }
 
@@ -185,8 +188,15 @@ export class JobQueue {
   /**
    * Enqueue an evidence post-processing job.
    */
-  async enqueueEvidencePostProcess(auditRunId: string, evidenceBundleId: string): Promise<string | null> {
-    return this.send('evidence-post-process', { auditRunId, evidenceBundleId }, `mw:evidence:${auditRunId}:${evidenceBundleId}`);
+  async enqueueEvidencePostProcess(
+    auditRunId: string,
+    evidenceBundleId: string,
+    decisionId?: string
+  ): Promise<string | null> {
+    const key = decisionId
+      ? `mw:evidence:${auditRunId}:${decisionId}`
+      : `mw:evidence:${auditRunId}:${evidenceBundleId}`;
+    return this.send('evidence-post-process', { auditRunId, evidenceBundleId, decisionId }, key);
   }
 
   /**
@@ -199,8 +209,12 @@ export class JobQueue {
   /**
    * Enqueue an upstream subscription poll job.
    */
-  async enqueueUpstreamPoll(packageName: string): Promise<string | null> {
-    return this.send('upstream-subscription-poll', { packageName }, `mw:poll:${packageName}`);
+  async enqueueUpstreamPoll(packageName?: string): Promise<string | null> {
+    return this.send(
+      'upstream-subscription-poll',
+      packageName ? { packageName } : {},
+      packageName ? `mw:poll:${packageName}` : 'mw:poll:all'
+    );
   }
 
   // ── Worker Registration ───────────────────────────────────────
@@ -244,11 +258,14 @@ export class JobQueue {
     data?: Record<string, unknown>,
     options?: Partial<PgBoss.ScheduleOptions>
   ): Promise<void> {
+    const typedName = name as JobType;
+    const policy = typedName in JOB_RETRY_CONFIG ? JOB_RETRY_CONFIG[typedName] : null;
+
     await this.boss.schedule(name, cron, data, {
-      retryLimit: this.options.maxRetries,
+      retryLimit: policy?.maxRetries ?? this.options.maxRetries,
       retryBackoff: true,
-      retryDelay: this.options.backoffDelayMs,
-      expireInSeconds: Math.ceil(this.options.timeoutMs / 1000),
+      retryDelay: policy?.backoffMs ?? this.options.backoffDelayMs,
+      expireInSeconds: Math.ceil((policy?.timeoutMs ?? this.options.timeoutMs) / 1000),
       ...options,
     });
   }
