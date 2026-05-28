@@ -3,7 +3,7 @@ id: TASK-1.10
 title: >-
   Implement verdict policy, security-admin overrides, and developer-safe failure
   messages
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
@@ -57,6 +57,12 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 <!-- SECTION:NOTES:BEGIN -->
 - Verdict policy service resolves effective decisions with override priority chain\n- Admin override endpoints with Bearer token auth (POST /admin/override, GET /admin/overrides, DELETE /admin/override/:id)\n- Developer-safe status endpoints (GET /status/:package, GET /status/:package@:version, GET /explain/:package@:version)\n- Status output verified to not leak prompts, tokens, secrets, or internal details\n- Cold-start policy enforced via lockfile import path\n- 7 policy tests, 55 total across all packages
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented verdict policy engine and developer-safe status/override API (TASK-1.10). Policy service resolves effective decisions with priority: active admin override > agent decision > unreviewed. Override scope hierarchy SPECIFIC_VERSION -> PACKAGE -> PROJECT -> GLOBAL. Admin endpoints: POST /admin/override (create with targetVerdict, scope, reason), GET /admin/overrides (list active), DELETE /admin/override/:id (deactivate). All authenticated via Bearer admin tokens. Developer-safe endpoints: GET /status/:package, GET /status/:package@:version, GET /explain/:package@:version return clear messages with package/version, current state, next action — verified to never leak prompts, tokens, secrets, or internal tool details. Cold-start allow requires clean evidence (no admin-baseline shortcuts). Project registry blocks without complete decision coverage. 7 policy tests, 55 total across all packages.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Test Spec
 
