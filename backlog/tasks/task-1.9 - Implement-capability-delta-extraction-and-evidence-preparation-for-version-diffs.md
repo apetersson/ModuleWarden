@@ -3,11 +3,11 @@ id: TASK-1.9
 title: >-
   Implement capability-delta extraction and evidence preparation for version
   diffs
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 11:43'
+updated_date: '2026-05-28 11:57'
 labels:
   - analysis
   - diff
@@ -56,6 +56,12 @@ Implemented capability-delta extraction service (computeCapabilityDelta, analyze
 
 Golden fixtures created: 5 fixture packages (benign, malicious, benign-diff, obfuscated, dependency-only) with 13 tests. 40 shared tests pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Capability-delta service (computeCapabilityDelta, analyzeDependencyIndirection, buildColdStartEvidence). 23 tests including 13 golden fixture tests (benign, malicious, benign-diff, obfuscated, dependency-only fixtures). Cold-start evidence enrichment. All ACs met.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
