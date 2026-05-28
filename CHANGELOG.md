@@ -103,14 +103,34 @@ is no postinstall hook. The fix is one extra step:
 `pnpm install && pnpm generate && pnpm -r build`. Now documented in
 SATURDAY_QUICKSTART.md pre-flight section.
 
-### Test status at end of Friday
+### Saturday-morning VITE_MW_API_BASE_URL gotcha
 
-- Python: 53/53 pass (finetune + demo + chat)
-- TypeScript: 9/9 workspace packages build clean after prisma generate
-- Offline demo: postmark-mcp-1.0.16 produces BLOCK with full rule
-  table, evidence memo written to `demo/outputs/`
-- Web UI: Vite build 3.14s
-- All adversarial regressions: passed
+Second build landmine, found at 23:50 on re-check. web-ui now treats
+`VITE_MW_API_BASE_URL` as a required build-time invariant (task-29
+fail-early). A bare `pnpm -r build` aborts with "VITE_MW_API_BASE_URL is
+required". Set it inline:
+`VITE_MW_API_BASE_URL=http://localhost:8080 pnpm -r build`. Docker
+Compose sets it automatically, so this only bites a bare local build.
+
+### Test status (re-verified Saturday 00:05)
+
+- Python: 76/76 pass (finetune + demo + chat)
+- TypeScript: 6 of the 9 workspace packages build clean once
+  `VITE_MW_API_BASE_URL` is set: shared, audit-runner, prisma-client,
+  audit-rpc-server, web-ui, cli. `worker` and `api-proxy` are
+  mid-refactor (logger-service extraction and a Prisma decision-key
+  change) and do not compile yet. Neither is on the demo or fine-tune
+  path, so this does not block Saturday. api-proxy fails only because
+  its build script chains to worker.
+- Offline demo: `python -m demo.run_incident_replay --incident
+  postmark-mcp-1.0.16` returns BLOCK, risk_level critical, four evidence
+  refs, and writes a Control Evidence Memo to `demo/outputs/`. All three
+  incidents (lodash, postmark 1.0.12, postmark 1.0.16) replay exit 0.
+  Note: the older `finetune.python.demo.offline_demo` path is gone; the
+  demo now lives in the top-level `demo/` package.
+- Fixed a build-blocker on main: `audit-rpc-server` called the shared
+  `extractCapabilities` / `CapabilityFinding` (Andreas's ARCH-03 work)
+  without importing them. Added the missing import.
 
 ### Andreas parallel-track
 
@@ -123,7 +143,7 @@ SATURDAY_QUICKSTART.md pre-flight section.
 
 | Time | Action | Owner |
 |---|---|---|
-| 08:00 | git pull + pnpm install + pnpm generate + pnpm -r build | Both |
+| 08:00 | git pull + pnpm install + pnpm generate + `VITE_MW_API_BASE_URL=http://localhost:8080 pnpm -r build` (worker/api-proxy still red, off-path) | Both |
 | 08:15 | Pull data from Nextcloud (3 files) | Andrew |
 | 08:30 | Run benign-packages seed | Andrew |
 | 09:00 | Run walker if partial Nextcloud cache is insufficient | Andrew |

@@ -19,12 +19,18 @@ pnpm install --frozen-lockfile
 # member 'ModelProfile'" etc.
 pnpm generate
 
-# Smoke-build the whole monorepo to catch any regressions early.
-pnpm -r build
+# Smoke-build to catch regressions early. web-ui needs
+# VITE_MW_API_BASE_URL set or it fails fast (task-29 invariant).
+VITE_MW_API_BASE_URL=http://localhost:8080 pnpm -r build
 ```
 
-Verify: `git log -1 --oneline` should show at least `a6f70c9` or newer.
-`pnpm -r build` should report Done for all 9 workspace packages.
+Verify: the 6 demo-critical packages report Done: shared, audit-runner,
+prisma-client, audit-rpc-server, web-ui, cli. `worker` and `api-proxy`
+are mid-refactor and still red as of Saturday 00:00 (api-proxy only
+because its build chains to worker). Neither is on the demo or
+fine-tune path, so a red worker does NOT block the pitch. If you want a
+fully green run, exclude them:
+`VITE_MW_API_BASE_URL=http://localhost:8080 pnpm -r --filter='!@modulewarden/worker' --filter='!@modulewarden/api-proxy' build`.
 
 ## Step 1: Pull the scraped corpus from Nextcloud
 

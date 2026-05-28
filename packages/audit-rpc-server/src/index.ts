@@ -31,6 +31,7 @@ import type {
   SubmitVerdictResponse,
   RpcToolResult,
 } from '@modulewarden/shared/services/rpc-tools';
+import { extractCapabilities, type CapabilityFinding } from '@modulewarden/shared/services/capability-extract';
 
 // ── Configuration from environment ──────────────────────────
 
