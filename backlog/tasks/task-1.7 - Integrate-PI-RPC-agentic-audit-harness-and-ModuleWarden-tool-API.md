@@ -1,10 +1,11 @@
 ---
 id: TASK-1.7
 title: Integrate PI RPC agentic audit harness and ModuleWarden tool API
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:16'
+updated_date: '2026-05-28 10:30'
 labels:
   - pi
   - agent
@@ -41,8 +42,6 @@ The agent should not be a bare LLM prompt over a tarball. It must have access to
 - [ ] #8 The audit container includes the code under audit, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific audit instructions, and useful audit tools.
 - [ ] #9 PI can use full shell/tool access inside its audit container but can access ModuleWarden state only through run-scoped RPC tools for the current audit job.
 <!-- AC:END -->
-
-
 
 ## Implementation Plan
 
