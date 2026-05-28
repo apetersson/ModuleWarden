@@ -4,7 +4,7 @@ title: 'Epic: ModuleWarden v1 private agentic version-diff gate'
 status: In Progress
 assignee: []
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 06:58'
+updated_date: '2026-05-28 11:47'
 labels:
   - epic
   - v1
@@ -48,6 +48,12 @@ Use approved-only npm metadata and approved dist-tags for developer installs. Pr
 
 Treat external H100 capacity as a pluggable OpenAI-compatible inference endpoint used by in-container PI runs. The audit container receives only package inputs, last-known-good baseline, candidate patch/diff, prepared evidence, run-specific audit instructions, useful audit tools, and run-scoped RPC/model access. Make the agent final for allow/block/quarantine decisions, with conservative cold-start policy, security-admin overrides, immutable evidence, and override revalidation through re-audits.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+TASK-1.7 infra complete. TASK-1.9 golden fixtures done. TASK-1.8 prompt packs + re-audit triggers started. GPT-1 review findings all addressed. 134 tests passing.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
