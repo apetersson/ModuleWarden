@@ -54,6 +54,19 @@ The pg-boss layer must be treated as part of the product safety model, not just 
 Implemented pg-boss event and job orchestration layer with typed JobQueue wrapper. All 7 job types defined (package-review, upstream-subscription-poll, audit-container-exec, model-escalation, re-audit-campaign, evidence-post-process, verdaccio-promotion) with per-job-type retry/timeout configuration and concurrency limits. Deterministic idempotency via singletonKey prevents duplicate audits. Auto-queue creation for robustness. Worker registration with configurable concurrency. 10 integration tests verify send/process, singleton dedup, concurrency limits, delayed jobs, queue stats, and convenience methods — all passing with Postgres + pg-boss only. No Redis services.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
+## Test Spec
+
+<!-- SECTION:TEST_SPEC:BEGIN -->
+- [ ] #1 Queue guard tests assert pg-boss is the only durable queue/event mechanism and fail if Redis, BullMQ, Sidekiq-style Redis queues, or a Redis Compose service are introduced.
+- [ ] #2 Job schema tests validate typed payloads and deterministic idempotency keys for package review enqueueing, upstream subscription polling, audit container execution, model escalation, re-audit campaigns, evidence post-processing, and Verdaccio promotion.
+- [ ] #3 Multi-worker race tests assert duplicate package-version audits from tarball fetches, CLI preflight, and subscription polling collapse to one active job and one effective audit context.
+- [ ] #4 Retry/staleness tests assert retries, delayed jobs, and resumed dead-letter work cannot promote stale tarballs, stale verdicts, or decisions superseded by newer evidence.
+- [ ] #5 Project-readiness event tests assert initial audit campaigns emit a project-ready event only after complete decision coverage and never while any imported package version remains unreviewed.
+- [ ] #6 Override-revalidation tests assert prompt/model/pattern re-audit jobs include active overrides and persist superseding decision lineage.
+- [ ] #7 Failure-state tests assert timeout, cancellation, worker crash, and dead-letter handling persist enough context for status/explain APIs and leave developer-facing package-manager behavior safe.
+- [ ] #8 Concurrency tests assert separate limits for model calls, container execution, initial campaigns, re-audits, and promotion jobs are configurable and respected.
+<!-- SECTION:TEST_SPEC:END -->
+
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 Integration tests prove enqueue/dedupe/retry/dead-letter behavior using Postgres and pg-boss only.
