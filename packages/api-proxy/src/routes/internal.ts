@@ -7,6 +7,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
+import { shouldEscalateVerdict } from '../services/escalation.js';
 import type {
   PredecessorDiffResponse,
   WebSearchResponse,
@@ -254,6 +255,23 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       data: { status: 'COMPLETED' },
     });
 
-    return reply.status(201).send({ decisionId: decision.id, success: true });
+    // Check if escalation is warranted based on the verdict
+    const needsEscalation = shouldEscalateVerdict(verdict, scores, riskSummary);
+    if (needsEscalation) {
+      // Store escalation request as evaluation label
+      try {
+        await prisma.evaluationLabel.create({
+          data: {
+            decisionId: decision.id,
+            labelType: 'EVALUATION_RESULT',
+            labelValue: 'escalation_recommended',
+            labelDescription: `Escalation recommended for ${request.body.verdict} verdict: ${riskSummary.slice(0, 200)}`,
+            labeledBy: 'system',
+          },
+        });
+      } catch { /* best-effort label creation */ }
+    }
+
+    return reply.status(201).send({ decisionId: decision.id, success: true, needsEscalation });
   });
 }
