@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const API_BASE = '';
+const API_BASE = typeof window !== 'undefined' ? (window as any).__MW_API_BASE__ || process.env.MW_API_BASE_URL || '' : '';
 const REFRESH_INTERVAL = 15_000;
+
+function authHeaders(token: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function adminFetch(url: string, token: string): Promise<Response> {
+  return fetch(url, { headers: authHeaders(token) });
+}
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -124,7 +132,7 @@ function triggerIcon(src: string): string {
 
 // ── Dashboard Page ────────────────────────────────────────
 
-function DashboardPage({ onCardClick }: { onCardClick?: (id: string) => void }) {
+function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string) => void; adminToken: string }) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,8 +144,8 @@ function DashboardPage({ onCardClick }: { onCardClick?: (id: string) => void }) 
   const fetchDashboard = useCallback(async () => {
     try {
       const [dashResp, queueResp] = await Promise.all([
-        fetch(`${API_BASE}/admin/dashboard`),
-        fetch(`${API_BASE}/admin/queue-stats`),
+        adminFetch(`${API_BASE}/admin/dashboard`, adminToken),
+        adminFetch(`${API_BASE}/admin/queue-stats`, adminToken),
       ]);
       if (dashResp.ok) {
         setDashboard(await dashResp.json() as DashboardData);
@@ -159,7 +167,7 @@ function DashboardPage({ onCardClick }: { onCardClick?: (id: string) => void }) 
     return () => clearInterval(interval);
   }, [fetchDashboard]);
 
-  const columnOrder = ['queued', 'running', 'needs-escalation', 'quarantined', 'blocked', 'allowed', 'failed'];
+  const columnOrder = ['submitted', 'queued', 'running', 'needs-escalation', 'quarantined', 'blocked', 'allowed', 'promotion-pending', 'promoted', 'failed', 'superseded'];
 
   // Filter helper: check if a card matches the search query
   const matchesSearch = useCallback((card: AuditRunCard): boolean => {
@@ -522,7 +530,7 @@ interface PromptPack {
   createdAt: string;
 }
 
-function PromptsPage() {
+function PromptsPage({ adminToken }: { adminToken: string }) {
   const [prompts, setPrompts] = useState<PromptPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -530,7 +538,7 @@ function PromptsPage() {
   useEffect(() => {
     async function doFetch() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/prompts`);
+        const resp = await fetch(`${API_BASE}/admin/prompts`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setPrompts(await resp.json() as PromptPack[]);
         } else {
@@ -645,7 +653,7 @@ interface Campaign {
   projectId: string;
 }
 
-function CampaignsPage() {
+function CampaignsPage({ adminToken }: { adminToken: string }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -653,7 +661,7 @@ function CampaignsPage() {
   useEffect(() => {
     async function doFetch() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/campaigns`);
+        const resp = await fetch(`${API_BASE}/admin/campaigns`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setCampaigns(await resp.json() as Campaign[]);
         } else {
@@ -782,7 +790,7 @@ interface EvaluationResult {
   packageVersion: string;
 }
 
-function EvaluationPage() {
+function EvaluationPage({ adminToken }: { adminToken: string }) {
   const [results, setResults] = useState<EvaluationResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -790,7 +798,7 @@ function EvaluationPage() {
   useEffect(() => {
     async function doFetch() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/evaluation`);
+        const resp = await fetch(`${API_BASE}/admin/evaluation`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setResults(await resp.json() as EvaluationResult[]);
         } else {
@@ -907,7 +915,7 @@ function EvaluationPage() {
 
 // ── Audit Run Detail Modal ──────────────────────────────
 
-function AuditRunDetail({ runId, onClose }: { runId: string; onClose: () => void }) {
+function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminToken: string; onClose: () => void }) {
   const [detail, setDetail] = useState<PackageDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [evidenceContent, setEvidenceContent] = useState<Record<string, unknown> | null>(null);
@@ -921,7 +929,7 @@ function AuditRunDetail({ runId, onClose }: { runId: string; onClose: () => void
   useEffect(() => {
     async function load() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/audit-run/${runId}`);
+        const resp = await adminFetch(`${API_BASE}/admin/audit-run/${runId}`, adminToken);
         if (resp.ok) setDetail(await resp.json() as PackageDetail);
       } catch { /* */ }
       setLoading(false);
@@ -932,7 +940,7 @@ function AuditRunDetail({ runId, onClose }: { runId: string; onClose: () => void
   const openEvidence = async (id: string) => {
     setLoadingEvidence(id);
     try {
-      const resp = await fetch(`${API_BASE}/admin/evidence/${id}`);
+      const resp = await adminFetch(`${API_BASE}/admin/evidence/${id}`, adminToken);
       if (resp.ok) setEvidenceContent(await resp.json() as unknown as Record<string, unknown>);
     } catch { /* */ }
     setLoadingEvidence(null);
@@ -1202,6 +1210,8 @@ function App() {
   const [page, setPage] = useState<'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation'>('dashboard');
   const [detailRunId, setDetailRunId] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
+  const [adminToken, setAdminToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   // AC #18: Check API availability on mount
   useEffect(() => {
@@ -1226,18 +1236,18 @@ function App() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard': return <DashboardPage onCardClick={(id) => setDetailRunId(id)} />;
-      case 'queue': return <QueuePage />;
-      case 'prompts': return <PromptsPage />;
-      case 'campaigns': return <CampaignsPage />;
-      case 'evaluation': return <EvaluationPage />;
+      case 'dashboard': return <DashboardPage onCardClick={(id) => setDetailRunId(id)} adminToken={adminToken} />;
+      case 'queue': return <QueuePage adminToken={adminToken} />;
+      case 'prompts': return <PromptsPage adminToken={adminToken} />;
+      case 'campaigns': return <CampaignsPage adminToken={adminToken} />;
+      case 'evaluation': return <EvaluationPage adminToken={adminToken} />;
     }
   }
 
   return (
     <>
       {detailRunId && (
-        <AuditRunDetail runId={detailRunId} onClose={() => setDetailRunId(null)} />
+        <AuditRunDetail runId={detailRunId} adminToken={adminToken} onClose={() => setDetailRunId(null)} />
       )}
       <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', maxWidth: 1200, margin: '0 auto', padding: '1rem' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
@@ -1262,6 +1272,24 @@ function App() {
             </button>
           ))}
         </nav>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {showTokenInput ? (
+            <>
+              <input
+                type="text"
+                value={adminToken}
+                onChange={(e) => setAdminToken(e.target.value)}
+                placeholder="Bearer token..."
+                style={{ padding: '0.3rem', width: 180, fontSize: '0.85rem', border: '1px solid #ccc', borderRadius: 4 }}
+              />
+              <button onClick={() => setShowTokenInput(false)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>Save</button>
+            </>
+          ) : (
+            <button onClick={() => setShowTokenInput(true)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer', color: adminToken ? '#2e7d32' : '#999' }}>
+              {adminToken ? '🔑 Token set' : '🔑 Set token'}
+            </button>
+          )}
+        </div>
       </header>
 
       {renderPage()}
@@ -1284,14 +1312,14 @@ function App() {
 }
 
 // Retain QueuePage for navigation, now shows the queue stats table
-function QueuePage() {
+function QueuePage({ adminToken }: { adminToken: string }) {
   const [stats, setStats] = useState<QueueStat[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function doFetch() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/queue-stats`);
+        const resp = await adminFetch(`${API_BASE}/admin/queue-stats`, adminToken);
         if (resp.ok) setStats(await resp.json() as QueueStat[]);
       } catch { /* */ }
       setLoading(false);

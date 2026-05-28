@@ -162,6 +162,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     const stats: QueueStats[] = [];
 
     for (const q of queueNames) {
+      const pattern = `%${q}%`;
       const counts = await prisma.$queryRawUnsafe<Array<Record<string, bigint>>>(`
         SELECT
           COUNT(*) FILTER (WHERE "status" = 'QUEUED' AND "auditContext" LIKE $1) as pending,
@@ -169,7 +170,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
           COUNT(*) FILTER (WHERE "status" = 'COMPLETED' AND "auditContext" LIKE $1) as completed,
           COUNT(*) FILTER (WHERE "status" = 'FAILED' AND "auditContext" LIKE $1) as failed
         FROM "ReviewJob"
-      `, [`%${q}%`]);
+      `, pattern);
       const c = counts[0] ?? { pending: 0n, running: 0n, completed: 0n, failed: 0n };
       stats.push({
         queue: q,

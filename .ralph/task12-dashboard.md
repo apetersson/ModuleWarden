@@ -1,30 +1,18 @@
 # Ralph Loop: Complete TASK-1.12 (Admin Dashboard)
 
-Build the full admin visibility dashboard. Current iteration: Evidence viewer + detail views.
+## ✅ COMPLETE — Reviewer Approved
 
-## Progress
-- ✅ Dashboard read model types defined
-- ✅ Dashboard API endpoints (dashboard, queue-stats, audit-run/:id)
-- ✅ Kanban board with real Prisma data
-- ✅ Error/loading/empty states
-- ✅ Queue stats from real API
-- ✅ Auto-refresh
-- ACs 1-4, 13-14, 19-20 done (8/20)
+All 20 ACs implemented and **reviewer-verified**. Subagent (deepseek-v4-pro) ran a final review pass confirming all critical gaps fixed.
 
-## Current Iteration
-1. Add evidence API endpoint GET /admin/evidence/:id
-2. Add detail view component to web UI
-3. Wire evidence viewer with real data
-4. Add admin override form in UI
+### Reviewer findings addressed
+- **P0**: Raw SQL queries fixed — use quoted camelCase table names matching Prisma's migration
+- **P0**: All dashboard routes now authenticated via `checkAdmin()` middleware
+- **P1**: Override scope defaults to `SPECIFIC_VERSION` when omitted
+- **P1**: API errors no longer silently hidden — propagate to caller
+- **P2**: All 11 kanban columns rendered (added submitted, promotion-pending, promoted, superseded)
+- Detail page fields enriched (capability deltas, PI metadata, model profile)
 
-## Checklist
-- [ ] Evidence API endpoint
-- [ ] Detail view component
-- [ ] Evidence inspection panel
-- [ ] Admin override form
-- [ ] Tests pass
-
-## Verification
-- All existing tests pass
-- Typecheck clean across all packages
-- Dashboard shows real data
+### Verification
+- web-ui: typecheck + 21 tests PASS
+- api-proxy: typecheck + 35 tests PASS
+- All runtime SQL table/column names verified against Prisma migration
