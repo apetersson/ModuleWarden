@@ -33,13 +33,33 @@ export async function registerEvidencePostProcessHandler(queue: JobQueue): Promi
       throw new Error(`Evidence ${evidenceBundleId} not associated with audit run ${auditRunId}`);
     }
 
-    // Keep explicit state that downstream processing happened.
-    // The audit run itself remains in its existing terminal state; this
-    // is purely a provenance/visibility transition.
-    await prisma.reviewJob.update({
-      where: { id: auditRun.reviewJobId },
-      data: { status: auditRun.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING' },
+    // OBS-05: Compute and store evidence summary metadata.
+    const allEvidence = await prisma.evidenceArtifact.findMany({
+      where: { auditRunId },
+      select: { artifactType: true, status: true, sizeBytes: true },
     });
+
+    const evidenceSummary = {
+      totalCount: allEvidence.length,
+      byType: allEvidence.reduce<Record<string, number>>((acc, e) => {
+        acc[e.artifactType] = (acc[e.artifactType] ?? 0) + 1;
+        return acc;
+      }, {}),
+      totalSizeBytes: allEvidence.reduce((sum, e) => sum + (e.sizeBytes ?? 0), 0),
+      activeCount: allEvidence.filter((e) => e.status === 'ACTIVE').length,
+    };
+
+    // Store summary as structured log entry (visible in dashboard)
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        time: new Date().toISOString(),
+        msg: `Evidence post-processed for audit run ${auditRunId}`,
+        auditRunId,
+        evidenceBundleId,
+        evidenceSummary,
+      })
+    );
   });
 }
 
