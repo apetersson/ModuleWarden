@@ -216,8 +216,33 @@ async function main(): Promise<void> {
     piError += data.toString();
   });
 
-  // Wait for PI to start
-  await sleep(2000);
+  // Wait for PI to start with readiness check (replaces fixed 2-second sleep)
+  const piStartTime = Date.now();
+  const piReadyTimeout = 30_000;
+  let piReady = false;
+  while (Date.now() - piStartTime < piReadyTimeout) {
+    // Check if PI has completed startup by looking for RPC ready event in stdout
+    if (piOutput.includes('RPC')) {
+      piReady = true;
+      break;
+    }
+    // Check stderr for startup errors
+    if (piError && (piError.includes('Error') || piError.includes('error') || piError.includes('failed'))) {
+      console.error(`[orchestrator] PI startup error detected: ${piError.slice(0, 500)}`);
+      break;
+    }
+    await sleep(200);
+  }
+
+  if (!piReady) {
+    // Log stderr content before giving up
+    if (piError) {
+      console.error(`[orchestrator] PI stderr during startup: ${piError.slice(0, 1000)}`);
+    }
+    console.warn('[orchestrator] PI readiness not confirmed within timeout — proceeding anyway');
+  } else {
+    console.log(`[orchestrator] PI ready after ${Date.now() - piStartTime}ms`);
+  }
 
   // Send the audit prompt
   const auditPrompt = buildAuditPrompt();
@@ -232,6 +257,10 @@ async function main(): Promise<void> {
   console.log('[orchestrator] Waiting for verdict (timeout: 5 min)...');
   const verdict = await waitForVerdict(300_000);
   if (!promptAccepted) {
+    // Check stderr for clues about why prompt wasn't accepted
+    if (piError) {
+      console.warn(`[orchestrator] PI stderr content: ${piError.slice(0, 500)}`);
+    }
     console.log('[orchestrator] PI prompt acknowledgement was not observed before verdict timeout');
   }
 
