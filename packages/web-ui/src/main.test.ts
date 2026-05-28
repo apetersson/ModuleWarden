@@ -37,4 +37,59 @@ describe('web-ui dashboard', () => {
       expect(source).toContain(col);
     }
   });
+
+  // ── New feature tests ─────────────────────────────────
+
+  it('has search/filter input that filters by package name or version', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('searchQuery');
+    expect(source).toContain('Search by package or version');
+    expect(source).toContain('setSearchQuery');
+    expect(source).toContain('packageName.toLowerCase');
+    expect(source).toContain('packageVersion.toLowerCase');
+  });
+
+  it('has sort dropdown (by age, by risk) for the selected column detail table', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('sortBy');
+    expect(source).toContain('Sort:');
+    expect(source).toContain('sort-select');
+    expect(source).toContain('age-asc');
+    expect(source).toContain('age-desc');
+    expect(source).toContain('risk');
+    expect(source).toContain('Age (newest)');
+    expect(source).toContain('Age (oldest)');
+  });
+
+  it('has Admin Override button and form in AuditRunDetail modal', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('Admin Override');
+    expect(source).toContain('Submit Override');
+    expect(source).toContain('/admin/override');
+    expect(source).toContain('targetVerdict');
+    expect(source).toContain('Bearer');
+    expect(source).toContain('MW_AUTH_ADMIN_TOKENS');
+    const verdicts = ['ALLOW', 'BLOCK', 'QUARANTINE'];
+    for (const v of verdicts) {
+      expect(source).toContain(v);
+    }
+  });
+
+  it('has lockfile import progress section from dashboard summary', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('Lockfile Import Progress');
+    expect(source).toContain('% complete');
+    expect(source).toContain('summary.queued');
+    expect(source).toContain('summary.running');
+    expect(source).toContain('summary.allowed');
+    expect(source).toContain('summary.blocked');
+    expect(source).toContain('summary.quarantined');
+    expect(source).toContain('summary.failed');
+  });
+
+  it('has getBearerToken helper for admin auth', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('getBearerToken');
+    expect(source).toContain('MW_AUTH_ADMIN_TOKENS');
+  });
 });
