@@ -6,6 +6,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { checkAdmin } from '../middleware/auth.js';
+import { JOB_TYPES } from '@modulewarden/shared/types';
 import type {
   DashboardState,
   AuditRunCard,

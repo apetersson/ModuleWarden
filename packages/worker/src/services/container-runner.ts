@@ -112,13 +112,12 @@ export class ContainerRunner {
     const outputDir = join(workspacePath, 'output');
     mkdirSync(outputDir, { recursive: true });
 
-    // 2. Write run configuration
+    // 2. Write run configuration (S-4: rpcToken omitted — passed via MW_RPC_TOKEN env var)
     const configPath = join(workspacePath, 'run-config.json');
     writeFileSync(configPath, JSON.stringify({
       rpcPort: inputs.rpcPort,
       packageName: inputs.packageName,
       packageVersion: inputs.packageVersion,
-      rpcToken: inputs.rpcToken,
     }, null, 2));
 
     // Write run instructions if provided
@@ -350,6 +349,9 @@ export class ContainerRunner {
   }
 
   private redactArchivedRunConfig(archivePath: string): void {
+    // S-4: rpcToken is no longer written to new run-config.json.
+    // This function handles backward compatibility with archived workspaces
+    // that may still contain the legacy token field.
     const configPath = join(archivePath, 'run-config.json');
     if (!existsSync(configPath)) return;
 
@@ -357,8 +359,8 @@ export class ContainerRunner {
       const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
       if ('rpcToken' in config) {
         config.rpcToken = '[redacted-after-run]';
+        writeFileSync(configPath, JSON.stringify(config, null, 2));
       }
-      writeFileSync(configPath, JSON.stringify(config, null, 2));
     } catch {
       // Preserve the session even if redaction cannot parse the config.
     }
