@@ -1,30 +1,53 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const API_BASE = '';
-const REFRESH_INTERVAL = 10_000;
+const API_BASE = '/api';
+const REFRESH_INTERVAL = 15_000;
 
 // ── Types ─────────────────────────────────────────────────
 
-interface PackageStatus {
+interface AuditRunCard {
+  id: string;
   packageName: string;
-  version: string;
-  verdict?: string;
-  status: string;
-  updatedAt: string;
+  packageVersion: string;
+  tarballHash: string;
+  triggerSource: string;
+  jobState: string;
+  column: string;
+  riskSummary: string | null;
+  ageSeconds: number;
+  retryCount: number;
+  needsAttention: boolean;
+  verdict: string | null;
 }
 
-interface QueueStats {
+interface DashboardData {
+  columns: Record<string, AuditRunCard[]>;
+  summary: {
+    total: number;
+    queued: number;
+    running: number;
+    blocked: number;
+    quarantined: number;
+    allowed: number;
+    failed: number;
+    needsAttention: number;
+  };
+  refreshedAt: string;
+}
+
+interface QueueStat {
   queue: string;
-  count: number;
+  pending: number;
   running: number;
   completed: number;
   failed: number;
+  deadLettered: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────
 
-function statusColor(verdict?: string): string {
+function statusColor(verdict?: string | null): string {
   switch (verdict) {
     case 'ALLOW': return '#2e7d32';
     case 'BLOCK': return '#c62828';
@@ -33,159 +56,291 @@ function statusColor(verdict?: string): string {
   }
 }
 
-function timeAgo(date: string): string {
-  const ms = Date.now() - new Date(date).getTime();
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  return `${hr}h ago`;
+function columnColor(col: string): string {
+  switch (col) {
+    case 'queued': return '#1565c0';
+    case 'running': return '#6a1b9a';
+    case 'needs-escalation': return '#e65100';
+    case 'quarantined': return '#f57f17';
+    case 'blocked': return '#c62828';
+    case 'allowed': return '#2e7d32';
+    case 'failed': return '#b71c1c';
+    default: return '#546e7a';
+  }
 }
 
-// ── Status Page ───────────────────────────────────────────
+function timeAgo(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const min = Math.floor(seconds / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h`;
+}
 
-function StatusPage() {
-  const [packages, setPackages] = useState<PackageStatus[]>([]);
+function triggerIcon(src: string): string {
+  switch (src) {
+    case 'preflight': return '📥';
+    case 'subscription': return '🔄';
+    case 're-audit': return '🔁';
+    case 'admin': return '👤';
+    default: return '❓';
+  }
+}
+
+// ── Dashboard Page ────────────────────────────────────────
+
+function DashboardPage() {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [activeColumn, setActiveColumn] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/health`);
-      if (resp.ok) {
-        setPackages([]);
+      const [dashResp, queueResp] = await Promise.all([
+        fetch(`${API_BASE}/admin/dashboard`),
+        fetch(`${API_BASE}/admin/queue-stats`),
+      ]);
+      if (dashResp.ok) {
+        setDashboard(await dashResp.json() as DashboardData);
+      } else {
+        setError(`Dashboard API: ${dashResp.status}`);
       }
-    } catch { /* server may not be running */ }
+      if (queueResp.ok) {
+        setQueueStats(await queueResp.json() as QueueStat[]);
+      }
+    } catch (err) {
+      setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, REFRESH_INTERVAL);
+    fetchDashboard();
+    const interval = setInterval(fetchDashboard, REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchStatus]);
+  }, [fetchDashboard]);
 
-  const filtered = filter
-    ? packages.filter((p: PackageStatus) =>
-        p.packageName.toLowerCase().includes(filter.toLowerCase()) ||
-        p.version.includes(filter)
-      )
-    : packages;
+  const columnOrder = ['queued', 'running', 'needs-escalation', 'quarantined', 'blocked', 'allowed', 'failed'];
+
+  // ── Error state ────────────────────────────────────────
+
+  if (error && !dashboard) {
+    return (
+      <div>
+        <h2>Dashboard</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#c62828' }}>
+          <p style={{ fontSize: '1.2rem' }}>⚠️ API Unavailable</p>
+          <p>{error}</p>
+          <p style={{ color: '#666', marginTop: '1rem' }}>
+            Ensure the ModuleWarden API server is running and accessible at <code>{API_BASE}</code>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading state ──────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div>
+        <h2>Dashboard</h2>
+        <p style={{ color: '#666' }}>Loading audit data...</p>
+      </div>
+    );
+  }
+
+  // ── Empty state ────────────────────────────────────────
+
+  if (dashboard && dashboard.summary.total === 0) {
+    return (
+      <div>
+        <h2>Dashboard</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+          <p style={{ fontSize: '1.2rem' }}>No audit data yet</p>
+          <p>Import a lockfile or request a package review to get started.</p>
+          <p style={{ marginTop: '1rem' }}>
+            <code>modulewarden preflight pnpm-lock.yaml</code>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Kanban board ───────────────────────────────────────
+
+  const selectedCards = activeColumn && dashboard
+    ? dashboard.columns[activeColumn] ?? []
+    : null;
 
   return (
     <div>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0 }}>Package Status</h2>
-        <input
-          type="text"
-          placeholder="Filter by name or version..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          style={{ padding: '0.5rem', flex: 1, maxWidth: 400, borderRadius: 4, border: '1px solid #ccc' }}
-        />
-        <span style={{ color: '#666', fontSize: '0.9rem' }}>{packages.length} packages</span>
+        <h2 style={{ margin: 0 }}>Audit Dashboard</h2>
+        <span style={{ color: '#666', fontSize: '0.9rem' }}>
+          {dashboard?.summary.total ?? 0} runs
+          {dashboard && <span> · {dashboard.summary.needsAttention} need attention</span>}
+        </span>
+        <button
+          onClick={() => { setLoading(true); fetchDashboard(); }}
+          style={{ marginLeft: 'auto', padding: '0.3rem 0.8rem', cursor: 'pointer' }}
+        >
+          Refresh
+        </button>
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : filtered.length === 0 ? (
-        <p style={{ color: '#666' }}>No packages found. Run <code>modulewarden preflight</code> to import packages.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-              <th style={{ padding: '0.5rem' }}>Package</th>
-              <th style={{ padding: '0.5rem' }}>Version</th>
-              <th style={{ padding: '0.5rem' }}>Verdict</th>
-              <th style={{ padding: '0.5rem' }}>Status</th>
-              <th style={{ padding: '0.5rem' }}>Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((pkg, i) => (
-              <tr key={`${pkg.packageName}@${pkg.version}`} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{pkg.packageName}</td>
-                <td style={{ padding: '0.5rem' }}>{pkg.version}</td>
-                <td style={{ padding: '0.5rem' }}>
-                  {pkg.verdict ? (
-                    <span style={{
-                      color: '#fff',
-                      background: statusColor(pkg.verdict),
-                      padding: '2px 8px',
-                      borderRadius: 12,
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                    }}>
-                      {pkg.verdict}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#999' }}>—</span>
-                  )}
-                </td>
-                <td style={{ padding: '0.5rem' }}>{pkg.status}</td>
-                <td style={{ padding: '0.5rem', color: '#666', fontSize: '0.9rem' }}>{timeAgo(pkg.updatedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {error && (
+        <div style={{ padding: '0.5rem', background: '#fff3e0', borderRadius: 4, marginBottom: '1rem', color: '#e65100', fontSize: '0.9rem' }}>
+          ⚠ {error}
+        </div>
       )}
-    </div>
-  );
-}
 
-// ── Queue Page ────────────────────────────────────────────
+      <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        {columnOrder.map((col) => {
+          const cards = dashboard?.columns[col];
+          const count = cards?.length ?? 0;
+          return (
+            <div
+              key={col}
+              onClick={() => setActiveColumn(activeColumn === col ? null : col)}
+              style={{
+                minWidth: 180,
+                flex: '0 0 auto',
+                padding: '0.75rem',
+                borderRadius: 8,
+                background: activeColumn === col ? '#e3f2fd' : '#f5f5f5',
+                cursor: 'pointer',
+                borderTop: `3px solid ${columnColor(col)}`,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', textTransform: 'capitalize' }}>
+                  {col.replace(/-/g, ' ')}
+                </span>
+                <span style={{
+                  background: columnColor(col),
+                  color: '#fff',
+                  borderRadius: 12,
+                  padding: '1px 8px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                }}>
+                  {count}
+                </span>
+              </div>
+              {cards && cards.slice(0, 5).map((card) => (
+                <div key={card.id} style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  background: '#fff',
+                  borderRadius: 4,
+                  fontSize: '0.85rem',
+                  borderLeft: `3px solid ${statusColor(card.verdict)}`,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {triggerIcon(card.triggerSource)} {card.packageName}@{card.packageVersion}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#666' }}>{timeAgo(card.ageSeconds)}</span>
+                    {card.retryCount > 0 && <span style={{ fontSize: '0.75rem', color: '#c62828' }}>↻{card.retryCount}</span>}
+                    {card.needsAttention && <span style={{ fontSize: '0.75rem', color: '#e65100' }}>⚠</span>}
+                  </div>
+                  {card.riskSummary && (
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {card.riskSummary.slice(0, 60)}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {count > 5 && (
+                <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#666', marginTop: '0.3rem' }}>
+                  +{count - 5} more
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-function QueuePage() {
-  const [queues, setQueues] = useState<QueueStats[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchQueues() {
-      try {
-        // Queue stats endpoint not yet implemented in v1
-        // This will be wired when admin endpoints are expanded
-        setQueues([]);
-      } catch { /* */ }
-      setLoading(false);
-    }
-    fetchQueues();
-    const interval = setInterval(fetchQueues, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div>
-      <h2>Queue Status</h2>
-      {loading ? (
-        <p>Loading...</p>
-      ) : queues.length === 0 ? (
-        <p style={{ color: '#666' }}>No queue data available.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-              <th style={{ padding: '0.5rem' }}>Queue</th>
-              <th style={{ padding: '0.5rem' }}>Pending</th>
-              <th style={{ padding: '0.5rem' }}>Running</th>
-              <th style={{ padding: '0.5rem' }}>Completed</th>
-              <th style={{ padding: '0.5rem' }}>Failed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queues.map((q) => (
-              <tr key={q.queue} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{q.queue}</td>
-                <td style={{ padding: '0.5rem' }}>{q.count}</td>
-                <td style={{ padding: '0.5rem' }}>{q.running}</td>
-                <td style={{ padding: '0.5rem' }}>{q.completed}</td>
-                <td style={{ padding: '0.5rem', color: q.failed > 0 ? '#c62828' : 'inherit' }}>
-                  {q.failed}
-                </td>
+      {/* Selected column detail */}
+      {activeColumn && selectedCards && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3 style={{ textTransform: 'capitalize' }}>{activeColumn.replace(/-/g, ' ')} ({selectedCards.length})</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #ddd' }}>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Package</th>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Version</th>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Source</th>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Age</th>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Verdict</th>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Summary</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {selectedCards.map((card) => (
+                <tr key={card.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '0.4rem', fontFamily: 'monospace' }}>{card.packageName}</td>
+                  <td style={{ padding: '0.4rem' }}>{card.packageVersion}</td>
+                  <td style={{ padding: '0.4rem' }}>{triggerIcon(card.triggerSource)} {card.triggerSource}</td>
+                  <td style={{ padding: '0.4rem', color: '#666' }}>{timeAgo(card.ageSeconds)}</td>
+                  <td style={{ padding: '0.4rem' }}>
+                    {card.verdict ? (
+                      <span style={{ color: '#fff', background: statusColor(card.verdict), padding: '1px 6px', borderRadius: 10, fontSize: '0.8rem', fontWeight: 600 }}>
+                        {card.verdict}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#999' }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '0.4rem', color: '#666', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {card.riskSummary ?? ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Queue stats */}
+      {queueStats.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <h3>Queue Status</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #ddd' }}>
+                <th style={{ padding: '0.4rem', textAlign: 'left' }}>Queue</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Pending</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Running</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Completed</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Failed</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Dead</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queueStats.map((q) => (
+                <tr key={q.queue} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '0.4rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>{q.queue}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.pending}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.running}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.completed}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right', color: q.failed > 0 ? '#c62828' : 'inherit' }}>{q.failed}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right', color: q.deadLettered > 0 ? '#b71c1c' : 'inherit' }}>{q.deadLettered}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {dashboard && (
+        <div style={{ marginTop: '0.5rem', color: '#999', fontSize: '0.8rem', textAlign: 'right' }}>
+          Last refreshed: {new Date(dashboard.refreshedAt).toLocaleTimeString()}
+        </div>
       )}
     </div>
   );
@@ -194,26 +349,26 @@ function QueuePage() {
 // ── App ───────────────────────────────────────────────────
 
 function App() {
-  const [page, setPage] = useState<'status' | 'queue'>('status');
+  const [page, setPage] = useState<'dashboard' | 'queue'>('dashboard');
 
   return (
-    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', maxWidth: 960, margin: '0 auto', padding: '1rem' }}>
+    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', maxWidth: 1200, margin: '0 auto', padding: '1rem' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>ModuleWarden</h1>
         <nav style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            onClick={() => setPage('status')}
+            onClick={() => setPage('dashboard')}
             style={{
               padding: '0.5rem 1rem',
               border: 'none',
               borderRadius: 4,
-              background: page === 'status' ? '#1976d2' : '#e0e0e0',
-              color: page === 'status' ? '#fff' : '#333',
+              background: page === 'dashboard' ? '#1976d2' : '#e0e0e0',
+              color: page === 'dashboard' ? '#fff' : '#333',
               cursor: 'pointer',
-              fontWeight: page === 'status' ? 600 : 400,
+              fontWeight: page === 'dashboard' ? 600 : 400,
             }}
           >
-            Package Status
+            Dashboard
           </button>
           <button
             onClick={() => setPage('queue')}
@@ -232,11 +387,66 @@ function App() {
         </nav>
       </header>
 
-      {page === 'status' ? <StatusPage /> : <QueuePage />}
+      {page === 'dashboard' ? <DashboardPage /> : <QueuePage />}
 
       <footer style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', color: '#999', fontSize: '0.85rem' }}>
-        ModuleWarden v0.1.0 — Data refreshes every {REFRESH_INTERVAL / 1000}s
+        ModuleWarden v0.1.0 — Auto-refreshes every {REFRESH_INTERVAL / 1000}s
       </footer>
+    </div>
+  );
+}
+
+// Retain QueuePage for navigation, now shows the queue stats table
+function QueuePage() {
+  const [stats, setStats] = useState<QueueStat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function doFetch() {
+      try {
+        const resp = await fetch(`${API_BASE}/admin/queue-stats`);
+        if (resp.ok) setStats(await resp.json() as QueueStat[]);
+      } catch { /* */ }
+      setLoading(false);
+    }
+    doFetch();
+    const interval = setInterval(fetch, REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div>
+      <h2>Queue Status</h2>
+      {loading ? (
+        <p style={{ color: '#666' }}>Loading...</p>
+      ) : stats.length === 0 ? (
+        <p style={{ color: '#666' }}>No queue data available. Ensure the API server is running.</p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #ddd' }}>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>Queue</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Running</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Completed</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Failed</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Dead Letter</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.map((q) => (
+              <tr key={q.queue} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{q.queue}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.pending}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.running}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.completed}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right', color: q.failed > 0 ? '#c62828' : 'inherit' }}>{q.failed}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right', color: q.deadLettered > 0 ? '#b71c1c' : 'inherit' }}>{q.deadLettered}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

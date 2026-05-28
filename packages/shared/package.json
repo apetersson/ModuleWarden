@@ -26,7 +26,8 @@
     "./services/rpc-tools": "./dist/services/rpc-tools.js",
     "./services/capability-delta": "./dist/services/capability-delta.js",
     "./services/evaluation-corpus": "./dist/services/evaluation-corpus.js",
-    "./services/evaluation-runner": "./dist/services/evaluation-runner.js"
+    "./services/evaluation-runner": "./dist/services/evaluation-runner.js",
+    "./services/dashboard": "./dist/services/dashboard.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.1"

@@ -199,12 +199,12 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       }
 
       try {
-        const { importLockfileWithSubscriptions } = await import('../services/lockfile-import.js');
-        const result = await importLockfileWithSubscriptions(filename, content);
+        const { importLockfile } = await import('../services/lockfile-import.js');
+        const result = await importLockfile(filename, content);
         return reply.status(201).send({
-          packageCount: result.packageCount,
-          subscriptionCount: result.subscriptionCount,
-          reviewCount: result.reviewCount,
+          packageCount: result.newVersions,
+          subscriptionCount: result.newSubscriptions,
+          reviewCount: result.enqueuedReviews,
         });
       } catch (err) {
         return reply.status(500).send({

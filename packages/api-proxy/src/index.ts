@@ -6,6 +6,7 @@ import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerInternalRoutes } from './routes/internal.js';
+import { registerDashboardRoutes } from './routes/dashboard.js';
 import PgBoss from 'pg-boss';
 
 let _boss: PgBoss | null = null;
@@ -76,6 +77,10 @@ export async function buildServer() {
   // ── Internal RPC endpoints (audit bridge) ───────────────────
 
   await registerInternalRoutes(app);
+
+  // ── Dashboard admin endpoints ────────────────────────────────
+
+  await registerDashboardRoutes(app);
 
   // ── Health check ──────────────────────────────────────────────
 
