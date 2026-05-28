@@ -96,13 +96,13 @@ services:
       dockerfile: Dockerfile
       target: web-ui
       args:
-        # api-proxy is always reachable at this URL within the Compose network.
-        # Override with MW_API_BASE_URL in .env for external deployments.
-        VITE_MW_API_BASE_URL: ${MW_API_BASE_URL:-http://api-proxy:8080}
+        # This URL is baked into the browser bundle, so it must be reachable
+        # from the host browser rather than only from inside Compose.
+        VITE_MW_API_BASE_URL: ${MW_API_BASE_URL:-http://localhost:8080}
     ports:
       - "3000:3000"
     environment:
-      MW_API_BASE_URL: http://api-proxy:8080
+      MW_API_BASE_URL: http://localhost:8080
     depends_on:
       - api-proxy
 

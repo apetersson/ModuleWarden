@@ -14,6 +14,14 @@ if (!apiBase) {
 }
 const API_BASE: string = apiBase;
 const REFRESH_INTERVAL = 15_000;
+const LOCAL_DEMO_ADMIN_TOKEN = 'mw-admin-token-change-me';
+type PageKey = 'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'underwriter';
+const PAGE_KEYS: PageKey[] = ['dashboard', 'queue', 'prompts', 'campaigns', 'evaluation', 'underwriter'];
+
+function pageFromHash(): PageKey {
+  const hash = window.location.hash.replace(/^#/, '');
+  return PAGE_KEYS.includes(hash as PageKey) ? hash as PageKey : 'dashboard';
+}
 
 function authHeaders(token: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -21,6 +29,21 @@ function authHeaders(token: string): Record<string, string> {
 
 async function adminFetch(url: string, token: string): Promise<Response> {
   return fetch(url, { headers: authHeaders(token) });
+}
+
+function AuthRequired({ onSetToken }: { onSetToken: () => void }) {
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center', color: '#6d4c00' }}>
+      <p style={{ fontSize: '1.2rem' }}>Admin token required</p>
+      <p>Enter your ModuleWarden admin token to load this view.</p>
+      <button
+        onClick={onSetToken}
+        style={{ marginTop: '1rem', padding: '0.5rem 0.8rem', cursor: 'pointer' }}
+      >
+        Set admin token
+      </button>
+    </div>
+  );
 }
 
 // ── Types ─────────────────────────────────────────────────
@@ -138,7 +161,15 @@ function triggerIcon(src: string): string {
 
 // ── Dashboard Page ────────────────────────────────────────
 
-function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string) => void; adminToken: string }) {
+function DashboardPage({
+  onCardClick,
+  adminToken,
+  onAuthRequired,
+}: {
+  onCardClick?: (id: string) => void;
+  adminToken: string;
+  onAuthRequired: () => void;
+}) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [queueStats, setQueueStats] = useState<QueueStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,6 +186,9 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
       ]);
       if (dashResp.ok) {
         setDashboard(await dashResp.json() as DashboardData);
+      } else if (dashResp.status === 401 || dashResp.status === 403) {
+        onAuthRequired();
+        setError('AUTH_REQUIRED');
       } else {
         setError(`Dashboard API: ${dashResp.status}`);
       }
@@ -165,7 +199,7 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
       setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, onAuthRequired]);
 
   useEffect(() => {
     void fetchDashboard();
@@ -222,6 +256,15 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
   // ── Error state ────────────────────────────────────────
 
   if (error && !dashboard) {
+    if (error === 'AUTH_REQUIRED') {
+      return (
+        <div>
+          <h2>Dashboard</h2>
+          <AuthRequired onSetToken={onAuthRequired} />
+        </div>
+      );
+    }
+
     return (
       <div>
         <h2>Dashboard</h2>
@@ -530,7 +573,7 @@ interface PromptPack {
   createdAt: string;
 }
 
-function PromptsPage({ adminToken }: { adminToken: string }) {
+function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAuthRequired: () => void }) {
   const [prompts, setPrompts] = useState<PromptPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -541,6 +584,9 @@ function PromptsPage({ adminToken }: { adminToken: string }) {
         const resp = await fetch(`${API_BASE}/admin/prompts`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setPrompts(await resp.json() as PromptPack[]);
+        } else if (resp.status === 401 || resp.status === 403) {
+          onAuthRequired();
+          setError('AUTH_REQUIRED');
         } else {
           setError(`Prompts API: ${resp.status}`);
         }
@@ -550,13 +596,17 @@ function PromptsPage({ adminToken }: { adminToken: string }) {
       setLoading(false);
     }
     void doFetch();
-  }, [adminToken]);
+  }, [adminToken, onAuthRequired]);
 
   if (loading) {
     return <div><h2>Prompt Packs</h2><p style={{ color: '#666' }}>Loading prompts...</p></div>;
   }
 
   if (error) {
+    if (error === 'AUTH_REQUIRED') {
+      return <div><h2>Prompt Packs</h2><AuthRequired onSetToken={onAuthRequired} /></div>;
+    }
+
     return (
       <div>
         <h2>Prompt Packs</h2>
@@ -653,7 +703,7 @@ interface Campaign {
   projectId: string;
 }
 
-function CampaignsPage({ adminToken }: { adminToken: string }) {
+function CampaignsPage({ adminToken, onAuthRequired }: { adminToken: string; onAuthRequired: () => void }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -664,6 +714,9 @@ function CampaignsPage({ adminToken }: { adminToken: string }) {
         const resp = await fetch(`${API_BASE}/admin/campaigns`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setCampaigns(await resp.json() as Campaign[]);
+        } else if (resp.status === 401 || resp.status === 403) {
+          onAuthRequired();
+          setError('AUTH_REQUIRED');
         } else {
           setError(`Campaigns API: ${resp.status}`);
         }
@@ -673,13 +726,17 @@ function CampaignsPage({ adminToken }: { adminToken: string }) {
       setLoading(false);
     }
     void doFetch();
-  }, [adminToken]);
+  }, [adminToken, onAuthRequired]);
 
   if (loading) {
     return <div><h2>Re-Audit Campaigns</h2><p style={{ color: '#666' }}>Loading campaigns...</p></div>;
   }
 
   if (error) {
+    if (error === 'AUTH_REQUIRED') {
+      return <div><h2>Re-Audit Campaigns</h2><AuthRequired onSetToken={onAuthRequired} /></div>;
+    }
+
     return (
       <div>
         <h2>Re-Audit Campaigns</h2>
@@ -790,7 +847,7 @@ interface EvaluationResult {
   packageVersion: string;
 }
 
-function EvaluationPage({ adminToken }: { adminToken: string }) {
+function EvaluationPage({ adminToken, onAuthRequired }: { adminToken: string; onAuthRequired: () => void }) {
   const [results, setResults] = useState<EvaluationResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -801,6 +858,9 @@ function EvaluationPage({ adminToken }: { adminToken: string }) {
         const resp = await fetch(`${API_BASE}/admin/evaluation`, { headers: authHeaders(adminToken) });
         if (resp.ok) {
           setResults(await resp.json() as EvaluationResult[]);
+        } else if (resp.status === 401 || resp.status === 403) {
+          onAuthRequired();
+          setError('AUTH_REQUIRED');
         } else {
           setError(`Evaluation API: ${resp.status}`);
         }
@@ -810,13 +870,17 @@ function EvaluationPage({ adminToken }: { adminToken: string }) {
       setLoading(false);
     }
     void doFetch();
-  }, [adminToken]);
+  }, [adminToken, onAuthRequired]);
 
   if (loading) {
     return <div><h2>Evaluation Results</h2><p style={{ color: '#666' }}>Loading evaluation data...</p></div>;
   }
 
   if (error) {
+    if (error === 'AUTH_REQUIRED') {
+      return <div><h2>Evaluation Results</h2><AuthRequired onSetToken={onAuthRequired} /></div>;
+    }
+
     return (
       <div>
         <h2>Evaluation Results</h2>
@@ -1207,11 +1271,17 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
 }
 
 function App() {
-  const [page, setPage] = useState<'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'underwriter'>('dashboard');
+  const [page, setPage] = useState<PageKey>(() => pageFromHash());
   const [detailRunId, setDetailRunId] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [adminToken, setAdminToken] = useState('');
+  const [tokenDraft, setTokenDraft] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
+
+  const requestAdminToken = useCallback(() => {
+    setTokenDraft((current) => current || adminToken || LOCAL_DEMO_ADMIN_TOKEN);
+    setShowTokenInput(true);
+  }, [adminToken]);
 
   // AC #18: Check API availability on mount
   useEffect(() => {
@@ -1226,6 +1296,22 @@ function App() {
     void checkApi();
   }, []);
 
+  useEffect(() => {
+    function handleHashChange() {
+      setPage(pageFromHash());
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    const nextHash = `#${page}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', nextHash);
+    }
+  }, [page]);
+
   const navItems: Array<{ key: typeof page; label: string }> = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'queue', label: 'Queue' },
@@ -1237,11 +1323,11 @@ function App() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard': return <DashboardPage onCardClick={(id) => setDetailRunId(id)} adminToken={adminToken} />;
-      case 'queue': return <QueuePage adminToken={adminToken} />;
-      case 'prompts': return <PromptsPage adminToken={adminToken} />;
-      case 'campaigns': return <CampaignsPage adminToken={adminToken} />;
-      case 'evaluation': return <EvaluationPage adminToken={adminToken} />;
+      case 'dashboard': return <DashboardPage onCardClick={(id) => setDetailRunId(id)} adminToken={adminToken} onAuthRequired={requestAdminToken} />;
+      case 'queue': return <QueuePage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
+      case 'prompts': return <PromptsPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
+      case 'campaigns': return <CampaignsPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
+      case 'evaluation': return <EvaluationPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
       case 'underwriter': return <UnderwriterPage adminToken={adminToken} />;
     }
   }
@@ -1258,7 +1344,10 @@ function App() {
           {navItems.map((item) => (
             <button
               key={item.key}
-              onClick={() => setPage(item.key)}
+              onClick={() => {
+                window.location.hash = item.key;
+                setPage(item.key);
+              }}
               style={{
                 padding: '0.5rem 1rem',
                 border: 'none',
@@ -1279,15 +1368,23 @@ function App() {
             <>
               <input
                 type="text"
-                value={adminToken}
-                onChange={(e) => setAdminToken(e.target.value)}
+                value={tokenDraft}
+                onChange={(e) => setTokenDraft(e.target.value)}
                 placeholder="Bearer token..."
                 style={{ padding: '0.3rem', width: 180, fontSize: '0.85rem', border: '1px solid #ccc', borderRadius: 4 }}
               />
-              <button onClick={() => setShowTokenInput(false)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>Save</button>
+              <button
+                onClick={() => {
+                  setAdminToken(tokenDraft.trim());
+                  setShowTokenInput(false);
+                }}
+                style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                Save
+              </button>
             </>
           ) : (
-            <button onClick={() => setShowTokenInput(true)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer', color: adminToken ? '#2e7d32' : '#999' }}>
+            <button onClick={requestAdminToken} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer', color: adminToken ? '#2e7d32' : '#999' }}>
               {adminToken ? '🔑 Token set' : '🔑 Set token'}
             </button>
           )}
@@ -1314,28 +1411,37 @@ function App() {
 }
 
 // Retain QueuePage for navigation, now shows the queue stats table
-function QueuePage({ adminToken }: { adminToken: string }) {
+function QueuePage({ adminToken, onAuthRequired }: { adminToken: string; onAuthRequired: () => void }) {
   const [stats, setStats] = useState<QueueStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
 
   useEffect(() => {
     async function doFetch() {
       try {
         const resp = await adminFetch(`${API_BASE}/admin/queue-stats`, adminToken);
-        if (resp.ok) setStats(await resp.json() as QueueStat[]);
+        if (resp.ok) {
+          setStats(await resp.json() as QueueStat[]);
+          setAuthRequired(false);
+        } else if (resp.status === 401 || resp.status === 403) {
+          setAuthRequired(true);
+          onAuthRequired();
+        }
       } catch { /* */ }
       setLoading(false);
     }
     void doFetch();
     const interval = setInterval(() => void doFetch(), REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [adminToken]);
+  }, [adminToken, onAuthRequired]);
 
   return (
     <div>
       <h2>Queue Status</h2>
       {loading ? (
         <p style={{ color: '#666' }}>Loading...</p>
+      ) : authRequired ? (
+        <AuthRequired onSetToken={onAuthRequired} />
       ) : stats.length === 0 ? (
         <p style={{ color: '#666' }}>No queue data available. Ensure the API server is running.</p>
       ) : (

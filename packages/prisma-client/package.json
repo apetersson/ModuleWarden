@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "generate": "prisma generate",
     "migrate": "npx prisma migrate dev",
+    "seed:prompt-packs": "prisma generate && node scripts/seed-prompt-packs.mjs",
     "studio": "prisma studio",
     "test": "vitest run"
   },

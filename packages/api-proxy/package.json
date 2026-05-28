@@ -12,6 +12,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^10.3.0",
     "@modulewarden/prisma-client": "workspace:*",
     "@modulewarden/shared": "workspace:*",

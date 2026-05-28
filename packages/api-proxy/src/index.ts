@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import cors from '@fastify/cors';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { JobQueue } from '@modulewarden/worker/jobs/queue.js';
@@ -46,6 +47,11 @@ export async function buildServer() {
     logger: {
       level: process.env.NODE_ENV === 'development' ? 'info' : 'warn',
     },
+  });
+
+  await app.register(cors, {
+    origin: process.env.MW_WEB_UI_ORIGIN ?? 'http://localhost:3000',
+    credentials: false,
   });
 
   // ── Rate limiting (S-5) ───────────────────────────────────────
