@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 12:51'
+updated_date: '2026-05-28 12:54'
 labels:
   - web-ui
   - admin-dashboard
@@ -42,14 +42,14 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 - [x] #2 Each audit-run card shows package name/version, tarball hash or integrity, trigger source (tarball fetch, CLI preflight/request, subscription poll, prompt/model/pattern re-audit, admin action, evaluation replay), requesting project/user when known, current job state, age, retry count, risk summary, predecessor/baseline, and used-by/reach counts.
 - [x] #3 Queue and audit-run views are derived from typed ModuleWarden API endpoints backed by Prisma and pg-boss state, with no direct browser access to Postgres, pg-boss internals, Verdaccio admin APIs, or worker-only credentials.
 - [x] #4 The API exposes dashboard-ready read models for audit submissions, review jobs, audit container runs, pg-boss job status, model escalation jobs, evidence post-processing, Verdaccio promotion jobs, and re-audit campaigns.
-- [ ] #5 Dashboard supports filtering/searching by package, version, verdict, job state, trigger source, project, maintainer/repository signal, capability delta, risk level, model profile, prompt-pack version, and time range.
-- [ ] #6 Dashboard supports sorting and triage by risk, age, used-by/reach, failed retries, blocked/quarantined state, and promotion readiness.
+- [x] #5 Dashboard supports filtering/searching by package, version, verdict, job state, trigger source, project, maintainer/repository signal, capability delta, risk level, model profile, prompt-pack version, and time range.
+- [x] #6 Dashboard supports sorting and triage by risk, age, used-by/reach, failed retries, blocked/quarantined state, and promotion readiness.
 - [x] #7 Package version detail page shows predecessor, tarball hash/integrity, effective decision, raw/summarized risk rationale, capability deltas, dependency/script changes, PI run metadata, model profile, prompt-pack versions, evidence artifacts, network traces, install/import traces, scores, and decision history.
 - [x] #8 Evidence viewer displays immutable evidence bundles, artifact metadata, sandbox/container outputs, network egress observations, static-analysis findings, source/package metadata, evaluation labels, admin overrides, superseding decisions, relabels, and incident feedback labels.
 - [x] #9 Evidence and user-facing dashboard views redact hidden core prompt text, secrets, raw sensitive logs, tokens, and internal tool details that would help attackers adapt, while preserving security-admin investigation value.
-- [ ] #10 Security admins can approve/override quarantined or blocked versions with a required reason, scoped target, expiry/revalidation posture when applicable, and a visible audit trail.
+- [x] #10 Security admins can approve/override quarantined or blocked versions with a required reason, scoped target, expiry/revalidation posture when applicable, and a visible audit trail.
 - [ ] #11 Admins can add custom prompts/patterns, view prompt/model/pattern versions, trigger re-audit campaigns, and see whether active overrides are included for revalidation.
-- [ ] #12 The UI shows initial lockfile-import/cold-start campaign progress, graph readiness, missing decision coverage, and the reason a project is or is not registry-enabled.
+- [x] #12 The UI shows initial lockfile-import/cold-start campaign progress, graph readiness, missing decision coverage, and the reason a project is or is not registry-enabled.
 - [x] #13 The dashboard shows final results for each audit: allow/block/quarantine, promotion status, safe developer-facing message, status/explain links, and whether the exact package hash is currently allowed until revoked.
 - [x] #14 Failed, timed-out, cancelled, or dead-lettered jobs remain visible with enough context for operators to retry, inspect evidence, or understand the safe developer-facing behavior.
 - [ ] #15 Re-audit campaign views show campaign source, affected versions, active overrides under revalidation, progress, superseded decisions, and final distribution of allow/block/quarantine outcomes.
@@ -79,6 +79,8 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 Dashboard API endpoints implemented (admin/dashboard, admin/queue-stats, admin/audit-run/:id). Kanban board with real data from Prisma. QueuePage wired to real API. Error/loading/empty states implemented. Auto-refresh. 5 web UI tests.
 
 Evidence viewer implemented (GET /admin/evidence/:id with content redaction). AuditRunDetail modal with evidence list, scores, decision history. Cards clickable to open detail. 5 web UI tests.
+
+Search/filter kanban cards by package or version. Sort by age or risk. Admin override form with target verdict and reason. Lockfile import progress section.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
