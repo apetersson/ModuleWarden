@@ -1,0 +1,19 @@
+{
+  "schema_version": "modulewarden.audit_report.v1",
+  "audit_id": "audit_demo_lodash_41721",
+  "verdict": "allow",
+  "confidence": "high",
+  "risk_level": "none",
+  "summary": "Patch release of lodash fixes CVE-2021-23337 (command injection in _.template) and tightens a ReDoS-prone regex. No new capabilities, no install-time behavior added, no dependency changes. Mainstream popular package baseline.",
+  "primary_findings": [],
+  "benign_explanations_considered": [],
+  "recommended_agent_checks": [],
+  "developer_safe_summary": "ModuleWarden allowed lodash@4.17.21. The release is a documented security fix with no install-time behaviour or capability changes.",
+  "security_admin_summary": "ALLOW lodash@4.17.21. Demonstrates that the gate does not stamp BLOCK on every popular package: this release improves security posture (CVE-2021-23337 patched) without adding capability risk.",
+  "output_integrity": {
+    "signature_scheme": "ed25519",
+    "evidence_index_resolved": true,
+    "generated_by": "modulewarden-demo-runner v1",
+    "generated_at": "2026-05-28T12:50:00Z"
+  }
+}

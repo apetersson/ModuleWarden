@@ -1,0 +1,3 @@
+outputs/*.md
+outputs/*.json
+__pycache__/

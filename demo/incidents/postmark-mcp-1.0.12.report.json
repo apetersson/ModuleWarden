@@ -1,0 +1,19 @@
+{
+  "schema_version": "modulewarden.audit_report.v1",
+  "audit_id": "audit_demo_postmark_mcp_1012",
+  "verdict": "allow",
+  "confidence": "high",
+  "risk_level": "low",
+  "summary": "Patch release modifies only the HTTP retry backoff and a test fixture. No capability deltas, no lifecycle changes, no new dependencies, no network egress added. Consistent with the published changelog and the package purpose.",
+  "primary_findings": [],
+  "benign_explanations_considered": [],
+  "recommended_agent_checks": [],
+  "developer_safe_summary": "ModuleWarden allowed postmark-mcp@1.0.12. The release is a benign retry-logic patch with no install-time or behavioral changes.",
+  "security_admin_summary": "ALLOW postmark-mcp@1.0.12. No supply-chain risk indicators present. Maintains 1.0.11 capability profile. This is the last-known-clean release before the September 2025 compromise that landed in 1.0.16.",
+  "output_integrity": {
+    "signature_scheme": "ed25519",
+    "evidence_index_resolved": true,
+    "generated_by": "modulewarden-demo-runner v1",
+    "generated_at": "2026-05-28T12:50:00Z"
+  }
+}

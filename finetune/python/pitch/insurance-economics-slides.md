@@ -6,13 +6,13 @@ Two-slide insert for the pitch deck. Sits between Slide 4 (Architecture) and the
 
 ## Slide A: The math, one customer
 
-**Speaker note (about 30 seconds):** "Take a real underwriting profile. An 18M EUR Austrian SME, around 80 developers, JavaScript and Python stack. Their cyber premium today sits at 142k a year. The underwriter's expected loss ratio on the account is 41 percent, anchored to NAIC and Munich Re 2024 figures. After Apiary is deployed, every install routes through the gate, and every decision ships with a control evidence memo. Apply Coalition's published control-class credit of 12.5 percent, plus the reduction in supply chain exposure that Verizon and Sonatype both pin at the install layer. Year 1 premium drops to 121k. Loss ratio drops to 27 to 30 percent. The customer renews and UNIQA picks up 11 to 14 percentage points of margin on the account."
+**Speaker note (about 30 seconds):** "Take a real underwriting profile. An 18M EUR Austrian SME, around 80 developers, JavaScript and Python stack. Their cyber premium today sits at 142k a year. The underwriter's expected loss ratio on the account is 41 percent, anchored to NAIC and Munich Re 2024 figures. After ModuleWarden is deployed, every install routes through the gate, and every decision ships with a control evidence memo. Apply Coalition's published control-class credit of 12.5 percent, plus the reduction in supply chain exposure that Verizon and Sonatype both pin at the install layer. Year 1 premium drops to 121k. Loss ratio drops to 27 to 30 percent. The customer renews and UNIQA picks up 11 to 14 percentage points of margin on the account."
 
 **Visual layout:**
 
 Two columns separated by a wide arrow pointing right.
 
-| Pre-Apiary (left column)              | Post-Apiary (right column)              |
+| Pre-ModuleWarden (left column)              | Post-ModuleWarden (right column)              |
 | ------------------------------------- | --------------------------------------- |
 | Premium: 142k EUR per year            | Premium: 121k EUR per year              |
 | Expected loss ratio: 41 percent       | Expected loss ratio: 27 to 30 percent   |

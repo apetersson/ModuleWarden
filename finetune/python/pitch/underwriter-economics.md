@@ -1,18 +1,18 @@
-# Apiary Underwriting Economics
+# ModuleWarden Underwriting Economics
 **One-pager for cyber-insurance underwriters and CIOs**
 
-The pitch for Apiary is usually a security story. This page is the underwriting story: what changes in the loss model when an insured deploys a deterministic, attestable ingest gate for every npm, pnpm, and yarn install. The customer profile below is illustrative. Every premium tier, loss ratio, and discount band is anchored to public industry data, cited at the end.
+The pitch for ModuleWarden is usually a security story. This page is the underwriting story: what changes in the loss model when an insured deploys a deterministic, attestable ingest gate for every npm, pnpm, and yarn install. The customer profile below is illustrative. Every premium tier, loss ratio, and discount band is anchored to public industry data, cited at the end.
 
 ## The math, with one customer
 
-**Pre-Apiary baseline**
+**Pre-ModuleWarden baseline**
 - Customer profile: Austrian SME, 18M EUR revenue, around 80 developers, JavaScript/TypeScript and Python stack
 - Cyber-insurance premium (Year 0): 142k EUR per year, sitting at the high end of the mid-market band [1, 2]
 - Underwriter's expected loss ratio for the cyber line: 41 percent, slightly under the 2024 US industry figure of 49 percent and inside the 40 to 50 percent range Munich Re reports for stable cyber books [3, 4]
 - Estimated expected loss attributable to software supply chain vectors: 19k to 24k EUR per year, derived from a 15 percent supply chain share of breach incidents [5]
 
-**Post-Apiary deployment**
-- New control class: every install routes through the ModuleWarden gate. Apiary scores the package, the gate enforces allow, quarantine, or block based on policy
+**Post-ModuleWarden deployment**
+- New control class: every install routes through the ModuleWarden gate. ModuleWarden scores the package, the gate enforces allow, quarantine, or block based on policy
 - Evidence artifact per decision: machine-readable JSON plus a human-readable Control Evidence Memo with rule reference, score band, and sign-off trail
 - Premium tier reduction: 10 to 15 percent for a verifiable new control class, layered on top of any existing MDR or MFA credit. Coalition publishes a 12.5 percent credit for MDR adoption as the comparable reference point [6]
 - Year 1 premium: 121k EUR (a 15 percent tier reduction applied to the 142k baseline)
@@ -29,15 +29,15 @@ The premium anchor is the Austrian and broader EU mid-market band. Stoik, the la
 
 The loss ratio anchor is the NAIC 2024 cyber report. The US industry loss and defense cost ratio was 49 percent in 2024, up seven points year over year. A well-underwritten European book typically runs five to ten points under the US figure, putting 41 percent inside the realistic envelope for a healthy account at portfolio underwriting [3].
 
-The discount anchor is Coalition's published 12.5 percent premium credit for MDR. Apiary is a different control class but the same logic applies: a verifiable, continuously attested control with claims-relevant telemetry. Coalition also reports that 82 percent of cyber insurance claims involved organizations lacking MFA, which is the precedent for premium tiering based on a single high-impact control [6, 10].
+The discount anchor is Coalition's published 12.5 percent premium credit for MDR. ModuleWarden is a different control class but the same logic applies: a verifiable, continuously attested control with claims-relevant telemetry. Coalition also reports that 82 percent of cyber insurance claims involved organizations lacking MFA, which is the precedent for premium tiering based on a single high-impact control [6, 10].
 
 The supply chain exposure anchor is Verizon DBIR 2024 and Sonatype 2024. Third-party software development organizations played a role in 15 percent of the 10,000 breaches Verizon documented, a 68 percent year-over-year jump. Sonatype logged 512,847 malicious packages in the past year, a 156 percent increase, with 98.5 percent concentrated in npm [5, 7]. An install-time gate is the right place to intervene because that is where the trust decision actually happens.
 
 ## Scaling to UNIQA's book
 
-UNIQA's cyber line in CEE is not publicly broken out. The European cyber market is projected to account for 24 to 25 percent of global premium by 2027, with Munich Re putting global premium volume on track to more than double by 2030 at a 10 percent annual growth rate [4, 11]. If 20 to 30 percent of a CEE cyber book is tech-stack-eligible for an install-gate control (firms with material JavaScript or Python software production), deploying Apiary as an underwriting incentive could shift loss ratio on that segment by the same 11 to 14 percentage points modeled above. Across an entire book the effect dilutes, so the honest portfolio-level claim is two to four points of loss ratio improvement once the eligible segment is weighted.
+UNIQA's cyber line in CEE is not publicly broken out. The European cyber market is projected to account for 24 to 25 percent of global premium by 2027, with Munich Re putting global premium volume on track to more than double by 2030 at a 10 percent annual growth rate [4, 11]. If 20 to 30 percent of a CEE cyber book is tech-stack-eligible for an install-gate control (firms with material JavaScript or Python software production), deploying ModuleWarden as an underwriting incentive could shift loss ratio on that segment by the same 11 to 14 percentage points modeled above. Across an entire book the effect dilutes, so the honest portfolio-level claim is two to four points of loss ratio improvement once the eligible segment is weighted.
 
-## What underwriters get with every Apiary decision
+## What underwriters get with every ModuleWarden decision
 
 - Machine-readable JSON verdict per install: timestamp, package, score band, rule pass or fail, evidence hashes
 - Human-readable Control Evidence Memo: control reference, decision, exception path taken, sign-off trail, exportable to PDF
@@ -46,12 +46,12 @@ UNIQA's cyber line in CEE is not publicly broken out. The European cyber market 
 
 ## Why this changes the conversation
 
-Today the underwriter asks "do you run SCA?" and ticks a checkbox. The answer is a sales asserted yes. With Apiary the underwriter receives the evidence artifact during the application, the annual renewal, and the claims investigation. The control is verifiable, not asserted. That is the actuarial difference: pricing a control you can measure versus pricing a control you have to trust.
+Today the underwriter asks "do you run SCA?" and ticks a checkbox. The answer is a sales asserted yes. With ModuleWarden the underwriter receives the evidence artifact during the application, the annual renewal, and the claims investigation. The control is verifiable, not asserted. That is the actuarial difference: pricing a control you can measure versus pricing a control you have to trust.
 
 ## Honest caveats
 
 - All numbers are anchored to public industry reports. The 142k baseline and the specific customer profile are illustrative, not pulled from a real UNIQA account
-- The 10 to 15 percent premium tier reduction assumes UNIQA's actuarial team validates Apiary as a control class. Typical evaluation runs 30 to 90 days
+- The 10 to 15 percent premium tier reduction assumes UNIQA's actuarial team validates ModuleWarden as a control class. Typical evaluation runs 30 to 90 days
 - The loss ratio reduction depends on customer install volume, threshold tuning, and the policyholder actually keeping the gate in enforce mode. A gate set to audit-only delivers the evidence artifact but not the loss reduction
 - The 11 to 14 percentage point margin claim is per-account on the eligible segment. The portfolio number softens to two to four points after eligibility weighting, which is what we recommend you quote externally
 
