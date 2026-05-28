@@ -1,9 +1,9 @@
 #!/bin/sh
 # ── ModuleWarden Audit Container Entrypoint ────────────────
 #
-# This container runs two processes:
-# 1. The RPC bridge server (background) — serves tool endpoints for PI
-# 2. The PI audit orchestrator (foreground) — runs PI, captures verdict
+# This container runs the PI audit orchestrator in the foreground. The
+# orchestrator requires an RPC bridge server on MW_RPC_PORT; missing bridge,
+# PI, or model configuration is a hard audit failure.
 #
 # The worker injects the run-specific workspace, RPC token,
 # package inputs, and prepared evidence before starting.
@@ -49,21 +49,14 @@ fi
 ORCHESTRATOR="/app/orchestrator/index.js"
 if [ -f "${ORCHESTRATOR}" ]; then
   echo "[entrypoint] Starting PI audit orchestrator..."
+  set +e
   node "${ORCHESTRATOR}"
   ORCH_EXIT=$?
+  set -e
   echo "[entrypoint] Orchestrator exited with code ${ORCH_EXIT}"
 else
   echo "[entrypoint] Orchestrator not found at ${ORCHESTRATOR}"
-  echo "[entrypoint] Running fallback inspection..."
-
-  if [ -f inputs/package.json ]; then
-    cp inputs/package.json "${OUTPUT_DIR}/inspection/package.json" 2>/dev/null || true
-  fi
-  env | grep -v MW_RPC_TOKEN > "${OUTPUT_DIR}/inspection/env.txt" 2>/dev/null || true
-  uname -a > "${OUTPUT_DIR}/inspection/system.txt" 2>/dev/null || true
-  ls -laR inputs/ > "${OUTPUT_DIR}/inspection/inputs-tree.txt" 2>/dev/null || true
-
-  ORCH_EXIT=0
+  ORCH_EXIT=1
 fi
 
 # Capture final workspace state

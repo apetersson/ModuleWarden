@@ -1,9 +1,9 @@
 /**
  * ModuleWarden PI Audit Orchestrator
  *
- * Runs inside the audit container alongside the RPC bridge server.
- * Starts PI in RPC mode with custom audit tools, sends the audit prompt,
- * and captures the structured verdict.
+ * Runs inside the audit container. Requires an RPC bridge server, PI, and a
+ * model endpoint; missing prerequisites are fatal because degraded file-only
+ * verdicts mask broken agentic audit wiring.
  *
  * Usage: node dist/orchestrator.js
  *
@@ -155,16 +155,10 @@ async function main(): Promise<void> {
   }
 
   if (!bridgeReady) {
-    console.log('[orchestrator] RPC bridge not reachable — running tool-only audit');
-    await runToolOnlyAudit();
-    return;
+    throw new Error('RPC bridge is required for agentic audit but was not reachable');
   }
 
-  // Create output directory
-  try {
-    const { mkdirSync } = await import('node:fs');
-    mkdirSync(OUTPUT_DIR, { recursive: true });
-  } catch { /* ignore */ }
+  mkdirSync(OUTPUT_DIR, { recursive: true });
 
   // Check if PI is available and has a model endpoint
   let piAvailable = false;
@@ -181,10 +175,12 @@ async function main(): Promise<void> {
     console.log('[orchestrator] PI not available');
   }
 
-  if (!piAvailable || !process.env.MW_MODEL_ENDPOINT_BASE_URL) {
-    console.log('[orchestrator] PI or model endpoint not configured — running tool-only audit');
-    await runToolOnlyAudit();
-    return;
+  if (!piAvailable) {
+    throw new Error('PI is required for agentic audit but was not available in the audit container');
+  }
+
+  if (!process.env.MW_MODEL_ENDPOINT_BASE_URL) {
+    throw new Error('MW_MODEL_ENDPOINT_BASE_URL is required for agentic audit but was not configured');
   }
 
   // Start PI in RPC mode
@@ -225,6 +221,7 @@ async function main(): Promise<void> {
 
   // Send the audit prompt
   const auditPrompt = buildAuditPrompt();
+  writeFileSync(join(OUTPUT_DIR, 'initial-prompt.md'), auditPrompt);
   console.log('[orchestrator] Sending audit prompt to PI...');
   sendRpcCommand(piProc, {
     type: 'prompt',
@@ -274,135 +271,8 @@ async function main(): Promise<void> {
   process.exit(verdict ? 0 : 1);
 }
 
-/**
- * Fallback: Run a tool-only audit when PI or RPC bridge is unavailable.
- * Performs basic file inspection and writes findings locally.
- */
-async function runToolOnlyAudit(): Promise<void> {
-  console.log('[orchestrator] Running tool-only audit...');
-
-  const bridgeAvailable = await checkBridgeHealth();
-
-  if (bridgeAvailable) {
-    // Use RPC bridge tools
-    await runBridgeAudit();
-  } else {
-    // No bridge — do basic file inspection
-    await runFileInspection();
-  }
-}
-
-async function checkBridgeHealth(): Promise<boolean> {
-  try {
-    const resp = await fetch(`http://127.0.0.1:${RPC_PORT}/health`);
-    return resp.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function runBridgeAudit(): Promise<void> {
-  const baseUrl = `http://127.0.0.1:${RPC_PORT}`;
-  const headers = { Authorization: `Bearer ${RPC_TOKEN}`, 'Content-Type': 'application/json' };
-
-  const pkgResp = await fetch(`${baseUrl}/tools/package-info`, {
-    method: 'POST', headers, body: JSON.stringify({ requestId: 'r1' }),
-  });
-  const pkgData = await pkgResp.json();
-  console.log(`[orchestrator] Package: ${pkgData.data?.name ?? 'unknown'}@${pkgData.data?.version ?? 'unknown'}`);
-
-  const staticResp = await fetch(`${baseUrl}/tools/static-checks`, {
-    method: 'POST', headers, body: JSON.stringify({ requestId: 'r2' }),
-  });
-  const staticData = await staticResp.json();
-  console.log(`[orchestrator] Static findings: ${(staticData.data?.findings ?? []).length}`);
-
-  await fetch(`${baseUrl}/tools/write-evidence`, {
-    method: 'POST', headers,
-    body: JSON.stringify({
-      requestId: 'r3',
-      params: { type: 'static-analysis', label: `static-analysis-${Date.now()}`, description: `Static analysis for ${PACKAGE_NAME}@${PACKAGE_VERSION}`, data: staticData.data ?? {} },
-    }),
-  });
-
-  const verdict = {
-    verdict: 'quarantine',
-    riskSummary: `Tool-only audit of ${PACKAGE_NAME}@${PACKAGE_VERSION}. Found ${(staticData.data?.findings ?? []).length} findings. Manual review required.`,
-    capabilityDeltas: [], intentMismatches: [], exploitHypotheses: [],
-    scores: { findingCount: (staticData.data?.findings ?? []).length },
-    evidenceReferences: [`static-analysis-${Date.now()}`],
-  };
-  writeFileSync(join(OUTPUT_DIR, 'verdict.json'), JSON.stringify(verdict, null, 2));
-  console.log('[orchestrator] Bridge audit complete');
-}
-
-async function runFileInspection(): Promise<void> {
-  console.log('[orchestrator] No RPC bridge — running file inspection...');
-
-  const inputsDir = join(WORKSPACE, 'inputs');
-  const pkgDir = join(inputsDir, 'package');
-  const inspectionDir = join(OUTPUT_DIR, 'inspection');
-
-  try {
-    const { readdirSync } = await import('node:fs');
-
-    // List package files
-    const files: string[] = [];
-    if (existsSync(pkgDir)) {
-      const walk = (dir: string): void => {
-        for (const e of readdirSync(dir, { withFileTypes: true })) {
-          const full = join(dir, e.name);
-          if (e.isDirectory()) walk(full);
-          else files.push(full.replace(pkgDir, '').replace(/^\//, ''));
-        }
-      };
-      walk(pkgDir);
-    }
-
-    mkdirSync(inspectionDir, { recursive: true });
-    writeFileSync(join(inspectionDir, 'files.txt'), files.join('\n'));
-    // Write basic inspection metadata
-    const env = Object.entries(process.env)
-      .filter(([k]) => k !== 'MW_RPC_TOKEN' && !k.startsWith('MW_RPC_'))
-      .map(([k, v]) => `${k}=${v}`).join('\n');
-    writeFileSync(join(inspectionDir, 'env.txt'), env);
-    writeFileSync(join(inspectionDir, 'system.txt'), `Node: ${process.version}\nArch: ${process.arch}\nPlatform: ${process.platform}\n`);
-
-    // Count findings
-    const jsFiles = files.filter((f) => /\.(js|mjs|cjs|ts)$/i.test(f));
-    const findingCount = jsFiles.length > 0 ? Math.min(jsFiles.length, 5) : 0;
-
-    const verdict = {
-      verdict: 'quarantine',
-      riskSummary: `File-only inspection of ${PACKAGE_NAME}@${PACKAGE_VERSION}. Found ${findingCount} inspectable files. No static analysis available.`,
-      capabilityDeltas: [], intentMismatches: [], exploitHypotheses: [],
-      scores: { fileCount: files.length, jsFileCount: jsFiles.length },
-      evidenceReferences: [],
-    };
-    writeFileSync(join(OUTPUT_DIR, 'verdict.json'), JSON.stringify(verdict, null, 2));
-    console.log(`[orchestrator] File inspection complete — ${files.length} files found`);
-  } catch (_err) {
-    // Minimal fallback
-    const verdict = {
-      verdict: 'quarantine',
-      riskSummary: `Minimal inspection of ${PACKAGE_NAME}@${PACKAGE_VERSION}.`,
-      capabilityDeltas: [], intentMismatches: [], exploitHypotheses: [],
-      scores: {},
-      evidenceReferences: [],
-    };
-    writeFileSync(join(OUTPUT_DIR, 'verdict.json'), JSON.stringify(verdict, null, 2));
-
-    // Write basic inspection files for backward compatibility
-    try {
-      const inspectionDir = join(OUTPUT_DIR, 'inspection');
-      mkdirSync(inspectionDir, { recursive: true });
-      const env = Object.entries(process.env).filter(([k]) => k !== 'MW_RPC_TOKEN').map(([k, v]) => `${k}=${v}`).join('\n');
-      writeFileSync(join(inspectionDir, 'env.txt'), env);
-    } catch { /* */ }
-
-    console.log('[orchestrator] Minimal inspection complete');
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-main();
+main().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[orchestrator] Fatal audit orchestration error: ${message}`);
+  process.exit(1);
+});

@@ -5,12 +5,28 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const TEST_IMAGE = 'modulewarden-audit-runner';
+const TEST_IMAGE = 'modulewarden-container-runner-test:latest';
 
 describe('ContainerRunner', () => {
   let runner: ContainerRunner;
 
   beforeAll(async () => {
+    execSync(`docker build -t ${TEST_IMAGE} - <<'DOCKERFILE'
+FROM node:20-alpine
+RUN cat <<'SH' > /entrypoint.sh
+#!/bin/sh
+set -eu
+mkdir -p /workspace/output/inspection
+env | grep -v MW_RPC_TOKEN > /workspace/output/inspection/env.txt
+printf 'Node: test\\n' > /workspace/output/inspection/system.txt
+cp /workspace/run-config.json /workspace/output/run-config.json
+printf '{"verdict":"quarantine"}\\n' > /workspace/output/verdict.json
+ls -la /workspace/output > /workspace/output/output-manifest.txt
+SH
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+DOCKERFILE`, { stdio: 'pipe' });
+
     runner = new ContainerRunner({
       imageName: TEST_IMAGE,
       auditNetworkName: 'mw-audit-test-net',
@@ -21,6 +37,9 @@ describe('ContainerRunner', () => {
   afterAll(async () => {
     try {
       execSync('docker network rm mw-audit-test-net 2>/dev/null || true', { stdio: 'pipe' });
+    } catch { /* ignore */ }
+    try {
+      execSync(`docker rmi ${TEST_IMAGE} 2>/dev/null || true`, { stdio: 'pipe' });
     } catch { /* ignore */ }
   });
 
@@ -113,6 +132,7 @@ describe('ContainerRunner', () => {
     expect(result.evidenceArtifacts.length).toBeGreaterThanOrEqual(3);
     // Should have at least: env.txt, system.txt, run-config.json
     const artifactNames = result.evidenceArtifacts.map(a => a.split('/').pop());
+    expect(artifactNames).toContain('container.log');
     expect(artifactNames).toContain('env.txt');
     expect(artifactNames).toContain('system.txt');
 

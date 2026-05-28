@@ -31,7 +31,7 @@ If `cors-anywhere@0.4.4` is unavailable or unsuitable, replace it with another h
 
 As of this runbook, `TASK-1.12` says the dashboard is not complete. The current web UI has stubbed queue behavior, so dashboard validation may fail until the admin visibility dashboard API/UI work is finished.
 
-The audit container can fall back to tool-only or file-only inspection if PI, the RPC bridge, or model endpoint wiring is incomplete. That is acceptable for this first drive only if it is recorded as a gap. The target behavior is a real model-backed audit using `DEEPSEEK_API_KEY`.
+The audit container must not fall back to file-only inspection if PI, the RPC bridge, or model endpoint wiring is incomplete. Andreas explicitly required that fallback to be removed because it masks the missing agent conversation. The target behavior is a real model-backed audit using `DEEPSEEK_API_KEY`; otherwise the audit should fail clearly.
 
 ## Prerequisites
 
@@ -219,7 +219,7 @@ Inspect worker and audit-runner logs:
 ```bash
 cd ../main-modulewarden
 
-docker compose logs --tail=500 worker | grep -Ei "deepseek|MW_MODEL_ENDPOINT|model endpoint|PI|orchestrator|verdict|tool-only|file-only|fallback" || true
+docker compose logs --tail=500 worker | grep -Ei "deepseek|MW_MODEL_ENDPOINT|model endpoint|PI|orchestrator|verdict|RPC bridge|required|Fatal" || true
 ```
 
 Expected target behavior:
@@ -227,9 +227,9 @@ Expected target behavior:
 - Logs show the configured model endpoint/model being used.
 - PI/model-backed audit produces a structured verdict.
 
-Acceptable first-drive gap:
+Failure gap to record:
 
-- Logs show `tool-only`, `file-only`, `PI not available`, `RPC bridge not reachable`, or fallback behavior. Record this as an audit harness/model wiring gap.
+- Logs show `PI not available`, `RPC bridge ... required`, `MW_MODEL_ENDPOINT_BASE_URL ... required`, or another fatal agentic-audit prerequisite failure. Record this as an audit harness/model wiring gap.
 
 ## 7. Validate Dashboard Visibility
 

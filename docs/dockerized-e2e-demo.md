@@ -86,7 +86,7 @@ Optional for model-backed audit attempts:
 export DEEPSEEK_API_KEY="..."
 ```
 
-If `DEEPSEEK_API_KEY` is not set, the script uses `sk-change-me`. The current audit harness may still fall back to file-only inspection if the PI/RPC bridge/model path is unavailable.
+If `DEEPSEEK_API_KEY` is not set, the script uses `sk-change-me`. The audit runner is intentionally not allowed to fabricate a file-only audit verdict. If the PI/RPC bridge/model path is unavailable, the audit container must fail loudly and the preserved session/logs should show the missing prerequisite.
 
 ## Default Ports And Paths
 
@@ -396,7 +396,7 @@ SQL
 
 ## Inspect Evidence Artifacts
 
-The audit run may currently use file-only inspection. That is acceptable for this Dockerized validation scenario as long as it is recorded.
+The audit run must not use file-only inspection. A missing RPC bridge, PI binary, or model endpoint is an audit harness failure, not a successful quarantine verdict.
 
 Inspect evidence:
 
@@ -421,13 +421,15 @@ SQL
 Expected evidence names may include:
 
 - `verdict.json`
+- `initial-prompt.md`
+- `container.log`
 - `env.txt`
 - `files.txt`
 - `system.txt`
 - `output-manifest.txt`
 - `session-archive`
 
-Expected `verdict.json` content currently indicates a `quarantine` verdict from file-only inspection.
+`initial-prompt.md` is present when the agentic path starts and records the exact initial prompt sent to PI. If `verdict.json` contains `File-only inspection` or `Minimal inspection`, the audit runner has regressed.
 
 ## Inspect Preserved Session Directories
 
@@ -451,6 +453,8 @@ run-config.json
 inputs/package.tgz
 inputs/package/
 output/
+output/container.log
+output/initial-prompt.md
 output/verdict.json
 output/inspection/
 output/pi-session.log
@@ -458,7 +462,7 @@ output/pi-session-error.log
 evidence/
 ```
 
-`pi-session.log` and `pi-session-error.log` are present only when the PI/model-backed path runs far enough to create them. File-only fallback runs still preserve `output/inspection`, `output/verdict.json`, and copied `evidence/`.
+`pi-session.log` and `pi-session-error.log` are present only when the PI/model-backed path runs far enough to create them. Missing agentic prerequisites should now leave a failed audit run plus preserved logs/session state, not a file-only verdict.
 
 ## Cleanup
 
@@ -491,11 +495,12 @@ rm -rf .e2e
 - [ ] Evidence artifacts are captured.
 - [ ] Full audit session directory is preserved under `.e2e/audit-sessions`.
 - [ ] Preserved `run-config.json` redacts the runtime RPC token.
+- [ ] No `File-only inspection` or `Minimal inspection` verdict is emitted.
 - [ ] Admin override creates an effective `BLOCK` decision.
 - [ ] Direct tarball request after block returns HTTP `403`.
 - [ ] Second `pnpm add cors-anywhere@0.4.4` does not install the package.
 - [ ] Results are captured under `.e2e/results/<RUN_ID>`.
-- [ ] Any file-only/tool-only audit fallback is recorded as a harness/model wiring gap.
+- [ ] Any missing PI/RPC/model prerequisite is recorded as a failed audit harness gap.
 - [ ] The packument-filtering install gap is recorded when `first-pnpm-add.log` shows `ERR_PNPM_NO_VERSIONS`.
 
 ## Known Gaps To Track
@@ -504,7 +509,7 @@ rm -rf .e2e
    `pnpm add cors-anywhere@0.4.4` currently may fail on filtered packument metadata before reaching the tarball route. The desired UX is a ModuleWarden pending/audit message that queues review directly from the package-manager flow.
 
 2. Model-backed audit:
-   The audit container can complete with file-only inspection if PI, the RPC bridge, or model endpoint wiring is not fully available. The target behavior remains a structured model-backed verdict using the configured OpenAI-compatible endpoint.
+   The audit container must not complete with file-only inspection if PI, the RPC bridge, or model endpoint wiring is unavailable. Andreas explicitly required this fallback to be removed; the target behavior is a structured model-backed verdict using the configured OpenAI-compatible endpoint, otherwise a clear failed audit.
 
 3. Deterministic block:
    The scenario currently uses an admin override to force `BLOCK` after audit completion. That keeps retry validation deterministic while the audit verdict pipeline is still maturing.

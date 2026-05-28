@@ -250,9 +250,17 @@ export class ContainerRunner {
         } catch { /* container may have crashed */ }
       }
 
+      try {
+        const logs = execSync(`docker logs ${containerId} 2>&1`, {
+          encoding: 'utf-8',
+          maxBuffer: 10 * 1024 * 1024,
+          stdio: 'pipe',
+        });
+        writeFileSync(join(outputDir, 'container.log'), logs);
+      } catch { /* preserve audit result even if log capture fails */ }
+
       // 7. Capture evidence artifacts from workspace/output
       const evidenceArtifacts: string[] = [];
-      const outputDir = join(workspacePath, 'output');
       if (existsSync(outputDir)) {
         const files = execSync(
           `find "${outputDir}" -type f 2>/dev/null || true`,
