@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma, createOverride, listActiveOverrides, deactivateOverride } from '@modulewarden/prisma-client';
+import { checkAdmin } from '../middleware/auth.js';
 
 interface OverrideBody {
   packageName: string;
@@ -16,31 +17,6 @@ interface OverrideBody {
  * Only accessible with security-admin tokens.
  */
 export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
-  // Auth middleware helper
-  function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      reply.status(401).send({ error: 'Authentication required' });
-      return false;
-    }
-
-    const token = authHeader.slice(7);
-    // H-2: Use MW_AUTH_ADMIN_TOKENS (matching config) and fail closed
-    const adminEnv = process.env.MW_AUTH_ADMIN_TOKENS;
-    if (!adminEnv) {
-      reply.status(503).send({ error: 'Admin auth not configured: set MW_AUTH_ADMIN_TOKENS' });
-      return false;
-    }
-    const adminTokens = adminEnv.split(',');
-
-    if (!adminTokens.includes(token)) {
-      reply.status(403).send({ error: 'Forbidden: admin token required' });
-      return false;
-    }
-
-    return true;
-  }
-
   /**
    * POST /admin/override — Create a security-admin override.
    */
@@ -66,40 +42,35 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       const prisma = getPrisma();
 
       // Find the specific package version
-      const where = tarballHash
-        ? {
-            packageName_version_registrySource_tarballHash: {
-              packageName,
-              version,
-              registrySource: 'npm',
-              tarballHash,
-            } as const,
-          }
-        : {
-            packageName_version_registrySource_tarballHash: {
-              packageName,
-              version,
-              registrySource: 'npm',
-              tarballHash: '',
-            } as const,
-          };
-
       let pv = tarballHash
-        ? await prisma.packageVersion.findUnique({ where: where as any })
+        ? await prisma.packageVersion.findUnique({
+            where: {
+              packageName_version_registrySource_tarballHash: {
+                packageName,
+                version,
+                registrySource: 'npm',
+                tarballHash,
+              },
+            },
+          })
         : await prisma.packageVersion.findFirst({
             where: { packageName, version, registrySource: 'npm' },
             orderBy: { createdAt: 'desc' },
           });
 
       // Create the package version record if it doesn't exist
-      pv ??= await prisma.packageVersion.create({
-        data: {
-          packageName,
-          version,
-          registrySource: 'npm',
-          tarballHash: tarballHash ?? `override:${packageName}:${version}`,
-        },
-      });
+      // Use a timestamp-based suffix for synthetic hashes to avoid collisions
+      if (!pv) {
+        const syntheticHash = tarballHash ?? `override:${packageName}:${version}:${Date.now()}`;
+        pv = await prisma.packageVersion.create({
+          data: {
+            packageName,
+            version,
+            registrySource: 'npm',
+            tarballHash: syntheticHash,
+          },
+        });
+      }
 
       // Find the latest decision for this version
       const latestDecision = await prisma.decision.findFirst({

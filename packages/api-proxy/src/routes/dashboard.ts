@@ -5,6 +5,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { checkAdmin } from '../middleware/auth.js';
 import type {
   DashboardState,
   AuditRunCard,
@@ -35,30 +36,6 @@ function assignColumn(status: string, verdict: string | null): KanbanColumn {
  * Register dashboard admin API routes.
  */
 export async function registerDashboardRoutes(app: FastifyInstance): Promise<void> {
-  // Auth middleware helper — same pattern as routes/admin.ts
-  function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      reply.status(401).send({ error: 'Authentication required' });
-      return false;
-    }
-
-    const token = authHeader.slice(7);
-    const adminEnv = process.env.MW_AUTH_ADMIN_TOKENS;
-    if (!adminEnv) {
-      reply.status(503).send({ error: 'Admin auth not configured: set MW_AUTH_ADMIN_TOKENS' });
-      return false;
-    }
-    const adminTokens = adminEnv.split(',');
-
-    if (!adminTokens.includes(token)) {
-      reply.status(403).send({ error: 'Forbidden: admin token required' });
-      return false;
-    }
-
-    return true;
-  }
-
   // ── GET /admin/dashboard ─────────────────────────────────────
 
   app.get('/admin/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {

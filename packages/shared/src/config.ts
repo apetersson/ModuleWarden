@@ -89,6 +89,7 @@ function readRequiredString(name: string): string {
 
 /**
  * Read a required comma-separated list env var. At least one value required.
+ * Each value must be at least 16 characters and contain only URL-safe characters.
  */
 function readRequiredList(name: string): string[] {
   const raw = readRequiredString(name);
@@ -98,6 +99,20 @@ function readRequiredList(name: string): string[] {
       `${name} is set but contains no valid comma-separated values. ` +
       `Provide at least one token.`
     );
+  }
+  for (const val of values) {
+    if (val.length < 16) {
+      throw new Error(
+        `${name} value "${val.slice(0, 8)}…" is too short. ` +
+        `Each token must be at least 16 characters.`
+      );
+    }
+    if (!/^[A-Za-z0-9_\-]+$/.test(val)) {
+      throw new Error(
+        `${name} value "${val.slice(0, 8)}…" contains invalid characters. ` +
+        `Only alphanumeric, underscore, and hyphen are allowed.`
+      );
+    }
   }
   return values;
 }
