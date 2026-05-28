@@ -146,3 +146,32 @@ accuracy is measured on the test set and we report the raw number."
   lives)
 - arXiv 2510.24431 (MiniOneRec paper, for the v3 roadmap reference)
 - github.com/outlines-dev/outlines (the chosen library)
+
+## Addendum (2026-05-28, later that night)
+
+The decision above stands: the FULL MiniOneRec port (RQ-VAE SID
+codebook adaptation plus the GRPO trainer, the 8-10 hour surface) is
+still rejected for this hackathon.
+
+What did ship is much smaller and does not touch any of the rejected
+parts. `finetune/python/eval/minionerec_constraint.py` (201 lines,
+10 passing tests) ports only two generic pieces: the logits-masking
+step and the trie-backed prefix function. The trie is built fresh over
+a dossier's evidence-ref allowlist. The RQ-VAE / SID machinery, the GRPO
+trainer, and the training-time changes are all intentionally left out.
+
+Why it landed anyway: `constrained_decode.py` already used outlines for
+the JSON skeleton, then ran a post-decode rejector that STRIPPED any
+invalid evidence_ref. Stripping guarantees zero invented refs, but it
+drops the citation entirely when the free-decode emits a near-miss
+(for example "ev.file.99" instead of "ev.file.002"), which costs
+evidence_citation_accuracy. The trie mask fixes that during decode: the
+model never sees the invalid token, so it picks a real ref instead of
+dropping one. `constrained_decode.py` imports it lazily, so the outlines
+path still works without it.
+
+Net: outlines remains the documented entry point (runbook Step 6,
+matrix_runner arm-2). The trie mask is an internal upgrade to that path,
+not a competing track. Do not delete `minionerec_constraint.py` reading
+the "rejected" line above out of context; `constrained_decode.py`
+depends on it.

@@ -42,14 +42,21 @@ to the committed `scraped-cases.jsonl` (2305 cases) and proceed.
 ## Step 2: Pull pre-computed SFT records (skip the walker)
 
 ```bash
-bash finetune/scripts/nextcloud-sync.sh pull sft-records.jsonl
+# Try the full file first (the auto-uploader pushes it once the
+# Friday-night walker finishes). If it 404s, pull the partial, which is
+# always present (18.9 MB snapshot, Friday 19:34). The file on Nextcloud
+# is named sft-records-partial.jsonl, NOT sft-records.jsonl.
+bash finetune/scripts/nextcloud-sync.sh pull sft-records.jsonl \
+  || bash finetune/scripts/nextcloud-sync.sh pull sft-records-partial.jsonl
 ```
 
-Verify: `wc -l finetune/corpus/sft-records.jsonl` returns at least
-**200**. The Friday-night walker run produced these; no need to
-re-run for 45 to 90 minutes.
+Verify: `wc -l finetune/corpus/sft-records*.jsonl` returns at least
+**200** for whichever file landed. The Friday-night walker run produced
+these; no need to re-run for 45 to 90 minutes. If you pulled the
+partial, point training `--sft-jsonl` at
+`finetune/corpus/sft-records-partial.jsonl`.
 
-If the file is NOT on Nextcloud, run the walker:
+If NEITHER file is on Nextcloud, run the walker:
 
 ```bash
 python -m finetune.python.pipeline.corpus_walker \
