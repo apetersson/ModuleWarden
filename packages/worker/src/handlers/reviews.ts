@@ -137,7 +137,7 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
       reviewJobStatus = reviewJob.status;
     }
 
-    if (reviewJobStatus === 'RUNNING' || (reviewJobStatus === 'QUEUED' && hasExactVersionMatch)) {
+    if (reviewJobStatus === 'RUNNING') {
       return;
     }
 

@@ -19,6 +19,7 @@ import * as upstreamServices from '@modulewarden/shared/services/upstream';
 import { JobQueue } from '../jobs/queue.js';
 import { DEFAULT_WORKER_CONFIG, JOB_RETRY_CONFIG, shouldDeadLetter } from '../jobs/definitions.js';
 import { registerVerdaccioPromotionHandler } from '../handlers/promotion.js';
+import { registerPackageReviewHandler } from '../handlers/reviews.js';
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const TEST_DSN = 'postgresql://modulewarden:modulewarden@localhost:5422/modulewarden';
@@ -98,7 +99,7 @@ const readRootManifest = (relativePath: string): Record<string, unknown> => {
   return JSON.parse(raw) as Record<string, unknown>;
 };
 
-const readAllWorkspaceDependencies = (): string[] => {
+  const readAllWorkspaceDependencies = (): string[] => {
   const workspacePackages = [
     'packages/api-proxy/package.json',
     'packages/worker/package.json',
@@ -728,5 +729,87 @@ describe('JobQueue — pg-boss integration', () => {
     expect(JOB_RETRY_CONFIG['package-review']).toMatchObject({ maxRetries: 3, timeoutMs: 600_000, backoffMs: 30_000 });
     expect(JOB_RETRY_CONFIG['model-escalation']).toMatchObject({ maxRetries: 2, timeoutMs: 600_000, backoffMs: 60_000 });
     expect(JOB_RETRY_CONFIG['audit-container-exec']).toMatchObject({ maxRetries: 2, timeoutMs: 900_000, backoffMs: 60_000 });
+  });
+
+  it('21. replays queued unresolved review jobs and emits a container execution job', async () => {
+    const isolatedSchema = `pgboss_review_${RUN_ID}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const reviewQueue = new JobQueue({
+      connectionString: TEST_DSN,
+      schema: isolatedSchema,
+      maxRetries: 1,
+      backoffDelayMs: 1000,
+      timeoutMs: 30_000,
+      concurrency: {},
+    });
+    const prisma = getPrisma();
+    await reviewQueue.start();
+
+    if (!hasFailureReasonColumn) {
+      await reviewQueue.stop();
+      return;
+    }
+
+    try {
+      const emittedContainerJobs: string[] = [];
+      const packageName = `queued-review-${RUN_ID}`;
+      const packageVersion = '1.0.0';
+      const tarballHash = `sha-queued-${RUN_ID}`;
+      const auditContext = `manual:${packageName}@${packageVersion}`;
+      const canonicalIdempotencyKey = buildIdempotencyKey('package-review', packageName, packageVersion, tarballHash, auditContext);
+      const unresolvedIdempotencyKey = `unresolved:${packageName}@${packageVersion}`;
+
+      const packageVersionRow = await prisma.packageVersion.create({
+        data: {
+          packageName,
+          version: packageVersion,
+          registrySource: 'npm',
+          tarballHash,
+        },
+      });
+
+      const reviewJobId = await createReviewJobRow(
+        packageVersionRow.id,
+        auditContext,
+        'MANUAL',
+        unresolvedIdempotencyKey,
+        'QUEUED'
+      );
+
+      await registerPackageReviewHandler(reviewQueue);
+      await reviewQueue.work('audit-container-exec' as any, async (job) => {
+        emittedContainerJobs.push((job.data as { reviewJobId: string }).reviewJobId);
+      }, 1);
+
+      const sendId = await reviewQueue.send('package-review' as any, {
+        packageName,
+        packageVersion,
+        tarballHash,
+        auditContext,
+        idempotencyKey: canonicalIdempotencyKey,
+      } as any, canonicalIdempotencyKey);
+      expect(sendId).toBeTruthy();
+
+      for (let i = 0; i < 12; i++) {
+        if (emittedContainerJobs.length > 0) {
+          break;
+        }
+        await sleep(500);
+      }
+
+      expect(emittedContainerJobs).toHaveLength(1);
+      expect(emittedContainerJobs[0]).toBe(reviewJobId);
+
+      const normalizedReviewJob = await prisma.reviewJob.findUnique({
+        where: { id: reviewJobId },
+        select: { idempotencyKey: true, status: true },
+      });
+      expect(normalizedReviewJob?.idempotencyKey).toBe(canonicalIdempotencyKey);
+      expect(normalizedReviewJob?.status).toBe('QUEUED');
+
+      await deleteReviewJobs([reviewJobId]);
+      await prisma.packageVersion.delete({ where: { id: packageVersionRow.id } }).catch(() => undefined);
+    } finally {
+      await reviewQueue.stop();
+    }
   });
 });
