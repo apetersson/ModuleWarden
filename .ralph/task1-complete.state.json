@@ -1,14 +1,13 @@
 {
-  "name": "v1-review-harden",
-  "taskFile": ".ralph/v1-review-harden.md",
+  "name": "task1-complete",
+  "taskFile": ".ralph/task1-complete.md",
   "iteration": 1,
-  "maxIterations": 20,
-  "itemsPerIteration": 1,
-  "reflectEvery": 3,
+  "maxIterations": 50,
+  "itemsPerIteration": 2,
+  "reflectEvery": 0,
   "reflectInstructions": "REFLECTION CHECKPOINT\n\nPause and reflect on your progress:\n1. What has been accomplished so far?\n2. What's working well?\n3. What's not working or blocking progress?\n4. Should the approach be adjusted?\n5. What are the next priorities?\n\nUpdate the task file with your reflection, then continue working.",
-  "active": false,
-  "status": "completed",
-  "startedAt": "2026-05-27T20:01:00.632Z",
-  "lastReflectionAt": 0,
-  "completedAt": "2026-05-28T10:26:04.441Z"
+  "active": true,
+  "status": "active",
+  "startedAt": "2026-05-28T10:32:57.165Z",
+  "lastReflectionAt": 0
 }

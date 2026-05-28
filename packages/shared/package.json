@@ -19,7 +19,8 @@
     "./services/lockfile": "./src/services/lockfile.ts",
     "./services/package-diff": "./src/services/package-diff.ts",
     "./services/capability-extract": "./src/services/capability-extract.ts",
-    "./services/evidence-bundle": "./src/services/evidence-bundle.ts"
+    "./services/evidence-bundle": "./src/services/evidence-bundle.ts",
+    "./services/rpc-tools": "./src/services/rpc-tools.ts"
   },
   "dependencies": {
     "js-yaml": "^4.1.1"
