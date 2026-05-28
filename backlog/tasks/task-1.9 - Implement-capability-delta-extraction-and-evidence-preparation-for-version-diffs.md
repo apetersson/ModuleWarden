@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 07:00'
+updated_date: '2026-05-28 11:39'
 labels:
   - analysis
   - diff
@@ -34,12 +34,12 @@ The risk lens includes all three categories selected in planning: exploit discov
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 For a version with an allowed predecessor, the audit bundle includes source/tarball metadata, dependency changes, lifecycle script changes, file-level diff summaries, and capability-delta summaries.
-- [ ] #2 Capability extraction flags new or materially changed network, filesystem, process, env/credential, dynamic code, native/WASM, dependency indirection, obfuscation, and install-time behavior.
-- [ ] #3 Intent evidence includes package purpose, changelog/release notes when available, README summary, repository/source links, and mismatch indicators.
-- [ ] #4 Cold-start audits without a predecessor are marked differently and produce a full-package evidence bundle rather than a fake diff.
-- [ ] #5 The PI agent receives ranked evidence plus raw artifact access so it can inspect beyond summaries.
-- [ ] #6 Cold-start evidence bundles include provenance, maintainer and repository signals, package purpose, scripts, capability summary, dependency graph, install/import traces, and network observations.
-- [ ] #7 Cold-start findings are scored and summarized separately from predecessor diffs so the policy layer can apply the conservative allow-or-quarantine standard.
+- [x] #2 Capability extraction flags new or materially changed network, filesystem, process, env/credential, dynamic code, native/WASM, dependency indirection, obfuscation, and install-time behavior.
+- [x] #3 Intent evidence includes package purpose, changelog/release notes when available, README summary, repository/source links, and mismatch indicators.
+- [x] #4 Cold-start audits without a predecessor are marked differently and produce a full-package evidence bundle rather than a fake diff.
+- [x] #5 The PI agent receives ranked evidence plus raw artifact access so it can inspect beyond summaries.
+- [x] #6 Cold-start evidence bundles include provenance, maintainer and repository signals, package purpose, scripts, capability summary, dependency graph, install/import traces, and network observations.
+- [x] #7 Cold-start findings are scored and summarized separately from predecessor diffs so the policy layer can apply the conservative allow-or-quarantine standard.
 - [ ] #8 Golden fixtures include ModuleWarden dogfood dependencies as cold-start examples in addition to malicious and benign version-diff fixtures.
 <!-- AC:END -->
 
@@ -48,6 +48,12 @@ The risk lens includes all three categories selected in planning: exploit discov
 <!-- SECTION:PLAN:BEGIN -->
 1. Create package diff service (tarball unpack, file listing, diff)\n2. Create capability extraction service (static analysis)\n3. Create dependency diff service\n4. Create lifecycle script detector\n5. Create evidence bundle assembler\n6. Create intent evidence collector (changelog, README, repo)\n7. Write tests with golden fixtures\n8. Commit and push
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented capability-delta extraction service (computeCapabilityDelta, analyzeDependencyIndirection). Added buildColdStartEvidence for full-package cold-start bundles. Addressed GPT-1 review findings: internal auth fail-closed, semver predecessor lookup, evidence inline storage, container inputs (tarballs, baseline). 121 tests pass.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
