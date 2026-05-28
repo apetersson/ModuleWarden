@@ -1,6 +1,6 @@
 # finetune/python/pitch
 
-Hackathon submission materials for the ModuleWarden v2 + Apiary collaboration.
+Hackathon submission materials for the ModuleWarden v2 + ModuleWarden collaboration.
 
 ## Files
 
@@ -12,7 +12,7 @@ Hackathon submission materials for the ModuleWarden v2 + Apiary collaboration.
   of speaker time.
 - `slide-deck.md`: 12-slide ModuleWarden deck. Lead is the audit
   architecture (Class A / B / C, AuditDossier-AuditReport contract,
-  4-arm eval matrix). The Apiary-specific demo is positioned as
+  4-arm eval matrix). The ModuleWarden-specific demo is positioned as
   supporting infrastructure rather than the centerpiece.
 
 ## How these slot into the hackathon pitch
