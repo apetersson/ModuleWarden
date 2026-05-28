@@ -272,16 +272,71 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       }
       const content = row.content ? JSON.parse(String(row.content)) : {};
 
-      // Redact hidden content — only show safe fields
-      const redacted: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(content)) {
-        if (!String(key).toLowerCase().includes('prompt') &&
-            !String(key).toLowerCase().includes('secret') &&
-            !String(key).toLowerCase().includes('token') &&
-            !String(key).toLowerCase().includes('api_key')) {
-          redacted[key] = val;
+      /**
+       * Recursively redact sensitive data from evidence content.
+       * Redacts:
+       *  - Keys matching sensitive patterns (prompt, secret, token, api_key, password, credential)
+       *  - String values matching credential patterns (Bearer tokens, base64 > 40 chars, JWT-like)
+       *  - Nested objects and arrays are traversed recursively
+       */
+      function redactSensitive(value: unknown): unknown {
+        if (Array.isArray(value)) {
+          return value.map(redactSensitive);
         }
+        if (value && typeof value === 'object') {
+          const result: Record<string, unknown> = {};
+          for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+            const keyLower = String(key).toLowerCase();
+            const sensitiveKey = keyLower.includes('prompt') ||
+              keyLower.includes('secret') ||
+              keyLower.includes('token') ||
+              keyLower.includes('api_key') ||
+              keyLower.includes('api-key') ||
+              keyLower.includes('password') ||
+              keyLower.includes('credential') ||
+              keyLower.includes('auth') ||
+              keyLower.includes('authorization');
+
+            if (sensitiveKey) {
+              result[key] = '[REDACTED]';
+            } else if (typeof val === 'string') {
+              result[key] = redactStringValue(val);
+            } else {
+              result[key] = redactSensitive(val);
+            }
+          }
+          return result;
+        }
+        if (typeof value === 'string') {
+          return redactStringValue(value);
+        }
+        return value;
       }
+
+      /**
+       * Redact credential patterns from string values.
+       */
+      function redactStringValue(s: string): string {
+        // Bearer tokens
+        if (/Bearer\s+[A-Za-z0-9_\-.]{20,}/.test(s)) {
+          return s.replace(/(Bearer\s+)([A-Za-z0-9_\-.]{8})[A-Za-z0-9_\-.]+/g, '$1$2...[REDACTED]');
+        }
+        // Base64-like strings > 40 chars (likely credentials)
+        if (/^[A-Za-z0-9+/=]{40,}$/.test(s)) {
+          return s.slice(0, 8) + '...[REDACTED]';
+        }
+        // JWT-like tokens
+        if (/^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/.test(s) && s.length > 60) {
+          return s.slice(0, 16) + '...[REDACTED]';
+        }
+        // API keys (alphanumeric strings > 30 chars)
+        if (/^[A-Za-z0-9_]{30,}$/.test(s)) {
+          return s.slice(0, 8) + '...[REDACTED]';
+        }
+        return s;
+      }
+
+      const redacted = redactSensitive(content);
 
       return reply.send({
         id: String(row.id),

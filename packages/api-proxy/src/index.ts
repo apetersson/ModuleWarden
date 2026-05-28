@@ -1,24 +1,24 @@
 import Fastify from 'fastify';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
+import { JobQueue } from '@modulewarden/worker/jobs/queue.js';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerInternalRoutes } from './routes/internal.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
-import PgBoss from 'pg-boss';
 
-let _boss: PgBoss | null = null;
+let _queue: JobQueue | null = null;
 
-async function getBoss(): Promise<PgBoss> {
-  if (!_boss) {
+async function getQueue(): Promise<JobQueue> {
+  if (!_queue) {
     const config = defaultConfig();
     const connectionString = buildPostgresConnectionString(config, true);
-    _boss = new PgBoss({ connectionString, schema: config.postgres.schema });
-    await _boss.start();
+    _queue = new JobQueue({ connectionString, schema: config.postgres.schema });
+    await _queue.start();
   }
-  return _boss;
+  return _queue;
 }
 
 async function enqueuePackageReviewLight(
@@ -27,14 +27,14 @@ async function enqueuePackageReviewLight(
   tarballHash: string,
   auditContext: string
 ): Promise<string | null> {
-  const boss = await getBoss();
   try {
-    const jobId = await boss.send('package-review', {
+    const queue = await getQueue();
+    const jobId = await queue.send('package-review', {
       packageName,
       packageVersion,
       tarballHash,
       auditContext,
-    } as Record<string, unknown>);
+    });
     return jobId ?? null;
   } catch {
     return null;
@@ -90,6 +90,9 @@ export async function buildServer() {
 
   app.addHook('onClose', async () => {
     await disconnectPrisma();
+    if (_queue) {
+      await _queue.stop();
+    }
   });
 
   return app;

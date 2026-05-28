@@ -155,38 +155,63 @@ function handleSourceMetadata(requestId: string): RpcToolResult {
 
 function handleStaticChecks(requestId: string): RpcToolResult {
   const packageDir = pkgDir();
+  const findings: StaticCheckResponse['findings'] = [];
+  const summary: StaticCheckResponse['summary'] = {
+    network: 'none', filesystem: 'none', process: 'none',
+    'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none',
+    obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none',
+  };
+  const suspiciousPatterns: string[] = [];
 
   if (!existsSync(packageDir)) {
     return {
       tool: 'static-checks', requestId, success: true,
-      data: { findings: [], summary: {
-        network: 'none', filesystem: 'none', process: 'none',
-        'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none',
-        obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none',
-      }, obfuscationDetected: false, suspiciousPatterns: [] },
+      data: { findings, summary, obfuscationDetected: false, suspiciousPatterns },
     };
   }
 
-  // Use shared AST-based capability extraction (ARCH-03)
-  const { findings: capFindings, summary } = extractCapabilities(packageDir);
-
-  const suspiciousPatterns: string[] = [];
-  for (const f of capFindings) {
-    if (f.category === 'obfuscation') {
-      for (const file of f.files) {
-        suspiciousPatterns.push(`Obfuscation in ${file}`);
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { if (entry.name !== 'node_modules') walk(full); }
+      else if (entry.isFile() && /\.(js|mjs|cjs|ts)$/i.test(entry.name)) {
+        try {
+          const content = readFileSync(full, 'utf-8');
+          const rel = full.replace(packageDir, '').replace(/^\//, '');
+          if (/(require\(['"](http|https|net|dgram)['"]\)|fetch\(|WebSocket)/.test(content)) {
+            findings.push({ category: 'network', severity: 'medium', description: 'Network access', files: [rel], evidence: ['HTTP/net module or fetch/WebSocket'] });
+            summary.network = 'medium';
+          }
+          if (/(require\(['"]fs['"]\)|\.writeFile(Sync)?\()/.test(content)) {
+            findings.push({ category: 'filesystem', severity: 'medium', description: 'Filesystem access', files: [rel], evidence: ['fs module or file write'] });
+            summary.filesystem = 'medium';
+          }
+          if (/(require\(['"]child_process['"]\)|\.exec\(|\.spawn\(|\.fork\()/.test(content)) {
+            findings.push({ category: 'process', severity: 'high', description: 'Process execution', files: [rel], evidence: ['child_process or exec/spawn/fork'] });
+            summary.process = 'high';
+          }
+          if (/(eval\(|Function\(|setTimeout\([^,)]*['"])/.test(content)) {
+            findings.push({ category: 'dynamic-code', severity: 'high', description: 'Dynamic code execution', files: [rel], evidence: ['eval/Function/setTimeout string'] });
+            summary['dynamic-code'] = 'high';
+          }
+          if (/\\x[0-9a-f]{2}|String\.fromCharCode|atob\(|btoa\(|0x[0-9a-f]{5,}/i.test(content)) {
+            summary.obfuscation = 'medium';
+            suspiciousPatterns.push(`Obfuscation in ${rel}`);
+          }
+        } catch { /* skip */ }
       }
     }
-  }
+  };
+  walk(packageDir);
 
-  // Convert shared capability findings to RPC StaticCheckResponse format
-  const findings: StaticCheckResponse['findings'] = capFindings.map((f: CapabilityFinding) => ({
-    category: f.category,
-    severity: f.severity,
-    description: f.description,
-    files: f.files,
-    evidence: f.evidence,
-  }));
+  const pkg = readPackageJson();
+  if (pkg) {
+    const scripts = (pkg.scripts ?? {}) as Record<string, string>;
+    if (scripts.preinstall || scripts.install || scripts.postinstall || scripts.prepare) {
+      summary['install-time'] = 'high';
+      findings.push({ category: 'install-time', severity: 'high', description: 'Lifecycle scripts', files: ['package.json'], evidence: ['preinstall/install/postinstall/prepare defined'] });
+    }
+  }
 
   return {
     tool: 'static-checks', requestId, success: true,

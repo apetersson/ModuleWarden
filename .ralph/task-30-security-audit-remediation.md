@@ -20,11 +20,11 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 
 ### Security Issues (8)
 - [x] SEC-01 (remaining): Add min-length/character-format validation for auth tokens in `readRequiredList()`
-- [ ] SEC-02: Split RPC token — use distinct tokens for PI auth vs outbound API calls
+- [x] SEC-02: Split RPC token — use distinct tokens for PI auth vs outbound API calls
 - [ ] SEC-03: Replace `$queryRawUnsafe` with type-safe Prisma queries in dashboard
-- [ ] SEC-05: Reject tarball if integrity hash cannot be resolved from upstream (fail closed)
+- [x] SEC-05: Reject tarball if integrity hash cannot be resolved from upstream (fail closed)
 - [ ] SEC-06: Consolidate to single AST-aware implementation for static analysis
-- [ ] SEC-07: Only set `hasLifecycleScript: true` for install-phase lifecycle hooks
+- [x] SEC-07: Only set `hasLifecycleScript: true` for install-phase lifecycle hooks
 - [ ] SEC-08: Implement recursive redaction of keys AND string values in evidence
 - [x] SEC-09: Extract `checkAdmin` into shared Fastify plugin/middleware
 
