@@ -3,9 +3,52 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { filterToApproved } from '../services/filter.js';
 import { getDecisionsForVersions } from '../services/decisions.js';
+import type { FilteredPackument, NpmPackageVersion, NpmPackument } from '@modulewarden/shared/npm-types';
 
 interface PackumentParams {
   package: string;
+}
+
+function registryBaseUrl(request: FastifyRequest): string {
+  const host = request.headers.host ?? 'localhost:8080';
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  const proto = typeof forwardedProto === 'string' ? forwardedProto : request.protocol;
+  return `${proto}://${host}`;
+}
+
+function localTarballUrl(packageName: string, version: string, baseUrl: string): string {
+  const unscopedName = packageName.startsWith('@') ? (packageName.split('/')[1] ?? packageName) : packageName;
+  const filename = `${unscopedName}-${version}.tgz`;
+  return `${baseUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`;
+}
+
+function toPendingResolutionPackument(packument: NpmPackument, reason: string, baseUrl: string): FilteredPackument {
+  const versions: Record<string, NpmPackageVersion> = Object.fromEntries(
+    Object.entries(packument.versions).map(([version, versionData]) => [
+      version,
+      {
+        ...versionData,
+        deprecated: reason,
+        dist: {
+          ...versionData.dist,
+          tarball: localTarballUrl(packument.name, version, baseUrl),
+        },
+      },
+    ])
+  );
+
+  return {
+    name: packument.name,
+    'dist-tags': {},
+    versions,
+    ...(packument.description !== undefined ? { description: packument.description } : {}),
+    ...(packument.license !== undefined ? { license: packument.license } : {}),
+    ...(packument.homepage !== undefined ? { homepage: packument.homepage } : {}),
+    ...(packument.repository
+      ? { repository: { type: packument.repository.type, url: packument.repository.url } }
+      : {}),
+    modified: new Date().toISOString(),
+  };
 }
 
 /**
@@ -29,6 +72,7 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
       }
 
       const prisma = getPrisma();
+      const baseUrl = registryBaseUrl(request);
 
       // Check project registry readiness
       const enabledProject = await prisma.project.findFirst({
@@ -42,15 +86,15 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
         return reply.status(404).send({ error: `${packageName} not found` });
       }
 
-      // No project enabled — proxy in standby mode, return empty packument
+      // No project enabled — allow exact version resolution, but force the
+      // install to hit ModuleWarden's tarball route where review is enqueued.
       if (!enabledProject) {
-        return reply.send({
-          name: packageName,
-          'dist-tags': {},
-          versions: {},
-          description: upstream.description,
-          modified: new Date().toISOString(),
-        });
+        return reply.send(toPendingResolutionPackument(
+          upstream,
+          `[PENDING] Package ${packageName} has not been reviewed by ModuleWarden yet. ` +
+            `The tarball request will enqueue an audit and refuse installation.`,
+          baseUrl
+        ));
       }
 
       // Check project graph readiness
@@ -58,24 +102,12 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
       // versions as deprecated to prevent npm from installing unvetted code,
       // but still show the package exists so failures are deterministic.
       if (enabledProject.graphState !== 'READY') {
-        const versions = Object.fromEntries(
-          Object.entries(upstream.versions).map(([v, vd]) => [
-            v,
-            {
-              ...vd,
-              deprecated: `[AUDITING] Package ${packageName} is still being audited. ` +
-                `Run 'modulewarden status' to check progress.`,
-            },
-          ])
-        );
-        return reply.send({
-          name: packageName,
-          'dist-tags': {},
-          versions,
-          description: upstream.description,
-          license: upstream.license,
-          modified: new Date().toISOString(),
-        });
+        return reply.send(toPendingResolutionPackument(
+          upstream,
+          `[AUDITING] Package ${packageName} is still being audited. ` +
+            `Run 'modulewarden status' to check progress.`,
+          baseUrl
+        ));
       }
 
       // Collect decisions for all upstream versions (keyed by version + exact hash).
@@ -83,7 +115,15 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
       const decisions = await getDecisionsForVersions(packageName, upstreamVersions);
 
       // Filter to approved-only
-      const filtered = filterToApproved(upstream, decisions);
+      const filtered = filterToApproved(upstream, decisions, baseUrl);
+      if (Object.keys(filtered.versions).length === 0) {
+        return reply.send(toPendingResolutionPackument(
+          upstream,
+          `[PENDING] Package ${packageName} has no approved versions yet. ` +
+            `The tarball request will enqueue an audit and refuse installation.`,
+          baseUrl
+        ));
+      }
       return reply.send(filtered);
     }
   );

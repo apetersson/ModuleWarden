@@ -38,6 +38,31 @@ async function enqueuePackageReviewLight(
   }
 }
 
+async function retryAuditContainerExec(data: {
+  reviewJobId: string;
+  packageName: string;
+  packageVersion: string;
+  tarballHash: string;
+  predecessorHash: string | null;
+  auditContext: string;
+  retryOfAuditRunId: string;
+}): Promise<string | null> {
+  try {
+    const queue = await getQueue();
+    return await queue.enqueueAuditContainerExec(
+      data.reviewJobId,
+      data.packageName,
+      data.packageVersion,
+      data.tarballHash,
+      data.predecessorHash,
+      data.auditContext,
+      `mw:container:${data.reviewJobId}:retry:${data.retryOfAuditRunId}:${Date.now()}`
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function buildServer() {
   const config = defaultConfig();
   const prisma = getPrisma();
@@ -110,7 +135,7 @@ export async function buildServer() {
 
   // ── Dashboard admin endpoints ────────────────────────────────
 
-  await registerDashboardRoutes(app);
+  await registerDashboardRoutes(app, retryAuditContainerExec);
 
   // ── Health check ──────────────────────────────────────────────
 

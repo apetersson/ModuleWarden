@@ -84,19 +84,6 @@ export async function registerTarballRoute(
         select: { id: true, graphState: true },
       });
 
-      // No enabled project — no tarballs available
-      if (enabledProject?.graphState !== 'READY') {
-        return reply.status(503).send({
-          error: 'Registry not ready',
-          reason: enabledProject
-            ? `Project graph is still being audited. Run 'modulewarden preflight' or 'modulewarden status'.`
-            : `ModuleWarden registry is not yet configured. Run 'modulewarden preflight' to start.`,
-          package: packageName,
-          requestedVersion: version,
-          cliCommand: 'modulewarden status',
-        } satisfies RegistryError);
-      }
-
       const versionData = upstream?.versions?.[version];
       const resolvedHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum;
 
@@ -148,7 +135,7 @@ export async function registerTarballRoute(
         // We know about this version — check its effective verdict
         const verdict = await getEffectiveVerdictByHash(packageName, version, effectiveHash);
 
-        if (verdict === 'ALLOW') {
+        if (verdict === 'ALLOW' && enabledProject?.graphState === 'READY') {
           // Proxy tarball from Verdaccio
           let tarballResponse: Response;
           try {
@@ -224,7 +211,9 @@ export async function registerTarballRoute(
         error: 'Version not yet reviewed',
         reason: enqueued
           ? `${packageName}@${version} has not been reviewed yet. A review has been enqueued.`
-          : `${packageName}@${version} has not been reviewed yet. Unable to enqueue review.`,
+          : enabledProject?.graphState === 'READY'
+            ? `${packageName}@${version} has not been reviewed yet. Unable to enqueue review.`
+            : `ModuleWarden registry is not ready for installs yet, and ${packageName}@${version} could not be enqueued for review.`,
         package: packageName,
         requestedVersion: version,
         cliCommand: 'modulewarden status',

@@ -3,6 +3,10 @@ node_modules
 dist
 **/dist
 **/dist/**
+!packages/audit-runner/dist
+!packages/audit-runner/dist/**
+!packages/audit-rpc-server/dist
+!packages/audit-rpc-server/dist/**
 *.tsbuildinfo
 **/*.tsbuildinfo
 coverage

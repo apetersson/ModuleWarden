@@ -154,9 +154,16 @@ describe('npm proxy e2e', () => {
     // Should have dist-tags and versions from the upstream
     expect(body['dist-tags']).toBeDefined();
     expect(body.versions).toBeDefined();
-    // Since we don't have decisions for this upstream package,
-    // NO versions should appear (C-1: only ALLOWED versions shown)
-    expect(Object.keys(body.versions)).toHaveLength(0);
+    // Since we don't have decisions for this upstream package, versions are
+    // exposed only so pinned installs can resolve and hit the guarded tarball
+    // route, where review is enqueued and installation is refused.
+    expect(Object.keys(body.versions).length).toBeGreaterThan(0);
+    const firstVersion = Object.values(body.versions)[0] as {
+      deprecated?: string;
+      dist?: { tarball?: string };
+    };
+    expect(firstVersion.deprecated).toContain('[PENDING]');
+    expect(firstVersion.dist?.tarball).toMatch(/^http:\/\/.*\/is-sorted\/-\/is-sorted-/);
   });
 
   it('3. packument returns empty for internal packages', async () => {

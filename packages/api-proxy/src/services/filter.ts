@@ -18,7 +18,8 @@ export interface VersionDecision {
  */
 export function filterToApproved(
   packument: NpmPackument,
-  decisions: Map<string, VersionDecision>
+  decisions: Map<string, VersionDecision>,
+  registryBaseUrl = ''
 ): FilteredPackument {
   const allowedVersions: Record<string, NpmPackageVersion> = {};
 
@@ -36,7 +37,7 @@ export function filterToApproved(
         // which proxies to Verdaccio for allowed versions.
         const unscopedName = packument.name.startsWith('@') ? (packument.name.split('/')[1] ?? packument.name) : packument.name;
         const filename = `${unscopedName}-${version}.tgz`;
-        const localUrl = `/${encodeURIComponent(packument.name)}/-/${encodeURIComponent(filename)}`;
+        const localUrl = `${registryBaseUrl}/${encodeURIComponent(packument.name)}/-/${encodeURIComponent(filename)}`;
         rewritten.dist = { ...rewritten.dist, tarball: localUrl };
       }
       allowedVersions[version] = rewritten;

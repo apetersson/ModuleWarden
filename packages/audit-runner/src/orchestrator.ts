@@ -15,7 +15,7 @@
  *   MW_PACKAGE_VERSION - Package version
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
@@ -56,6 +56,12 @@ function sendRpcCommand(proc: ChildProcess, command: Record<string, unknown>): v
  * Build the audit prompt from prepared evidence and package info.
  */
 function buildAuditPrompt(): string {
+  const instPath = join(WORKSPACE, 'instructions.md');
+  if (!existsSync(instPath)) {
+    throw new Error('Configured prompt-pack instructions are required, but /workspace/instructions.md was not found');
+  }
+
+  const configuredInstructions = readFileSync(instPath, 'utf-8');
   const parts: string[] = [];
 
   parts.push(`# ModuleWarden Package Audit
@@ -82,25 +88,27 @@ You have access to the following tools via the RPC bridge at http://127.0.0.1:${
 You also have full filesystem access to explore the unpacked package under:
 \`/workspace/inputs/package/\`
 
+## Configured Audit Prompt Pack
+
+The following instructions were assembled from ModuleWarden's configured prompt packs.
+They are mandatory for this audit; do not replace them with a generic fallback.
+
+${configuredInstructions}
+
 ## Requirements
 
-1. First, explore the package using \`package-info\` and \`source-metadata\`
-2. Run \`static-checks\` to detect suspicious patterns
-3. Write key findings as \`write-evidence\`
-4. Submit your final verdict with \`submit-verdict\`
-5. Include risk summary, capability findings, and evidence references
+1. Apply every configured prompt-pack instruction above.
+2. Explore the package using \`package-info\` and \`source-metadata\`.
+3. Run \`static-checks\` to detect suspicious patterns.
+4. Write key findings as \`write-evidence\`.
+5. Submit your final verdict with \`submit-verdict\`.
+6. Include risk summary, capability findings, evidence references, and prompt-pack provenance.
 `);
 
   // Add prepared evidence summary
   const evidenceDir = join(WORKSPACE, 'prepared-evidence');
   if (existsSync(evidenceDir)) {
     parts.push(`\n## Prepared Evidence\nEvidence files are available at: ${evidenceDir}\n`);
-  }
-
-  // Add instruction files
-  const instPath = join(WORKSPACE, 'instructions.md');
-  if (existsSync(instPath)) {
-    parts.push(`\n## Run Instructions\n${readFileSync(instPath, 'utf-8')}\n`);
   }
 
   return parts.join('\n');
@@ -159,6 +167,10 @@ async function main(): Promise<void> {
   }
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
+  const sessionLogPath = join(OUTPUT_DIR, 'pi-session.log');
+  const sessionErrorLogPath = join(OUTPUT_DIR, 'pi-session-error.log');
+  writeFileSync(sessionLogPath, '');
+  writeFileSync(sessionErrorLogPath, '');
 
   // Check if PI is available and has a model endpoint
   let piAvailable = false;
@@ -212,8 +224,12 @@ async function main(): Promise<void> {
   let promptAccepted = false;
 
   piProc.stdout?.on('data', (data: Buffer) => {
-    piOutput += data.toString();
-    const lines = data.toString().split('\n').filter(Boolean);
+    const chunk = data.toString();
+    piOutput += chunk;
+    try {
+      appendFileSync(sessionLogPath, chunk);
+    } catch { /* ignore live stream write failures */ }
+    const lines = chunk.split('\n').filter(Boolean);
     for (const line of lines) {
       const event = parseRpcLine(line);
       if (event?.type === 'response' && (event as any).command === 'prompt') {
@@ -226,7 +242,11 @@ async function main(): Promise<void> {
   });
 
   piProc.stderr?.on('data', (data: Buffer) => {
-    piError += data.toString();
+    const chunk = data.toString();
+    piError += chunk;
+    try {
+      appendFileSync(sessionErrorLogPath, chunk);
+    } catch { /* ignore live stream write failures */ }
   });
 
   // Wait for PI to start
@@ -274,10 +294,9 @@ async function main(): Promise<void> {
   });
 
   // Save PI session output as evidence
-  const sessionLogPath = join(OUTPUT_DIR, 'pi-session.log');
   try {
     writeFileSync(sessionLogPath, piOutput);
-    writeFileSync(join(OUTPUT_DIR, 'pi-session-error.log'), piError);
+    writeFileSync(sessionErrorLogPath, piError);
   } catch { /* ignore */ }
 
   console.log('[orchestrator] Audit session complete');

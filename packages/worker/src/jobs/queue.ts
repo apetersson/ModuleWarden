@@ -156,7 +156,8 @@ export class JobQueue {
     packageVersion: string,
     tarballHash: string,
     predecessorHash: string | null,
-    auditContext: string
+    auditContext: string,
+    singletonKey?: string
   ): Promise<string | null> {
     const data: JobPayloads['audit-container-exec'] = {
       reviewJobId,
@@ -166,7 +167,7 @@ export class JobQueue {
       predecessorHash,
       auditContext,
     };
-    return this.send('audit-container-exec', data, `mw:container:${reviewJobId}`);
+    return this.send('audit-container-exec', data, singletonKey ?? `mw:container:${reviewJobId}`);
   }
 
   /**

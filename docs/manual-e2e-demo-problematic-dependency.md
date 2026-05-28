@@ -63,6 +63,25 @@ export MW_AUTH_DEV_TOKENS="mw-dev-token-change-me"
 
 If the intended model slug is different, change `MW_MODEL_ENDPOINT_MODEL` before starting Compose. Preserve the value used in the notes for this test drive.
 
+By default the worker can process four lightweight `package-review` jobs in parallel, but only two expensive `audit-container-exec` jobs at once. In practice, that means at most two package audit containers/model runs execute concurrently per worker container. To change this for a local run, export overrides before starting Compose:
+
+```bash
+export MW_JOB_CONCURRENCY_PACKAGE_REVIEW=4
+export MW_JOB_CONCURRENCY_AUDIT_CONTAINER_EXEC=2
+```
+
+For a faster local machine or a stronger model endpoint, increase `MW_JOB_CONCURRENCY_AUDIT_CONTAINER_EXEC`; for a quieter demo, lower it to `1`.
+
+If an audit run shows PI/model errors such as `401 Authentication Fails` or a placeholder model/key like `x`, re-export the model endpoint settings in the shell that runs Compose and restart the services that pass those values into audit containers:
+
+```bash
+export MW_MODEL_ENDPOINT_BASE_URL="https://api.deepseek.com/v1"
+export MW_MODEL_ENDPOINT_API_KEY="$DEEPSEEK_API_KEY"
+export MW_MODEL_ENDPOINT_MODEL="deepseek-v4-flash"
+
+docker compose up -d --build api-proxy worker web-ui
+```
+
 ## 2. Start ModuleWarden
 
 Build the audit-runner image first, then start the stack.
@@ -98,8 +117,17 @@ mkdir -p "$DEMO_DIR"
 cd "$DEMO_DIR"
 
 pnpm init
-pnpm config set registry http://localhost:8080/
-npm config set registry http://localhost:8080/
+
+# Keep the registry override scoped to this demo project only.
+# Do not use `pnpm config set` or `npm config set` here; those can mutate
+# user/global config. Package managers read this local .npmrc from DEMO_DIR.
+cat > .npmrc <<'EOF'
+registry=http://localhost:8080/
+EOF
+
+# Some pnpm versions may add a devEngines.packageManager block with a non-exact
+# version such as "^11.0.8". If later pnpm/npm commands reject that metadata,
+# remove the devEngines block from this throwaway demo package.json.
 
 cat > index.js <<'EOF'
 console.log("ModuleWarden demo app");
@@ -116,6 +144,7 @@ npm config get registry
 Expected:
 
 - Both commands print `http://localhost:8080/`.
+- The registry override is local to `../demo-project/.npmrc`.
 
 ## 4. First Install Attempt Should Queue Audit And Not Install
 
@@ -385,7 +414,7 @@ echo "Saved results to $RESULTS_DIR"
 ## Pass/Fail Checklist
 
 - [ ] ModuleWarden stack starts locally with Verdaccio internal-only.
-- [ ] Demo repo registry points to `http://localhost:8080/`.
+- [ ] Demo repo has local `.npmrc` registry pointing to `http://localhost:8080/`.
 - [ ] First `pnpm add cors-anywhere@0.4.4` does not install immediately.
 - [ ] First install creates a known package version in ModuleWarden.
 - [ ] First install queues a review job.

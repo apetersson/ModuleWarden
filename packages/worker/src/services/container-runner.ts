@@ -8,6 +8,8 @@ import { logger } from '@modulewarden/shared/services/logger';
 const execAsync = promisify(execCb);
 
 export interface ContainerInputs {
+  /** AuditRun row id for live workspace discovery */
+  auditRunId?: string;
   /** Run-scoped RPC token */
   rpcToken: string;
   /** RPC port inside container */
@@ -115,6 +117,7 @@ export class ContainerRunner {
     // 2. Write run configuration (S-4: rpcToken omitted — passed via MW_RPC_TOKEN env var)
     const configPath = join(workspacePath, 'run-config.json');
     writeFileSync(configPath, JSON.stringify({
+      ...(inputs.auditRunId ? { auditRunId: inputs.auditRunId } : {}),
       rpcPort: inputs.rpcPort,
       packageName: inputs.packageName,
       packageVersion: inputs.packageVersion,
@@ -137,7 +140,7 @@ export class ContainerRunner {
       `MW_PACKAGE_NAME=${inputs.packageName}`,
       `MW_PACKAGE_VERSION=${inputs.packageVersion}`,
       // Pass through ModuleWarden API URL and model endpoint from worker env
-      ...(process.env.MW_API_BASE ? [`MW_API_BASE=${process.env.MW_API_BASE}`] : []),
+      `MW_API_BASE=${process.env.MW_API_BASE ?? 'http://host.docker.internal:8080'}`,
       ...(process.env.MW_MODEL_ENDPOINT_BASE_URL ? [`MW_MODEL_ENDPOINT_BASE_URL=${process.env.MW_MODEL_ENDPOINT_BASE_URL}`] : []),
       ...(process.env.MW_MODEL_ENDPOINT_API_KEY ? [`MW_MODEL_ENDPOINT_API_KEY=${process.env.MW_MODEL_ENDPOINT_API_KEY}`] : []),
       ...(process.env.MW_MODEL_ENDPOINT_MODEL ? [`MW_MODEL_ENDPOINT_MODEL=${process.env.MW_MODEL_ENDPOINT_MODEL}`] : []),
@@ -175,6 +178,7 @@ export class ContainerRunner {
       'docker create',
       '--name', containerName,
       `--network ${this.auditNetworkName}`,
+      '--add-host=host.docker.internal:host-gateway',
       volumeArgs,
       envArgs,
       '--cap-drop=ALL',                    // Drop all capabilities

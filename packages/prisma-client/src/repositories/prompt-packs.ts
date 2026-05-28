@@ -48,14 +48,20 @@ export async function getCurrentPromptPacks(): Promise<{
 }> {
   const prisma = getPrisma();
   const packs = await prisma.promptPack.findMany({
-    orderBy: [{ category: 'asc' }, { version: 'desc' }],
+    orderBy: [{ category: 'asc' }, { name: 'asc' }, { version: 'desc' }],
   });
+  const latestByName = new Map<string, PromptPack>();
+  for (const pack of packs) {
+    const key = `${pack.category}:${pack.name}`;
+    if (!latestByName.has(key)) latestByName.set(key, pack);
+  }
+  const current = [...latestByName.values()];
 
   return {
-    core: packs.filter((p) => p.category === 'CORE' as PromptCategory),
-    custom: packs.filter((p) => p.category === 'CUSTOM_ADMIN' as PromptCategory),
-    escalation: packs.filter((p) => p.category === 'ESCALATION' as PromptCategory),
-    pattern: packs.filter((p) => p.category === 'PATTERN_CHECK' as PromptCategory),
+    core: current.filter((p) => p.category === 'CORE' as PromptCategory),
+    custom: current.filter((p) => p.category === 'CUSTOM_ADMIN' as PromptCategory),
+    escalation: current.filter((p) => p.category === 'ESCALATION' as PromptCategory),
+    pattern: current.filter((p) => p.category === 'PATTERN_CHECK' as PromptCategory),
   };
 }
 

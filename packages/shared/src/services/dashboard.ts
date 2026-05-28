@@ -98,6 +98,11 @@ export interface QueueStats {
 // ── Package version detail ─────────────────────────────────
 
 export interface PackageVersionDetail {
+  auditRunId?: string;
+  runStatus?: string;
+  reviewJobId?: string;
+  jobStatus?: string;
+  canRetry?: boolean;
   packageName: string;
   version: string;
   tarballHash: string;
@@ -124,12 +129,25 @@ export interface PackageVersionDetail {
   modelProfile: string | null;
   /** Prompt pack versions (names only, not content) */
   promptPackVersions: string[];
+  /** Prompt provenance for this audit run */
+  promptUsage?: PromptUsage;
   /** Evidence artifacts */
   evidenceArtifacts: EvidenceArtifactSummary[];
   /** Scores */
   scores: Record<string, number>;
   /** Decision history */
   decisionHistory: DecisionHistoryEntry[];
+  /** Redacted live/final PI conversation stream */
+  agentStream?: AgentStream;
+}
+
+export interface PromptUsage {
+  source: 'prompt-pack-instructions' | 'decision-metadata' | 'unknown';
+  promptPacks: string[];
+  customPrompts: string[];
+  initialPromptHash?: string;
+  initialPromptEvidenceName?: string;
+  note: string;
 }
 
 export interface EvidenceArtifactSummary {
@@ -152,6 +170,27 @@ export interface DecisionHistoryEntry {
   createdAt: string;
   /** If this was superseded by another decision */
   supersededById?: string;
+}
+
+export interface AgentStreamEntry {
+  index: number;
+  type: string;
+  role?: string;
+  text?: string;
+  timestamp?: string;
+  summary?: string;
+  errorMessage?: string;
+  responseId?: string;
+  eventKind?: string;
+}
+
+export interface AgentStream {
+  available: boolean;
+  source: 'live-workspace' | 'session-archive' | 'database-artifact' | 'none';
+  updatedAt: string;
+  truncated: boolean;
+  entries: AgentStreamEntry[];
+  stderrTail?: string;
 }
 
 // ── Evidence bundle detail ─────────────────────────────────

@@ -49,6 +49,10 @@ services:
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env to a model slug (e.g. deepseek-chat)}
       MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
       MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
+      MW_AUDIT_WORKSPACE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/workspaces
+      MW_AUDIT_SESSION_ARCHIVE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/sessions
+    volumes:
+      - ${MW_LOCALDATA_ROOT:-../localdata}:${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +80,7 @@ services:
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env}
       MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
       MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
+      MW_API_BASE: ${MW_AUDIT_API_BASE:-http://host.docker.internal:8080}
       MW_AUDIT_IMAGE: modulewarden-audit-runner
       MW_AUDIT_WORKSPACE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/workspaces
       MW_PRESERVE_AUDIT_SESSIONS: "true"

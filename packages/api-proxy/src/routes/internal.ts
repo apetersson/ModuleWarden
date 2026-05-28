@@ -20,6 +20,33 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+function normalizeVerdictBody(body: Record<string, unknown>): {
+  verdict: 'ALLOW' | 'BLOCK' | 'QUARANTINE' | null;
+  riskSummary: string;
+  scores: Record<string, number>;
+  piSessionId?: string;
+  promptPackVersion?: string;
+} {
+  const rawVerdict = body.verdict ?? body.decision;
+  const verdict = typeof rawVerdict === 'string'
+    ? rawVerdict.toUpperCase()
+    : '';
+  const scores = body.scores && typeof body.scores === 'object' && !Array.isArray(body.scores)
+    ? body.scores as Record<string, number>
+    : {};
+  return {
+    verdict: verdict === 'ALLOW' || verdict === 'BLOCK' || verdict === 'QUARANTINE' ? verdict : null,
+    riskSummary: typeof body.riskSummary === 'string'
+      ? body.riskSummary
+      : typeof body.reasonSummary === 'string'
+        ? body.reasonSummary
+        : '',
+    scores,
+    ...(typeof body.piSessionId === 'string' ? { piSessionId: body.piSessionId } : {}),
+    ...(typeof body.promptPackVersion === 'string' ? { promptPackVersion: body.promptPackVersion } : {}),
+  };
+}
+
 /**
  * Look up the AuditRun associated with a given RPC token.
  * Validates the token against stored rpcTokenHash.
@@ -175,7 +202,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
         promptPackVersion?: string;
       };
     }>('/verdict', async (request, reply) => {
-      const { verdict, riskSummary, scores, piSessionId } = request.body;
+      const { verdict, riskSummary, scores, piSessionId } = normalizeVerdictBody(request.body as Record<string, unknown>);
       if (!verdict) return reply.status(400).send({ error: 'Missing verdict' });
 
       const prisma = getPrisma();
@@ -204,7 +231,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
         data: {
           reviewJobId: reviewJob.id,
           packageVersionId: reviewJob.packageVersionId,
-          verdict: verdict.toUpperCase() as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
+          verdict,
           reasonSummary: riskSummary,
           actorType: 'AGENT',
           piSessionId: piSessionId ?? null,
@@ -214,8 +241,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
       });
 
       // A-4: Enqueue verdaccio promotion when verdict is ALLOW
-      const verdictUpper = verdict.toUpperCase();
-      if (verdictUpper === 'ALLOW' && queue && reviewJob.packageVersion) {
+      if (verdict === 'ALLOW' && queue && reviewJob.packageVersion) {
         const { packageName, version: pkgVersion, tarballHash } = reviewJob.packageVersion;
         try {
           await queue.send('verdaccio-promotion', {

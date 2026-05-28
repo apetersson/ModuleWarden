@@ -4,14 +4,43 @@ import { logger } from '@modulewarden/shared/services/logger';
 import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
+import { assembleAuditInstructions, buildContainerInstructionFile } from '../services/prompt-pack.js';
 import { randomBytes, createHash } from 'node:crypto';
 import { writeFileSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Prisma } from '@modulewarden/prisma-client';
+import { buildEvidenceBundle } from '@modulewarden/shared/services/evidence-bundle';
+import type { CapabilityCategory } from '@modulewarden/shared/services/capability-extract';
 
 function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex');
+}
+
+function normalizeVerdictFile(value: unknown): {
+  verdict: 'ALLOW' | 'BLOCK' | 'QUARANTINE' | null;
+  riskSummary: string;
+  scores: Record<string, number>;
+  piSessionId?: string;
+  promptPackVersion?: string;
+} {
+  const body = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const rawVerdict = body.verdict ?? body.decision;
+  const verdict = typeof rawVerdict === 'string' ? rawVerdict.toUpperCase() : '';
+  const scores = body.scores && typeof body.scores === 'object' && !Array.isArray(body.scores)
+    ? body.scores as Record<string, number>
+    : {};
+  return {
+    verdict: verdict === 'ALLOW' || verdict === 'BLOCK' || verdict === 'QUARANTINE' ? verdict : null,
+    riskSummary: typeof body.riskSummary === 'string'
+      ? body.riskSummary
+      : typeof body.reasonSummary === 'string'
+        ? body.reasonSummary
+        : '',
+    scores,
+    ...(typeof body.piSessionId === 'string' ? { piSessionId: body.piSessionId } : {}),
+    ...(typeof body.promptPackVersion === 'string' ? { promptPackVersion: body.promptPackVersion } : {}),
+  };
 }
 
 /**
@@ -35,7 +64,7 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
   });
 
   await queue.work('audit-container-exec', async (job) => {
-    const { reviewJobId, packageName, packageVersion, predecessorHash } = job.data;
+    const { reviewJobId, packageName, packageVersion, tarballHash, predecessorHash } = job.data;
     const prisma = getPrisma();
 
     // 1. Create audit run record
@@ -131,17 +160,68 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       }
     }
 
-    // 4. Build container inputs with all available artifacts
+    // 4. Build required prompt-pack instructions. Audits must be driven by
+    // configured prompt packs; missing prompt configuration is a hard failure.
+    const emptyCapabilitySummary = Object.fromEntries(
+      ([
+        'network',
+        'filesystem',
+        'process',
+        'dynamic-code',
+        'env-credential',
+        'native-wasm',
+        'obfuscation',
+        'dependency-indirection',
+        'install-time',
+      ] satisfies CapabilityCategory[]).map((category) => [category, 'none'])
+    ) as Record<CapabilityCategory, 'none'>;
+    const bundle = buildEvidenceBundle({
+      packageName,
+      version: packageVersion,
+      predecessorVersion: null,
+      tarballHash,
+      dependencyDiff: { added: {}, removed: {}, changed: {} },
+      lifecycleScriptDiff: { scripts: [] },
+      capabilityReport: { findings: [], summary: emptyCapabilitySummary },
+      intentEvidence: { mismatchIndicators: [] },
+    });
+    let instructions: Awaited<ReturnType<typeof assembleAuditInstructions>>;
+    try {
+      instructions = await assembleAuditInstructions(bundle, null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await prisma.auditRun.update({
+        where: { id: auditRun.id },
+        data: { status: 'CRASHED', completedAt: new Date(), errorMessage: message },
+      });
+      await prisma.reviewJob.update({
+        where: { id: reviewJobId },
+        data: { status: 'FAILED' },
+      });
+      throw err;
+    }
+    const appliedPromptPackVersions = [
+      ...instructions.corePromptVersions,
+      ...instructions.patternPromptVersions,
+      ...instructions.escalationPromptVersions,
+      ...instructions.customPromptNames,
+    ];
+    const instructionsPath = join(tarballDir, 'instructions.md');
+    writeFileSync(instructionsPath, buildContainerInstructionFile(instructions));
+
+    // 5. Build container inputs with all available artifacts
     const inputs: ContainerInputs = {
+      auditRunId: auditRun.id,
       rpcToken,
       rpcPort: config.piOrchestration.rpcPort,
       packageName,
       packageVersion,
+      instructionsPath,
       ...(packageTarballPath !== undefined ? { packageTarballPath } : {}),
       ...(baselineTarballPath !== undefined ? { baselineTarballPath } : {}),
     };
 
-    // 5. Run the container
+    // 6. Run the container
     const result = await runner.run(inputs);
     let preservedSessionPath: string | null = null;
     if (config.auditRunner.preserveSessions && config.auditRunner.sessionArchiveRoot) {
@@ -217,6 +297,71 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       ? (result.exitCode === null ? 'TIMED_OUT' : 'CRASHED')
       : 'COMPLETED';
 
+    let fallbackDecisionCreated = false;
+    let fallbackDecisionId: string | null = null;
+    if (finalStatus === 'COMPLETED') {
+      const verdictPath = join(result.workspacePath, 'output', 'verdict.json');
+      const existingDecision = await prisma.decision.findFirst({
+        where: { reviewJobId },
+        select: { id: true, promptVersion: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (existingDecision && !existingDecision.promptVersion) {
+        await prisma.decision.update({
+          where: { id: existingDecision.id },
+          data: { promptVersion: JSON.stringify(appliedPromptPackVersions) },
+        });
+      }
+      if (!existingDecision && existsSync(verdictPath)) {
+        try {
+          const parsed = normalizeVerdictFile(JSON.parse(readFileSync(verdictPath, 'utf-8')));
+          if (parsed.verdict) {
+            const reviewJob = await prisma.reviewJob.findUnique({
+              where: { id: reviewJobId },
+              select: {
+                id: true,
+                packageVersionId: true,
+                packageVersion: {
+                  select: { packageName: true, version: true, tarballHash: true },
+                },
+              },
+            });
+            if (reviewJob) {
+              const decision = await prisma.decision.create({
+                data: {
+                  reviewJobId: reviewJob.id,
+                  packageVersionId: reviewJob.packageVersionId,
+                  verdict: parsed.verdict,
+                  reasonSummary: parsed.riskSummary || `Agent submitted ${parsed.verdict} verdict.`,
+                  actorType: 'AGENT',
+                  piSessionId: parsed.piSessionId ?? null,
+                  promptVersion: parsed.promptPackVersion ?? JSON.stringify(appliedPromptPackVersions),
+                  scores: parsed.scores,
+                },
+                select: { id: true },
+              });
+              fallbackDecisionCreated = true;
+              fallbackDecisionId = decision.id;
+
+              if (parsed.verdict === 'ALLOW' && reviewJob.packageVersion) {
+                await queue.enqueueVerdaccioPromotion(
+                  decision.id,
+                  reviewJob.packageVersion.packageName,
+                  reviewJob.packageVersion.version,
+                  reviewJob.packageVersion.tarballHash
+                );
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn('Failed to import verdict.json after audit completion', {
+            reviewJobId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
     await prisma.auditRun.update({
       where: { id: auditRun.id },
       data: {
@@ -280,7 +425,11 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
     // 6. Enqueue evidence post-processing
     const firstEvidenceArtifactId = evidenceArtifactIds[0];
     if (firstEvidenceArtifactId) {
-      await queue.enqueueEvidencePostProcess(auditRun.id, firstEvidenceArtifactId);
+      await queue.enqueueEvidencePostProcess(
+        auditRun.id,
+        firstEvidenceArtifactId,
+        fallbackDecisionCreated && fallbackDecisionId ? fallbackDecisionId : undefined
+      );
     }
 
     // 7. Clean up workspace

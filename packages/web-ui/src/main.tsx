@@ -100,12 +100,19 @@ interface EvidenceArtifact {
 }
 
 interface PackageDetail {
+  auditRunId?: string;
+  runStatus?: string;
+  reviewJobId?: string;
+  jobStatus?: string;
+  canRetry?: boolean;
   packageName: string;
   version: string;
   tarballHash: string;
   verdict: string | null;
   riskSummary: string | null;
   piSessionId: string | null;
+  promptPackVersions?: string[];
+  promptUsage?: PromptUsage;
   evidenceArtifacts: EvidenceArtifact[];
   scores: Record<string, number>;
   decisionHistory: Array<{
@@ -115,6 +122,35 @@ interface PackageDetail {
     actorType: string;
     createdAt: string;
   }>;
+  agentStream?: AgentStream;
+}
+
+interface PromptUsage {
+  source: 'prompt-pack-instructions' | 'decision-metadata' | 'unknown';
+  promptPacks: string[];
+  customPrompts: string[];
+  initialPromptHash?: string;
+  initialPromptEvidenceName?: string;
+  note: string;
+}
+
+interface AgentStream {
+  available: boolean;
+  source: 'live-workspace' | 'session-archive' | 'database-artifact' | 'none';
+  updatedAt: string;
+  truncated: boolean;
+  entries: AgentStreamEntry[];
+  stderrTail?: string;
+}
+
+interface AgentStreamEntry {
+  index: number;
+  type: string;
+  role?: string;
+  text?: string;
+  timestamp?: string;
+  summary?: string;
+  errorMessage?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -141,6 +177,32 @@ function columnColor(col: string): string {
   }
 }
 
+function columnLabel(col: string): string {
+  switch (col) {
+    case 'submitted': return 'No Decision';
+    case 'queued': return 'Queued';
+    case 'running': return 'Running';
+    case 'needs-escalation': return 'Needs Escalation';
+    case 'quarantined': return 'Quarantined';
+    case 'blocked': return 'Blocked';
+    case 'allowed': return 'Allowed';
+    case 'promotion-pending': return 'Promotion Pending';
+    case 'promoted': return 'Promoted';
+    case 'failed': return 'Failed';
+    case 'superseded': return 'Superseded';
+    default: return col.replace(/-/g, ' ');
+  }
+}
+
+function promptSourceLabel(source?: PromptUsage['source']): string {
+  switch (source) {
+    case 'prompt-pack-instructions': return 'Configured prompt pack';
+    case 'decision-metadata': return 'Decision metadata';
+    case 'unknown':
+    default: return 'Not recorded';
+  }
+}
+
 function timeAgo(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const min = Math.floor(seconds / 60);
@@ -157,6 +219,14 @@ function triggerIcon(src: string): string {
     case 'admin': return '👤';
     default: return '❓';
   }
+}
+
+function streamTypeColor(type: string): string {
+  if (type.includes('error')) return '#c62828';
+  if (type.includes('tool')) return '#1565c0';
+  if (type.includes('message')) return '#6a1b9a';
+  if (type.includes('agent')) return '#2e7d32';
+  return '#546e7a';
 }
 
 // ── Dashboard Page ────────────────────────────────────────
@@ -186,6 +256,7 @@ function DashboardPage({
       ]);
       if (dashResp.ok) {
         setDashboard(await dashResp.json() as DashboardData);
+        setError(null);
       } else if (dashResp.status === 401 || dashResp.status === 403) {
         onAuthRequired();
         setError('AUTH_REQUIRED');
@@ -362,8 +433,8 @@ function DashboardPage({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', textTransform: 'capitalize' }}>
-                  {col.replace(/-/g, ' ')}
+                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  {columnLabel(col)}
                 </span>
                 <span style={{
                   background: columnColor(col),
@@ -984,22 +1055,61 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
   const [loading, setLoading] = useState(true);
   const [evidenceContent, setEvidenceContent] = useState<Record<string, unknown> | null>(null);
   const [loadingEvidence, setLoadingEvidence] = useState<string | null>(null);
+  const [retrySubmitting, setRetrySubmitting] = useState(false);
+  const [retryMessage, setRetryMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showOverride, setShowOverride] = useState(false);
   const [overrideTargetVerdict, setOverrideTargetVerdict] = useState<'ALLOW' | 'BLOCK' | 'QUARANTINE'>('ALLOW');
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideMessage, setOverrideMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const resp = await adminFetch(`${API_BASE}/admin/audit-run/${runId}`, adminToken);
-        if (resp.ok) setDetail(await resp.json() as PackageDetail);
-      } catch { /* */ }
-      setLoading(false);
-    }
-    void load();
+  const load = useCallback(async (shouldCommit: () => boolean = () => true) => {
+    try {
+      const resp = await adminFetch(`${API_BASE}/admin/audit-run/${runId}`, adminToken);
+      if (resp.ok) {
+        const nextDetail = await resp.json() as PackageDetail;
+        if (shouldCommit()) setDetail(nextDetail);
+      }
+    } catch { /* */ }
+    if (shouldCommit()) setLoading(false);
   }, [adminToken, runId]);
+
+  useEffect(() => {
+    let mounted = true;
+    void load(() => mounted);
+    const interval = setInterval(() => {
+      if (mounted) void load(() => mounted);
+    }, 2_000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [load]);
+
+  const retryAuditRun = async () => {
+    setRetrySubmitting(true);
+    setRetryMessage(null);
+    try {
+      const resp = await fetch(`${API_BASE}/admin/audit-run/${runId}/retry`, {
+        method: 'POST',
+        headers: authHeaders(adminToken),
+      });
+      if (resp.ok) {
+        const body = await resp.json().catch(() => null) as { pgBossJobId?: string } | null;
+        setRetryMessage({
+          type: 'success',
+          text: body?.pgBossJobId ? `Retry queued (${body.pgBossJobId}).` : 'Retry queued.',
+        });
+        await load();
+      } else {
+        const errBody = await resp.text().catch(() => 'Unknown error');
+        setRetryMessage({ type: 'error', text: `Retry failed (${resp.status}): ${errBody}` });
+      }
+    } catch (err) {
+      setRetryMessage({ type: 'error', text: `Network error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    setRetrySubmitting(false);
+  };
 
   const openEvidence = async (id: string) => {
     setLoadingEvidence(id);
@@ -1038,6 +1148,154 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
                 <strong>Risk Summary:</strong> {detail.riskSummary}
               </div>
             )}
+
+            {detail.canRetry && (
+              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button
+                  onClick={retryAuditRun}
+                  disabled={retrySubmitting}
+                  style={{
+                    padding: '0.4rem 0.8rem',
+                    background: retrySubmitting ? '#ccc' : '#1565c0',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: retrySubmitting ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {retrySubmitting ? 'Retrying...' : 'Retry Audit'}
+                </button>
+                <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                  Run {detail.runStatus ?? 'unknown'} · job {detail.jobStatus ?? 'unknown'}
+                </span>
+                {retryMessage && (
+                  <span style={{
+                    padding: '0.35rem 0.55rem',
+                    borderRadius: 4,
+                    fontSize: '0.8rem',
+                    background: retryMessage.type === 'success' ? '#e8f5e9' : '#ffebee',
+                    color: retryMessage.type === 'success' ? '#2e7d32' : '#c62828',
+                  }}>
+                    {retryMessage.text}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Prompt provenance */}
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid #d7dde3', borderRadius: 4, background: '#fbfcfd' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <h3 style={{ fontSize: '1rem', margin: 0 }}>Prompt Provenance</h3>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  background: detail.promptUsage?.source === 'prompt-pack-instructions' ? '#e8f5e9' : '#fff3e0',
+                  color: detail.promptUsage?.source === 'prompt-pack-instructions' ? '#2e7d32' : '#e65100',
+                }}>
+                  {promptSourceLabel(detail.promptUsage?.source)}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gap: '0.45rem', fontSize: '0.85rem' }}>
+                <div>
+                  <strong>Prompt packs:</strong>{' '}
+                  {detail.promptUsage?.promptPacks.length ? (
+                    detail.promptUsage.promptPacks.map((pack) => (
+                      <code key={pack} style={{ marginRight: '0.35rem', padding: '1px 4px', background: '#eef3f7', borderRadius: 4 }}>
+                        {pack}
+                      </code>
+                    ))
+                  ) : (
+                    <span style={{ color: '#c62828' }}>None recorded</span>
+                  )}
+                </div>
+                <div>
+                  <strong>Custom prompts:</strong>{' '}
+                  {detail.promptUsage?.customPrompts.length ? detail.promptUsage.customPrompts.join(', ') : 'None recorded'}
+                </div>
+                {detail.promptUsage?.initialPromptHash && (
+                  <div>
+                    <strong>Initial prompt hash:</strong>{' '}
+                    <code style={{ fontSize: '0.8rem' }}>{detail.promptUsage.initialPromptHash.slice(0, 16)}...</code>
+                  </div>
+                )}
+                {detail.promptUsage?.note && (
+                  <div style={{ color: detail.promptUsage.source === 'prompt-pack-instructions' ? '#546e7a' : '#c62828' }}>
+                    {detail.promptUsage.note}
+                  </div>
+                )}
+                {detail.promptUsage?.initialPromptEvidenceName && (() => {
+                  const artifact = detail.evidenceArtifacts.find((ea) => ea.name === detail.promptUsage?.initialPromptEvidenceName);
+                  return artifact?.viewable ? (
+                    <div>
+                      <button
+                        onClick={() => openEvidence(artifact.id)}
+                        disabled={loadingEvidence === artifact.id}
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.8rem', cursor: loadingEvidence === artifact.id ? 'not-allowed' : 'pointer' }}
+                      >
+                        {loadingEvidence === artifact.id ? 'Loading...' : `View ${artifact.name}`}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            </div>
+
+            {/* Agent stream */}
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid #d7dde3', borderRadius: 4, background: '#fbfcfd' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <h3 style={{ fontSize: '1rem', margin: 0 }}>Agent Conversation</h3>
+                {detail.agentStream?.source && detail.agentStream.source !== 'none' && (
+                  <span style={{ fontSize: '0.75rem', color: '#546e7a' }}>
+                    {detail.agentStream.source === 'live-workspace' ? 'live' : 'archived'} · refreshed {new Date(detail.agentStream.updatedAt).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              {!detail.agentStream?.available ? (
+                <p style={{ color: '#999', fontSize: '0.85rem', margin: 0 }}>
+                  No agent stream recorded yet. It will appear here as soon as PI emits session events.
+                </p>
+              ) : (
+                <>
+                  {detail.agentStream.truncated && (
+                    <div style={{ color: '#666', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                      Showing the most recent {detail.agentStream.entries.length} events.
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gap: '0.4rem', maxHeight: 360, overflow: 'auto' }}>
+                    {detail.agentStream.entries.map((entry) => (
+                      <div key={`${entry.index}-${entry.type}`} style={{ borderLeft: `3px solid ${streamTypeColor(entry.type)}`, padding: '0.4rem 0.5rem', background: '#fff', borderRadius: 4 }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.75rem', color: '#666', marginBottom: entry.text || entry.errorMessage ? '0.25rem' : 0 }}>
+                          <span style={{ fontFamily: 'monospace', color: streamTypeColor(entry.type), fontWeight: 600 }}>{entry.type}</span>
+                          {entry.role && <span>{entry.role}</span>}
+                          {entry.summary && <span>{entry.summary}</span>}
+                          {entry.timestamp && <span style={{ marginLeft: 'auto' }}>{new Date(entry.timestamp).toLocaleTimeString()}</span>}
+                        </div>
+                        {entry.text && (
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.8rem', lineHeight: 1.35, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                            {entry.text}
+                          </pre>
+                        )}
+                        {entry.errorMessage && (
+                          <div style={{ color: '#c62828', fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>{entry.errorMessage}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {detail.agentStream.stderrTail && (
+                    <details style={{ marginTop: '0.5rem' }}>
+                      <summary style={{ cursor: 'pointer', color: '#666', fontSize: '0.85rem' }}>PI stderr tail</summary>
+                      <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem', background: '#fff', padding: '0.5rem', borderRadius: 4, overflow: 'auto' }}>
+                        {detail.agentStream.stderrTail}
+                      </pre>
+                    </details>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Scores */}
             {Object.keys(detail.scores).length > 0 && (
