@@ -68,3 +68,5 @@ export * from './repositories/evidence.js';
 export * from './repositories/overrides.js';
 export * from './repositories/campaigns.js';
 export * from './repositories/subscriptions.js';
+export * from './repositories/prompt-packs.js';
+export * from './repositories/model-profiles.js';

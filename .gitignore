@@ -8,3 +8,6 @@ coverage
 *.log
 docker-compose.override.yml
 .DS_Store
+
+# JetBrains IDE
+.idea/
