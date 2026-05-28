@@ -1,11 +1,11 @@
 ---
 id: TASK-1.7
 title: Integrate PI RPC agentic audit harness and ModuleWarden tool API
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:28'
+updated_date: '2026-05-28 11:57'
 labels:
   - pi
   - agent
@@ -58,6 +58,12 @@ Added internal API endpoints (evidence, verdict, predecessor-diff, web-search) t
 
 Audit orchestrator + Docker image + entrypoint complete. Container runs orchestrator which detects PI availability and falls back to tool-only mode. RPC bridge and internal API endpoints ready. 111 tests pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Core RPC infrastructure complete: audit-rpc-server with 8 tool endpoints, structured AuditVerdict types, internal API (evidence/verdict/predecessor-diff/web-search), audit orchestrator with PI+tool-only fallback, Docker image with entrypoint. ACs 1-3,7-9 implemented. ACs 4-6 (PI session output, model adapter, prompt versions) need live model endpoint — deferred to TASK-1.8.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
