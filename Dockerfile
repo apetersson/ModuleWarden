@@ -23,6 +23,7 @@ COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
 COPY packages/worker packages/worker
 COPY packages/api-proxy packages/api-proxy
+RUN pnpm --filter @modulewarden/worker build
 RUN pnpm --filter @modulewarden/api-proxy build
 EXPOSE 8080
 CMD ["node", "packages/api-proxy/dist/index.js"]
