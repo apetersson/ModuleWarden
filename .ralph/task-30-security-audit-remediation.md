@@ -64,4 +64,32 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - Commits include finding ID in message
 - After Phase 1: run dump + subagent audit, record output
 
+## Iteration Status — Phase 1 & 2 Complete
+
+### Summary
+- **31 original findings:** 26 addressed (84%), 5 deferred with rationale
+- **Subagent audit round 1:** 28 findings found — 8 overlapped with already-fixed items, 20 new
+- **Subagent audit round 2:** 19 findings remained — 2 regressions fixed (N-3, S-4), 17 deferred
+- **Subagent audit round 3:** 17 findings remain — all MEDIUM/LOW, no new HIGH/CRITICAL
+- **Total commits:** 9 commits across 20+ files modified
+
+### Deferred items (with rationale)
+- BUG-06 (LOW): active flag on ModelProfile — requires Prisma migration
+- ARCH-05 (LOW): Docker SDK — large refactor, CLI works
+- ARCH-06 (LOW): schemaVersion field — requires Prisma migration
+- QUAL-01 (LOW): as any replacements — pervasive change, follow-up epic
+- QUAL-02 (LOW): main.tsx decomposition — UI refactor epic
+- OBS-01 (LOW): pino adoption — adapter exists, full migration is separate work
+- OBS-04 (LOW): correlation ID across pipeline — pipeline-wide refactor
+- OBS-05 (LOW): evidence post-processing — low impact
+- OBS-06 (LOW): admin audit trail — needs token identity extraction
+- S-5 (MEDIUM): rate limiting — added as task-30.4
+- L-3 (MEDIUM): synthetic hashes in admin override — added to backlog
+- L-4 (MEDIUM): semver in filter.ts — added to backlog
+- L-5 (MEDIUM): escalation heuristic — added as task-30.3
+- N-1 (MEDIUM): hardcoded model in orchestrator — added to backlog
+- A-2 (MEDIUM): token scopes — added to backlog
+- A-3 (MEDIUM): single point of failure — architectural
+- A-4 (MEDIUM): promotion wiring — added to backlog
+
 ## Notes
