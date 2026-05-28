@@ -159,7 +159,7 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
       setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoading(false);
-  }, []);
+  }, [adminToken]);
 
   useEffect(() => {
     fetchDashboard();
@@ -1059,7 +1059,7 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
                         setOverrideSubmitting(true);
                         setOverrideMessage(null);
                         try {
-                          const token = getBearerToken();
+                          const token = adminToken;
                           const resp = await fetch(`${API_BASE}/admin/override`, {
                             method: 'POST',
                             headers: {
@@ -1325,7 +1325,7 @@ function QueuePage({ adminToken }: { adminToken: string }) {
       setLoading(false);
     }
     doFetch();
-    const interval = setInterval(fetch, REFRESH_INTERVAL);
+    const interval = setInterval(doFetch, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, []);
 

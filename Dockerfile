@@ -45,6 +45,8 @@ CMD ["node", "packages/worker/dist/index.js"]
 
 # ── Stage 4: Web UI ──────────────────────────────────────────
 FROM node:20-alpine AS web-ui
+ARG VITE_MW_API_BASE_URL
+ENV VITE_MW_API_BASE_URL=${VITE_MW_API_BASE_URL:-}
 RUN npm install -g pnpm@9
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules

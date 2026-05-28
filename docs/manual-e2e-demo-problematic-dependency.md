@@ -38,18 +38,17 @@ The audit container can fall back to tool-only or file-only inspection if PI, th
 - Docker and Docker Compose are running.
 - Node.js 20+ and pnpm 9+ are available.
 - The shell has `DEEPSEEK_API_KEY` set.
-- The ModuleWarden repo is checked out at `/Users/andreas/code/modulewarden/main-modulewarden`.
+- Commands are run from the ModuleWarden repo root, `main-modulewarden`, unless a step explicitly changes directories.
+- The demo project will be created at `../demo-project` relative to the ModuleWarden repo root.
 - Ports `8080`, `3000`, and `5422` are available.
 
 Do not expose Verdaccio directly to the demo repo. Developers should talk only to ModuleWarden at `http://localhost:8080/`.
 
 ## 1. Configure The Model Endpoint
 
-From the ModuleWarden repo:
+From the ModuleWarden repo root:
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
-
 test -n "$DEEPSEEK_API_KEY" || {
   echo "DEEPSEEK_API_KEY is not set"
   exit 1
@@ -69,8 +68,6 @@ If the intended model slug is different, change `MW_MODEL_ENDPOINT_MODEL` before
 Build the audit-runner image first, then start the stack.
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
-
 docker compose build audit-runner
 docker compose up -d --build postgres verdaccio api-proxy worker web-ui
 ```
@@ -92,10 +89,10 @@ Expected:
 
 ## 3. Create A Fresh Demo Repo
 
-Use a directory outside the ModuleWarden repo.
+Use a sibling directory outside the ModuleWarden repo.
 
 ```bash
-DEMO_DIR="/tmp/modulewarden-demo-problematic-dep"
+DEMO_DIR="../demo-project"
 rm -rf "$DEMO_DIR"
 mkdir -p "$DEMO_DIR"
 cd "$DEMO_DIR"
@@ -144,7 +141,7 @@ test ! -d node_modules/cors-anywhere && echo "not installed as expected"
 Validate ModuleWarden status:
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 
 MW_API_BASE=http://localhost:8080 \
 MW_AUTH_DEV_TOKENS=mw-dev-token-change-me \
@@ -167,7 +164,7 @@ Expected:
 Check worker/API logs first:
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 
 docker compose logs --tail=200 api-proxy | grep -Ei "cors-anywhere|review|queue|audit|tarball" || true
 docker compose logs --tail=300 worker | grep -Ei "cors-anywhere|package-review|audit-container|deepseek|model|verdict|quarantine|block" || true
@@ -220,7 +217,7 @@ Expected:
 Inspect worker and audit-runner logs:
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 
 docker compose logs --tail=500 worker | grep -Ei "deepseek|MW_MODEL_ENDPOINT|model endpoint|PI|orchestrator|verdict|tool-only|file-only|fallback" || true
 ```
@@ -289,7 +286,7 @@ SQL
 Use this only if the audit path does not yet produce a blocking/quarantine verdict but you still need to validate install denial.
 
 ```bash
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 
 MW_API_BASE=http://localhost:8080 \
 MW_AUTH_ADMIN_TOKENS=mw-admin-token-change-me \
@@ -331,7 +328,7 @@ Validate:
 ```bash
 test ! -d node_modules/cors-anywhere && echo "blocked as expected"
 
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 MW_API_BASE=http://localhost:8080 \
 MW_AUTH_DEV_TOKENS=mw-dev-token-change-me \
 pnpm --filter @modulewarden/cli exec modulewarden explain cors-anywhere@0.4.4
@@ -343,10 +340,10 @@ Create a notes file for the run:
 
 ```bash
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-RESULTS_DIR="/tmp/modulewarden-e2e-results-$RUN_ID"
+RESULTS_DIR="../e2e-results-$RUN_ID"
 mkdir -p "$RESULTS_DIR"
 
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 
 curl -sS http://localhost:8080/health > "$RESULTS_DIR/health.json" || true
 curl -sS http://localhost:8080/status > "$RESULTS_DIR/status.json" || true
@@ -402,9 +399,9 @@ echo "Saved results to $RESULTS_DIR"
 ## Cleanup
 
 ```bash
-rm -rf /tmp/modulewarden-demo-problematic-dep
+rm -rf ../demo-project
 
-cd /Users/andreas/code/modulewarden/main-modulewarden
+cd ../main-modulewarden
 docker compose down
 ```
 

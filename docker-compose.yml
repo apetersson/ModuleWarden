@@ -91,6 +91,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web-ui
+      args:
+        VITE_MW_API_BASE_URL: ${MW_API_BASE_URL:-http://api-proxy:8080}
     ports:
       - "3000:3000"
     environment:
