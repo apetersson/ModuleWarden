@@ -237,12 +237,6 @@ export async function tryEnableProjectRegistry(
     return false;
   }
 
-  const prisma = getPrisma();
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { graphState: 'READY', registryEnabled: true },
-  });
-
   if (onProjectReady) {
     await onProjectReady(projectId, `Project ${projectId} is now ready for registry enablement`);
   }

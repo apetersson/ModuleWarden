@@ -19,6 +19,7 @@ FROM node:20-alpine AS api-proxy
 RUN npm install -g pnpm@9
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/
 COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
 COPY packages/worker packages/worker
@@ -34,6 +35,7 @@ RUN npm install -g pnpm@9
 RUN apk add --no-cache docker-cli
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/
 COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
 COPY packages/worker packages/worker
@@ -46,6 +48,7 @@ FROM node:20-alpine AS web-ui
 RUN npm install -g pnpm@9
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/
 COPY packages/shared packages/shared
 COPY packages/web-ui packages/web-ui
 RUN pnpm --filter @modulewarden/web-ui build

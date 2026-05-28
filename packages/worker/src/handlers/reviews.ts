@@ -1,10 +1,11 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 
 export async function registerPackageReviewHandler(queue: JobQueue): Promise<void> {
   await queue.work('package-review', async (job) => {
-    const { packageName, packageVersion, tarballHash, auditContext, idempotencyKey } = job.data;
+    const { packageName, packageVersion, tarballHash, auditContext } = job.data;
     const prisma = getPrisma();
 
     const trigger = auditContext.startsWith('subscription:')
@@ -70,24 +71,78 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
       throw new Error(`Package version ${packageName}@${packageVersion} (${effectiveTarballHash}) not found`);
     }
 
-    const reviewJob = await prisma.reviewJob.upsert({
-      where: { idempotencyKey },
-      create: {
-        packageVersionId: packageVersionRecord.id,
+    const canonicalIdempotencyKey = buildIdempotencyKey(
+      'package-review',
+      packageName,
+      packageVersion,
+      effectiveTarballHash,
+      auditContext
+    );
+
+    let reviewJobId: string;
+    let reviewJobStatus: string | undefined;
+
+    const existingReviewJob = await prisma.reviewJob.findFirst({
+      where: {
         auditContext,
-        trigger,
-        status: 'QUEUED',
-        idempotencyKey,
-        pgBossJobId: job.id,
+        packageVersionId: packageVersionRecord.id,
       },
-      update: {
-        status: 'QUEUED',
-        pgBossJobId: job.id,
-      },
+      select: { id: true, status: true },
+      orderBy: { updatedAt: 'desc' },
     });
+    const hasExactVersionMatch = !!existingReviewJob;
+
+    const existingUnresolvedReviewJob = !existingReviewJob
+      ? await prisma.reviewJob.findFirst({
+          where: {
+            auditContext,
+            idempotencyKey: { contains: 'unresolved:' },
+            packageVersion: {
+              packageName,
+              version: packageVersion,
+              registrySource: 'npm',
+            },
+          },
+          select: { id: true, status: true },
+          orderBy: { updatedAt: 'desc' },
+        })
+      : null;
+
+    const coalescedReviewJob = existingReviewJob ?? existingUnresolvedReviewJob;
+
+    if (coalescedReviewJob) {
+      reviewJobStatus = coalescedReviewJob.status;
+      await prisma.reviewJob.update({
+        where: { id: coalescedReviewJob.id },
+        data: {
+          packageVersionId: packageVersionRecord.id,
+          idempotencyKey: canonicalIdempotencyKey,
+          status: 'QUEUED',
+          pgBossJobId: job.id,
+        },
+      });
+      reviewJobId = coalescedReviewJob.id;
+    } else {
+      const reviewJob = await prisma.reviewJob.create({
+        data: {
+          packageVersionId: packageVersionRecord.id,
+          auditContext,
+          trigger,
+          status: 'QUEUED',
+          idempotencyKey: canonicalIdempotencyKey,
+          pgBossJobId: job.id,
+        },
+      });
+      reviewJobId = reviewJob.id;
+      reviewJobStatus = reviewJob.status;
+    }
+
+    if (reviewJobStatus === 'RUNNING' || (reviewJobStatus === 'QUEUED' && hasExactVersionMatch)) {
+      return;
+    }
 
     await queue.enqueueAuditContainerExec(
-      reviewJob.id,
+      reviewJobId,
       packageName,
       packageVersion,
       effectiveTarballHash,
