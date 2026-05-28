@@ -259,7 +259,7 @@ beforeAll(async () => {
     }
 
     expect(processed.length).toBe(1);
-    expect((processed[0].data as any).message).toBe('hello');
+    expect((processed[0]!.data as any).message).toBe('hello');
   });
 
   it('3. deduplication with singletonKey returns null for duplicate', async () => {
@@ -1149,7 +1149,7 @@ beforeAll(async () => {
     await readyQueue.send('project-ready', {
       projectId: project.id,
       reason: 'initial-check',
-    } as any);
+    });
 
     await sleep(1000);
 
@@ -1176,7 +1176,7 @@ beforeAll(async () => {
     await readyQueue.send('project-ready', {
       projectId: project.id,
       reason: 'partial-check',
-    } as any);
+    });
     await sleep(1000);
 
     const stillWaiting = await prisma.project.findUnique({ where: { id: project.id } });
@@ -1201,7 +1201,7 @@ beforeAll(async () => {
     await readyQueue.send('project-ready', {
       projectId: project.id,
       reason: 'final-check',
-    } as any);
+    });
 
     for (let i = 0; i < 8; i++) {
       const projectReady = await prisma.project.findUnique({ where: { id: project.id } });
@@ -1368,7 +1368,7 @@ beforeAll(async () => {
 
     const campaignDecisionLinks = await prisma.decision.findMany({
       where: {
-        reAuditCampaigns: { some: { id: completedCampaign?.id } },
+        reAuditCampaigns: { some: { id: completedCampaign!.id } },
       },
     });
     expect(campaignDecisionLinks.some((decision) => decision.id === allowedDecision.id)).toBe(true);

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -151,10 +151,11 @@ export function diffDependencies(
   const changed: Record<string, { old: string; new: string }> = {};
 
   for (const [name, version] of Object.entries(newDeps)) {
-    if (!(name in oldDeps)) {
+    const oldVersion = oldDeps[name];
+    if (oldVersion === undefined) {
       added[name] = version;
-    } else if (oldDeps[name] !== version) {
-      changed[name] = { old: oldDeps[name], new: version };
+    } else if (oldVersion !== version) {
+      changed[name] = { old: oldVersion, new: version };
     }
   }
 

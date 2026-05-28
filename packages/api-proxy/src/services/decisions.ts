@@ -41,7 +41,7 @@ export async function getDecisionsForVersions(
     const verdict = activeOverride?.targetVerdict ?? latestDecision.verdict;
     const value: VersionDecision = {
       version: pv.version,
-      verdict: verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
+      verdict: verdict,
       tarballHash: pv.tarballHash,
     };
     decisions.set(decisionKey(pv.version, pv.tarballHash), value);
@@ -81,12 +81,9 @@ export async function getEffectiveVerdictByHash(
   if (!pv || pv.predecessorDecisions.length === 0) return null;
 
   const latestDecision = pv.predecessorDecisions[0];
+  if (!latestDecision) return null;
   const activeOverride = await getBestActiveOverrideForPackageVersion(pv.id);
-  return (activeOverride?.targetVerdict ?? latestDecision.verdict) as
-    | 'ALLOW'
-    | 'BLOCK'
-    | 'QUARANTINE'
-    | null;
+  return (activeOverride?.targetVerdict ?? latestDecision.verdict);
 }
 
 function decisionKey(version: string, tarballHash: string): string {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify from 'fastify';
-import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
+import { getPrisma } from '@modulewarden/prisma-client';
 import { registerPackumentRoute } from '../routes/packument.js';
 import { registerTarballRoute } from '../routes/tarball.js';
 

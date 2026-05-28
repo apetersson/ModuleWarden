@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
 // API_BASE resolution order: Vite build arg > window global > empty string (same-origin)
@@ -46,6 +46,8 @@ interface DashboardData {
   refreshedAt: string;
 }
 
+const EMPTY_AUDIT_CARDS: AuditRunCard[] = [];
+
 interface QueueStat {
   queue: string;
   pending: number;
@@ -84,13 +86,6 @@ interface PackageDetail {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-
-function getBearerToken(): string {
-  if (typeof process !== 'undefined' && (process.env as Record<string, string | undefined>).MW_AUTH_ADMIN_TOKENS) {
-    return (process.env as Record<string, string | undefined>).MW_AUTH_ADMIN_TOKENS!;
-  }
-  return '';
-}
 
 function statusColor(verdict?: string | null): string {
   switch (verdict) {
@@ -164,8 +159,8 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
   }, [adminToken]);
 
   useEffect(() => {
-    fetchDashboard();
-    const interval = setInterval(fetchDashboard, REFRESH_INTERVAL);
+    void fetchDashboard();
+    const interval = setInterval(() => void fetchDashboard(), REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchDashboard]);
 
@@ -180,6 +175,40 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
       card.packageVersion.toLowerCase().includes(q)
     );
   }, [searchQuery]);
+
+  const selectedCards = activeColumn && dashboard
+    ? dashboard.columns[activeColumn] ?? EMPTY_AUDIT_CARDS
+    : null;
+
+  const sortedCards = useMemo(() => {
+    if (!selectedCards) return null;
+    let cards = selectedCards;
+    if (searchQuery) {
+      cards = cards.filter(matchesSearch);
+    }
+    return [...cards].sort((a, b) => {
+      if (sortBy === 'age-asc') return a.ageSeconds - b.ageSeconds;
+      if (sortBy === 'age-desc') return b.ageSeconds - a.ageSeconds;
+      if (sortBy === 'risk') {
+        const ra = a.riskSummary ?? '';
+        const rb = b.riskSummary ?? '';
+        return rb.localeCompare(ra);
+      }
+      return 0;
+    });
+  }, [selectedCards, searchQuery, sortBy, matchesSearch]);
+
+  const filteredColumns = useMemo(() => {
+    if (!dashboard || !searchQuery) return dashboard?.columns;
+    const result: Record<string, AuditRunCard[]> = {};
+    for (const [col, cards] of Object.entries(dashboard.columns)) {
+      const filtered = cards.filter(matchesSearch);
+      if (filtered.length > 0) result[col] = filtered;
+    }
+    return result;
+  }, [dashboard, searchQuery, matchesSearch]);
+
+  const displayColumns = searchQuery ? filteredColumns : dashboard?.columns;
 
   // ── Error state ────────────────────────────────────────
 
@@ -211,7 +240,7 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
 
   // ── Empty state ────────────────────────────────────────
 
-  if (dashboard && dashboard.summary.total === 0) {
+  if (dashboard?.summary.total === 0) {
     return (
       <div>
         <h2>Dashboard</h2>
@@ -225,46 +254,6 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
       </div>
     );
   }
-
-  // ── Kanban board ───────────────────────────────────────
-
-  const selectedCards = activeColumn && dashboard
-    ? dashboard.columns[activeColumn] ?? []
-    : null;
-
-  // Apply search filter + sort to selected cards
-  const sortedCards = useMemo(() => {
-    if (!selectedCards) return null;
-    let cards = selectedCards;
-    // Filter
-    if (searchQuery) {
-      cards = cards.filter(matchesSearch);
-    }
-    // Sort
-    return [...cards].sort((a, b) => {
-      if (sortBy === 'age-asc') return a.ageSeconds - b.ageSeconds;
-      if (sortBy === 'age-desc') return b.ageSeconds - a.ageSeconds;
-      if (sortBy === 'risk') {
-        const ra = a.riskSummary ?? '';
-        const rb = b.riskSummary ?? '';
-        return rb.localeCompare(ra);
-      }
-      return 0;
-    });
-  }, [selectedCards, searchQuery, sortBy, matchesSearch]);
-
-  // Filter kanban column cards by search
-  const filteredColumns = useMemo(() => {
-    if (!dashboard || !searchQuery) return dashboard?.columns;
-    const result: Record<string, AuditRunCard[]> = {};
-    for (const [col, cards] of Object.entries(dashboard.columns)) {
-      const filtered = cards.filter(matchesSearch);
-      if (filtered.length > 0) result[col] = filtered;
-    }
-    return result;
-  }, [dashboard, searchQuery, matchesSearch]);
-
-  const displayColumns = searchQuery ? filteredColumns : dashboard?.columns;
 
   return (
     <div>
@@ -289,7 +278,7 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
           }}
         />
         <button
-          onClick={() => { setLoading(true); fetchDashboard(); }}
+          onClick={() => { setLoading(true); void fetchDashboard(); }}
           style={{ padding: '0.3rem 0.8rem', cursor: 'pointer' }}
         >
           Refresh
@@ -335,7 +324,7 @@ function DashboardPage({ onCardClick, adminToken }: { onCardClick?: (id: string)
                   {count}
                 </span>
               </div>
-              {cards && cards.slice(0, 5).map((card) => (
+              {cards?.slice(0, 5).map((card) => (
                 <div key={card.id} onClick={() => onCardClick?.(card.id)} style={{ cursor: 'pointer',
                   marginTop: '0.5rem',
                   padding: '0.5rem',
@@ -551,8 +540,8 @@ function PromptsPage({ adminToken }: { adminToken: string }) {
       }
       setLoading(false);
     }
-    doFetch();
-  }, []);
+    void doFetch();
+  }, [adminToken]);
 
   if (loading) {
     return <div><h2>Prompt Packs</h2><p style={{ color: '#666' }}>Loading prompts...</p></div>;
@@ -674,8 +663,8 @@ function CampaignsPage({ adminToken }: { adminToken: string }) {
       }
       setLoading(false);
     }
-    doFetch();
-  }, []);
+    void doFetch();
+  }, [adminToken]);
 
   if (loading) {
     return <div><h2>Re-Audit Campaigns</h2><p style={{ color: '#666' }}>Loading campaigns...</p></div>;
@@ -811,8 +800,8 @@ function EvaluationPage({ adminToken }: { adminToken: string }) {
       }
       setLoading(false);
     }
-    doFetch();
-  }, []);
+    void doFetch();
+  }, [adminToken]);
 
   if (loading) {
     return <div><h2>Evaluation Results</h2><p style={{ color: '#666' }}>Loading evaluation data...</p></div>;
@@ -936,14 +925,14 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
       } catch { /* */ }
       setLoading(false);
     }
-    load();
-  }, [runId]);
+    void load();
+  }, [adminToken, runId]);
 
   const openEvidence = async (id: string) => {
     setLoadingEvidence(id);
     try {
       const resp = await adminFetch(`${API_BASE}/admin/evidence/${id}`, adminToken);
-      if (resp.ok) setEvidenceContent(await resp.json() as unknown as Record<string, unknown>);
+      if (resp.ok) setEvidenceContent(await resp.json());
     } catch { /* */ }
     setLoadingEvidence(null);
   };
@@ -1225,7 +1214,7 @@ function App() {
         setApiConnected(false);
       }
     }
-    checkApi();
+    void checkApi();
   }, []);
 
   const navItems: Array<{ key: typeof page; label: string }> = [
@@ -1326,10 +1315,10 @@ function QueuePage({ adminToken }: { adminToken: string }) {
       } catch { /* */ }
       setLoading(false);
     }
-    doFetch();
-    const interval = setInterval(doFetch, REFRESH_INTERVAL);
+    void doFetch();
+    const interval = setInterval(() => void doFetch(), REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [adminToken]);
 
   return (
     <div>

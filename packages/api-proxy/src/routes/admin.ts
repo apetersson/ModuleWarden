@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma, createOverride, listActiveOverrides, deactivateOverride } from '@modulewarden/prisma-client';
-import { parseLockfile } from '@modulewarden/shared/services/lockfile';
 
 interface OverrideBody {
   packageName: string;
@@ -20,7 +19,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
   // Auth middleware helper
   function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       reply.status(401).send({ error: 'Authentication required' });
       return false;
     }
@@ -92,17 +91,15 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
             orderBy: { createdAt: 'desc' },
           });
 
-      if (!pv) {
-        // Create the package version record if it doesn't exist
-        pv = await prisma.packageVersion.create({
-          data: {
-            packageName,
-            version,
-            registrySource: 'npm',
-            tarballHash: tarballHash ?? `override:${packageName}:${version}`,
-          },
-        });
-      }
+      // Create the package version record if it doesn't exist
+      pv ??= await prisma.packageVersion.create({
+        data: {
+          packageName,
+          version,
+          registrySource: 'npm',
+          tarballHash: tarballHash ?? `override:${packageName}:${version}`,
+        },
+      });
 
       // Find the latest decision for this version
       const latestDecision = await prisma.decision.findFirst({
@@ -143,7 +140,9 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         scope,
         targetVerdict,
         reason,
-        supersedesDecisionId: supersedesDecisionId ?? latestDecision?.id,
+        ...((supersedesDecisionId ?? latestDecision?.id)
+          ? { supersedesDecisionId: supersedesDecisionId ?? latestDecision!.id }
+          : {}),
       });
 
       return reply.status(201).send({

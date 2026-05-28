@@ -9,7 +9,7 @@
 import type { CapabilityReport, CapabilityCategory } from './capability-extract.js';
 import type { DependencyDiff, LifecycleScriptDiff } from './package-diff.js';
 import type { EvidenceBundle } from './evidence-bundle.js';
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -170,15 +170,16 @@ export function computeCapabilityDelta(
     // New dependencies that look suspicious
     for (const [name, version] of Object.entries(depDiff.added)) {
       const risk = analyzeDependencyIndirection({ [name]: version });
-      if (risk.length > 0) {
+      const firstRisk = risk[0];
+      if (firstRisk) {
         deltas.push({
           category: 'dependency-indirection',
-          severity: risk[0].risk,
+          severity: firstRisk.risk,
           description: `Suspicious new dependency: ${name}@${version}`,
           files: ['package.json'],
           isNew: true,
           changeType: 'added',
-          evidence: [`New dependency ${name} matches risk pattern: ${risk[0].reason}`],
+          evidence: [`New dependency ${name} matches risk pattern: ${firstRisk.reason}`],
         });
       }
     }
@@ -220,8 +221,8 @@ export function computeCapabilityDelta(
 
   // ── Overall risk ─────────────────────────────────────────
 
-  const riskLevels: Array<'none' | 'low' | 'medium' | 'high' | 'critical'> = ['none', 'low', 'medium', 'high', 'critical'];
-  let overallRisk: typeof riskLevels[number] = 'none';
+  type RiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+  let overallRisk: RiskLevel = 'none';
 
   if (isColdStart) {
     // Cold-start: conservative — base on severity
@@ -288,20 +289,6 @@ export function buildColdStartEvidence(
     if (scripts.preinstall || scripts.install || scripts.postinstall) {
       installTraceAvailable = true;
     }
-  }
-
-  // File count and size
-  let fileCount = 0;
-  let totalSize = 0;
-  if (existsSync(packageDir)) {
-    const walk = (dir: string): void => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) walk(full);
-        else if (entry.isFile()) { fileCount++; try { totalSize += statSync(full).size; } catch { /* */ } }
-      }
-    };
-    walk(packageDir);
   }
 
   return {

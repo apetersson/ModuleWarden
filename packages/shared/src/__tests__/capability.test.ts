@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { writeFileSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execSync } from 'node:child_process';
 import { extractCapabilities } from '../services/capability-extract.js';
 import { extractLifecycleScripts, extractDependencies, diffDependencies, diffLifecycleScripts } from '../services/package-diff.js';
 import { buildEvidenceBundle } from '../services/evidence-bundle.js';
@@ -119,9 +118,10 @@ describe('package diff utilities', () => {
 
       expect(diff.removed).toEqual({});
       expect(diff.added.axios).toBe('^1.0.0');
-      expect(diff.changed.lodash).toBeDefined();
-      expect(diff.changed.lodash.old).toBe('^4.17.21');
-      expect(diff.changed.lodash.new).toBe('^4.18.0');
+      const lodashChange = diff.changed.lodash;
+      expect(lodashChange).toBeDefined();
+      expect(lodashChange!.old).toBe('^4.17.21');
+      expect(lodashChange!.new).toBe('^4.18.0');
     });
   });
 

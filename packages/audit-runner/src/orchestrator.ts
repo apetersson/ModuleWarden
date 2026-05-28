@@ -234,6 +234,9 @@ async function main(): Promise<void> {
   // Wait for verdict (with timeout)
   console.log('[orchestrator] Waiting for verdict (timeout: 5 min)...');
   const verdict = await waitForVerdict(300_000);
+  if (!promptAccepted) {
+    console.log('[orchestrator] PI prompt acknowledgement was not observed before verdict timeout');
+  }
 
   if (verdict) {
     console.log(`[orchestrator] Verdict received: ${JSON.stringify(verdict).slice(0, 200)}...`);
@@ -305,13 +308,13 @@ async function runBridgeAudit(): Promise<void> {
   const pkgResp = await fetch(`${baseUrl}/tools/package-info`, {
     method: 'POST', headers, body: JSON.stringify({ requestId: 'r1' }),
   });
-  const pkgData = await pkgResp.json() as any;
+  const pkgData = await pkgResp.json();
   console.log(`[orchestrator] Package: ${pkgData.data?.name ?? 'unknown'}@${pkgData.data?.version ?? 'unknown'}`);
 
   const staticResp = await fetch(`${baseUrl}/tools/static-checks`, {
     method: 'POST', headers, body: JSON.stringify({ requestId: 'r2' }),
   });
-  const staticData = await staticResp.json() as any;
+  const staticData = await staticResp.json();
   console.log(`[orchestrator] Static findings: ${(staticData.data?.findings ?? []).length}`);
 
   await fetch(`${baseUrl}/tools/write-evidence`, {
@@ -341,7 +344,7 @@ async function runFileInspection(): Promise<void> {
   const inspectionDir = join(OUTPUT_DIR, 'inspection');
 
   try {
-    const { readdirSync, statSync } = await import('node:fs');
+    const { readdirSync } = await import('node:fs');
 
     // List package files
     const files: string[] = [];
@@ -378,7 +381,7 @@ async function runFileInspection(): Promise<void> {
     };
     writeFileSync(join(OUTPUT_DIR, 'verdict.json'), JSON.stringify(verdict, null, 2));
     console.log(`[orchestrator] File inspection complete — ${files.length} files found`);
-  } catch (err) {
+  } catch (_err) {
     // Minimal fallback
     const verdict = {
       verdict: 'quarantine',

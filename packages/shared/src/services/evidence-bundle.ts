@@ -149,7 +149,7 @@ export function buildEvidenceBundle(params: {
       registrySource: params.registrySource ?? 'npm',
       tarballHash: params.tarballHash,
     },
-    fileDiff: params.fileDiff,
+    ...(params.fileDiff ? { fileDiff: params.fileDiff } : {}),
     dependencyDiff: params.dependencyDiff,
     lifecycleScriptDiff: params.lifecycleScriptDiff,
     capabilityReport: params.capabilityReport,

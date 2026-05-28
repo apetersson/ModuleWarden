@@ -5,27 +5,27 @@ import type { JobType, WorkerConfig } from '@modulewarden/shared/types';
  */
 export const JOB_TYPES: Record<string, JobType> = {
   /** Review a new package version against its predecessor. */
-  PACKAGE_REVIEW: 'package-review' as JobType,
+  PACKAGE_REVIEW: 'package-review',
 
   /** Poll upstream registry for new versions of subscribed packages. */
-  UPSTREAM_SUBSCRIPTION_POLL: 'upstream-subscription-poll' as JobType,
+  UPSTREAM_SUBSCRIPTION_POLL: 'upstream-subscription-poll',
 
   /** Execute a PI audit inside an isolated Docker container. */
-  AUDIT_CONTAINER_EXEC: 'audit-container-exec' as JobType,
+  AUDIT_CONTAINER_EXEC: 'audit-container-exec',
 
   /** Escalate a first-pass audit to a more capable model pass. */
-  MODEL_ESCALATION: 'model-escalation' as JobType,
+  MODEL_ESCALATION: 'model-escalation',
 
   /** Re-audit currently allowed versions after prompt/model/pattern changes. */
-  RE_AUDIT_CAMPAIGN: 're-audit-campaign' as JobType,
+  RE_AUDIT_CAMPAIGN: 're-audit-campaign',
 
   /** Post-process evidence artifacts after an audit run completes. */
-  EVIDENCE_POST_PROCESS: 'evidence-post-process' as JobType,
+  EVIDENCE_POST_PROCESS: 'evidence-post-process',
 
   /** Promote an allowed package tarball into Verdaccio. */
-  VERDACCIO_PROMOTION: 'verdaccio-promotion' as JobType,
+  VERDACCIO_PROMOTION: 'verdaccio-promotion',
   /** Evaluate whether a project is fully reviewed and enable registry access. */
-  PROJECT_READY: 'project-ready' as JobType,
+  PROJECT_READY: 'project-ready',
 } as const;
 
 /**
@@ -65,13 +65,13 @@ export const SCHEDULED_JOBS: Array<{
   {
     name: 'poll-upstream-subscriptions',
     cron: '*/15 * * * *',   // Every 15 minutes
-    queue: 'upstream-subscription-poll' as JobType,
+    queue: 'upstream-subscription-poll',
     description: 'Poll upstream npm registry for new versions of subscribed packages',
   },
   {
     name: 're-audit-prompt-changes',
     cron: '0 2 * * *',      // Daily at 2am
-    queue: 're-audit-campaign' as JobType,
+    queue: 're-audit-campaign',
     description: 'Check for prompt/model/pattern changes and enqueue re-audit campaigns',
   },
 ];

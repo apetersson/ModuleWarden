@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getPrisma, disconnectPrisma } from '../index.js';
-import { createProject, listProjects } from '../repositories/projects.js';
-import { upsertPackageVersion, findPackageVersion } from '../repositories/package-versions.js';
-import { createReviewJob, deduplicateReviewJob, updateReviewJobStatus } from '../repositories/review-jobs.js';
-import { createDecision, listDecisionsForPackage, getEffectiveDecision, listAllowedVersionsForReAudit } from '../repositories/decisions.js';
+import { createProject } from '../repositories/projects.js';
+import { upsertPackageVersion } from '../repositories/package-versions.js';
+import { createReviewJob, deduplicateReviewJob } from '../repositories/review-jobs.js';
+import { createDecision, listDecisionsForPackage, listAllowedVersionsForReAudit } from '../repositories/decisions.js';
 import { createOverride, deactivateOverride, listActiveOverrides, getEffectiveVerdict } from '../repositories/overrides.js';
 import { createReAuditCampaign, listCampaignsByProject } from '../repositories/campaigns.js';
 import { createEvidenceArtifact, listEvidenceByAuditRun, supersedeEvidenceArtifact } from '../repositories/evidence.js';
@@ -141,7 +141,7 @@ describe('Prisma Schema & Repositories', () => {
     // List decisions for package
     const decisions = await listDecisionsForPackage(pkgVersionId);
     expect(decisions.length).toBeGreaterThanOrEqual(1);
-    expect(decisions[0].id).toBe(decisionId);
+    expect(decisions[0]!.id).toBe(decisionId);
   });
 
   it('5. creates overrides with admin identity and scope', async () => {
@@ -176,7 +176,7 @@ describe('Prisma Schema & Repositories', () => {
       auditRunId,
       artifactType: 'DIFF_SUMMARY',
       name: 'diff-summary.json',
-      content: { added: ['src/new.ts'], removed: [], changed: 3 } as any,
+      content: { added: ['src/new.ts'], removed: [], changed: 3 },
       contentHash: 'sha256-of-content',
     });
     expect(evidence).toBeDefined();
@@ -187,7 +187,7 @@ describe('Prisma Schema & Repositories', () => {
     // Evidence should be listed by audit run
     const list = await listEvidenceByAuditRun(auditRunId);
     expect(list.length).toBe(1);
-    expect(list[0].id).toBe(evidenceId);
+    expect(list[0]!.id).toBe(evidenceId);
   });
 
   it('7. creates re-audit campaigns that reference decisions', async () => {
@@ -259,7 +259,7 @@ describe('Prisma Schema & Repositories', () => {
       auditRunId,
       artifactType: 'DIFF_SUMMARY',
       name: 'diff-summary-v2.json',
-      content: { added: ['src/newer.ts'], removed: [], changed: 4 } as any,
+      content: { added: ['src/newer.ts'], removed: [], changed: 4 },
       contentHash: 'sha256-of-content-v2',
       status: 'SUPERSEDED',
     });
@@ -332,8 +332,8 @@ describe('Prisma Schema & Repositories', () => {
 
     const allowed = await listAllowedVersionsForReAudit(overrideProject.id);
     expect(allowed).toHaveLength(1);
-    expect(allowed[0].packageVersionId).toBe(overridePkg.id);
-    expect(allowed[0].decisionId).toBe(decision.id);
+    expect(allowed[0]!.packageVersionId).toBe(overridePkg.id);
+    expect(allowed[0]!.decisionId).toBe(decision.id);
 
     await prisma.override.delete({ where: { id: override.id } });
     await prisma.decision.delete({ where: { id: decision.id } });

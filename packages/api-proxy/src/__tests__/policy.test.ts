@@ -3,7 +3,6 @@ import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import {
   getEffectiveDecision,
   getStatusInfo,
-  type StatusInfo,
 } from '../services/policy.js';
 
 const RUN_ID = `run-${Date.now()}`;
@@ -311,7 +310,7 @@ describe('Policy service — developer-safe status info', () => {
         tarballHash: `sha512-status-test-block-${RUN_ID}`,
       },
     });
-    const job = await prisma.reviewJob.create({
+    await prisma.reviewJob.create({
       data: {
         packageVersionId: pv.id,
         auditContext: 'status:test:block',

@@ -4,7 +4,7 @@ import { getEffectiveDecision } from './decisions.js';
 
 export async function createProject(name: string, description?: string): Promise<Project> {
   return getPrisma().project.create({
-    data: { name, description },
+    data: { name, ...(description !== undefined ? { description } : {}) },
   });
 }
 

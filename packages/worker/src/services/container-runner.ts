@@ -191,7 +191,7 @@ export class ContainerRunner {
       const message = err instanceof Error ? err.message : String(err);
       // Cleanup workspace
       rmSync(workspacePath, { recursive: true, force: true });
-      throw new Error(`Failed to create audit container: ${message}`);
+      throw new Error(`Failed to create audit container: ${message}`, { cause: err });
     }
 
     try {

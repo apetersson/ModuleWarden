@@ -82,7 +82,7 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       function parseSemver(v: string): { major: number; minor: number; patch: number; preRelease: string | null } {
         const cleaned = v.replace(/^[vV]/, '');
         const preReleaseMatch = cleaned.match(/-([a-zA-Z0-9.]+)/);
-        const preRelease = preReleaseMatch ? preReleaseMatch[1] : null;
+        const preRelease = preReleaseMatch?.[1] ?? null;
         const matchIdx = preReleaseMatch?.index;
         const numeric = preRelease != null && matchIdx != null ? cleaned.slice(0, matchIdx) : cleaned;
         const parts = numeric.split('.').map(Number);
@@ -243,7 +243,7 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
           reasonSummary: riskSummary,
           actorType: 'AGENT',
           piSessionId: piSessionId ?? null,
-          scores: scores as object,
+          scores: scores,
         },
         select: { id: true },
       });

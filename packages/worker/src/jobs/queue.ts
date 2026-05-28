@@ -206,7 +206,11 @@ export class JobQueue {
     const key = decisionId
       ? `mw:evidence:${auditRunId}:${decisionId}`
       : `mw:evidence:${auditRunId}:${evidenceBundleId}`;
-    return this.send('evidence-post-process', { auditRunId, evidenceBundleId, decisionId }, key);
+    return this.send(
+      'evidence-post-process',
+      { auditRunId, evidenceBundleId, ...(decisionId !== undefined ? { decisionId } : {}) },
+      key
+    );
   }
 
   /**
@@ -255,7 +259,7 @@ export class JobQueue {
               auditContext?: string;
             };
             const reviewJobId = payload?.reviewJobId;
-            const jobType = name as JobType;
+            const jobType = name;
             const retryCount = typeof (job as { retryCount?: number }).retryCount === 'number'
               ? (job as { retryCount?: number }).retryCount!
               : 0;
@@ -296,7 +300,7 @@ export class JobQueue {
    * Cancel a queued/active job and persist cancellation context on the review row.
    */
   async cancelJob<T extends JobType>(name: T, jobId: string): Promise<boolean> {
-    const job = await this.boss.getJobById(name as string, jobId);
+    const job = await this.boss.getJobById(name, jobId);
     if (!job) {
       return false;
     }
@@ -304,7 +308,7 @@ export class JobQueue {
     const payload = job.data as { reviewJobId?: string };
     const reviewJobId = payload?.reviewJobId;
 
-    await this.boss.cancel(name as string, jobId);
+    await this.boss.cancel(name, jobId);
 
     if (reviewJobId) {
       await this.updateReviewJobFailureState(reviewJobId, 'CANCELLED', 'Job cancelled before completion');
@@ -339,7 +343,6 @@ export class JobQueue {
       data: {
         status,
         // Keep a compact failure summary for forensic correlation.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         failureReason: `${new Date().toISOString()}: ${failureReason}` as any,
       },
     });
@@ -386,8 +389,13 @@ export class JobQueue {
       return;
     }
 
+    const latestRun = existingRuns[0];
+    if (!latestRun) {
+      return;
+    }
+
     await prisma.auditRun.update({
-      where: { id: existingRuns[0].id },
+      where: { id: latestRun.id },
       data: {
         status: 'CRASHED',
         completedAt: now,

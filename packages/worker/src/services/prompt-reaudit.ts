@@ -6,8 +6,7 @@
  * in the active used graph, including versions with admin overrides.
  */
 
-import { getPrisma, createReAuditCampaign, getLatestPromptPack } from '@modulewarden/prisma-client';
-import { buildIdempotencyKey } from '@modulewarden/shared/constants';
+import { getPrisma, createReAuditCampaign } from '@modulewarden/prisma-client';
 import type { JobQueue } from '../jobs/queue.js';
 import type { PromptCategory } from '@prisma/client';
 

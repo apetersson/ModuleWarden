@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pnpm --filter @modulewarden/worker build && tsc",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "tsx watch src/index.ts"

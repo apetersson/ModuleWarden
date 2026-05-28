@@ -33,7 +33,7 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
   });
 
   await queue.work('audit-container-exec', async (job) => {
-    const { reviewJobId, packageName, packageVersion, tarballHash, predecessorHash, auditContext } = job.data;
+    const { reviewJobId, packageName, packageVersion, predecessorHash } = job.data;
     const prisma = getPrisma();
 
     // 1. Create audit run record
@@ -71,9 +71,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
     // Try to fetch the package tarball from upstream
     try {
       const packument = await fetchUpstreamPackument(packageName);
-      if (packument?.versions?.[packageVersion]?.dist?.tarball) {
-        const url = packument.versions[packageVersion].dist.tarball;
-        const tarball = await fetchUpstreamTarball(url);
+      const packageDist = packument?.versions?.[packageVersion]?.dist;
+      if (packageDist?.tarball) {
+        const tarball = await fetchUpstreamTarball(packageDist.tarball);
         if (tarball) {
           const streamPath = join(tarballDir, 'package.tgz');
           const reader = tarball.stream.getReader();
@@ -101,7 +101,7 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
           // Find the predecessor version
           const predVersion = Object.entries(predPackument.versions ?? {})
             .find(([, v]) => v.dist?.integrity === predecessorHash || v.dist?.shasum === predecessorHash);
-          if (predVersion && predVersion[1]?.dist?.tarball) {
+          if (predVersion?.[1]?.dist?.tarball) {
             const url = predVersion[1].dist.tarball;
             const tarball = await fetchUpstreamTarball(url);
             if (tarball) {
@@ -131,8 +131,8 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       rpcPort: config.piOrchestration.rpcPort,
       packageName,
       packageVersion,
-      packageTarballPath,
-      baselineTarballPath,
+      ...(packageTarballPath !== undefined ? { packageTarballPath } : {}),
+      ...(baselineTarballPath !== undefined ? { baselineTarballPath } : {}),
     };
 
     // 5. Run the container
@@ -211,8 +211,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
     }
 
     // 6. Enqueue evidence post-processing
-    if (evidenceArtifactIds.length > 0) {
-      await queue.enqueueEvidencePostProcess(auditRun.id, evidenceArtifactIds[0]);
+    const firstEvidenceArtifactId = evidenceArtifactIds[0];
+    if (firstEvidenceArtifactId) {
+      await queue.enqueueEvidencePostProcess(auditRun.id, firstEvidenceArtifactId);
     }
 
     // 7. Clean up workspace

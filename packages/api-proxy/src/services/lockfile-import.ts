@@ -1,5 +1,5 @@
 import { getPrisma } from '@modulewarden/prisma-client';
-import type { LockfileEntry, LockfileParseResult } from '@modulewarden/shared/services/lockfile';
+import type { LockfileParseResult } from '@modulewarden/shared/services/lockfile';
 import { parseLockfile } from '@modulewarden/shared/services/lockfile';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { existsSync } from 'node:fs';
@@ -84,7 +84,7 @@ export async function importLockfile(
           version: entry.version,
           registrySource: 'npm',
           tarballHash: entry.integrity,
-          description: entry.resolved ? `Resolved from ${entry.resolved}` : undefined,
+          ...(entry.resolved ? { description: `Resolved from ${entry.resolved}` } : {}),
         },
         update: {}, // No-op on conflict
       });
@@ -150,7 +150,7 @@ export async function importLockfile(
           where: { id: reviewJob.id },
           data: {
             status: pgBossJobId ? 'QUEUED' : 'PENDING',
-            pgBossJobId: pgBossJobId ?? undefined,
+            ...(pgBossJobId ? { pgBossJobId } : {}),
           },
         });
         result.enqueuedReviews++;

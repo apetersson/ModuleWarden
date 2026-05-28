@@ -70,6 +70,9 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
       }
 
       const latestDecision = candidate.predecessorDecisions[0];
+      if (!latestDecision) {
+        continue;
+      }
       const override = await getBestActiveOverrideForPackageVersion(candidate.id);
       const effectiveVerdict = override?.targetVerdict ?? latestDecision.verdict;
 
@@ -102,14 +105,10 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
             registrySource: 'npm',
             tarballHash,
             hasLifecycleScript: typeof versionData?.scripts === 'object' && Object.keys(versionData.scripts ?? {}).length > 0,
-            publishDate: packument.time?.[version]
-              ? new Date(packument.time[version])
-              : undefined,
-            predecessorId: lastAllowedVersion?.id,
+            ...(packument.time?.[version] ? { publishDate: new Date(packument.time[version]) } : {}),
+            ...(lastAllowedVersion ? { predecessorId: lastAllowedVersion.id } : {}),
           },
-          update: {
-            predecessorId: lastAllowedVersion?.id,
-          },
+          update: lastAllowedVersion ? { predecessorId: lastAllowedVersion.id } : {},
         });
 
         // 3. Enqueue a package-review job (version-diff or cold-start)

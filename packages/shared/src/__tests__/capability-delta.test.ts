@@ -64,8 +64,8 @@ describe('capability-delta', () => {
       expect(result.isColdStart).toBe(true);
       expect(result.overallRisk).toBe('high');
       expect(result.deltas.length).toBeGreaterThanOrEqual(1);
-      expect(result.deltas[0].changeType).toBe('added');
-      expect(result.deltas[0].category).toBe('network');
+      expect(result.deltas[0]!.changeType).toBe('added');
+      expect(result.deltas[0]!.category).toBe('network');
     });
 
     it('detects newly introduced capability between versions', () => {
@@ -83,9 +83,9 @@ describe('capability-delta', () => {
       const result = computeCapabilityDelta(oldReport, newReport);
       expect(result.isColdStart).toBe(false);
       expect(result.deltas).toHaveLength(1);
-      expect(result.deltas[0].changeType).toBe('added');
-      expect(result.deltas[0].category).toBe('network');
-      expect(result.deltas[0].isNew).toBe(true);
+      expect(result.deltas[0]!.changeType).toBe('added');
+      expect(result.deltas[0]!.category).toBe('network');
+      expect(result.deltas[0]!.isNew).toBe(true);
       expect(result.overallRisk).toBe('medium');
     });
 
@@ -112,9 +112,9 @@ describe('capability-delta', () => {
 
       const result = computeCapabilityDelta(oldReport, newReport);
       expect(result.deltas).toHaveLength(1);
-      expect(result.deltas[0].changeType).toBe('intensified');
-      expect(result.deltas[0].category).toBe('network');
-      expect(result.deltas[0].isNew).toBe(false);
+      expect(result.deltas[0]!.changeType).toBe('intensified');
+      expect(result.deltas[0]!.category).toBe('network');
+      expect(result.deltas[0]!.isNew).toBe(false);
       expect(result.overallRisk).toBe('high');
     });
 
@@ -131,7 +131,7 @@ describe('capability-delta', () => {
       const result = computeCapabilityDelta(oldReport, newReport, undefined, lcDiff);
       const installTimeDeltas = result.deltas.filter((d) => d.category === 'install-time');
       expect(installTimeDeltas).toHaveLength(1);
-      expect(installTimeDeltas[0].changeType).toBe('added');
+      expect(installTimeDeltas[0]!.changeType).toBe('added');
       expect(result.overallRisk).toBe('high'); // lifecycle scripts are high-severity
     });
 
@@ -148,7 +148,7 @@ describe('capability-delta', () => {
       const result = computeCapabilityDelta(oldReport, newReport, depDiff);
       const indirectionDeltas = result.deltas.filter((d) => d.category === 'dependency-indirection');
       expect(indirectionDeltas.length).toBeGreaterThanOrEqual(1);
-      expect(indirectionDeltas[0].changeType).toBe('added');
+      expect(indirectionDeltas[0]!.changeType).toBe('added');
     });
 
     it('removed capability is detected but not amplified', () => {
@@ -167,7 +167,7 @@ describe('capability-delta', () => {
       const result = computeCapabilityDelta(oldReport, newReport);
       const removedDeltas = result.deltas.filter((d) => d.changeType === 'removed');
       expect(removedDeltas).toHaveLength(1);
-      expect(removedDeltas[0].category).toBe('process');
+      expect(removedDeltas[0]!.category).toBe('process');
       // Removed capabilities don't amplify risk
       expect(result.overallRisk).toBe('none');
     });
@@ -388,9 +388,9 @@ describe('capability-delta', () => {
       // Should have dependency-indirection delta for postinstall-exec
       const indirectionDeltas = result.deltas.filter((d) => d.category === 'dependency-indirection');
       expect(indirectionDeltas).toHaveLength(1);
-      expect(indirectionDeltas[0].changeType).toBe('added');
-      expect(indirectionDeltas[0].isNew).toBe(true);
-      expect(indirectionDeltas[0].description).toMatch(/postinstall-exec/);
+      expect(indirectionDeltas[0]!.changeType).toBe('added');
+      expect(indirectionDeltas[0]!.isNew).toBe(true);
+      expect(indirectionDeltas[0]!.description).toMatch(/postinstall-exec/);
 
       // No code-level capability deltas
       const codeDeltas = result.deltas.filter(
@@ -419,7 +419,7 @@ describe('capability-delta', () => {
       // Even though code is clean, the dependency diff still adds indirection delta
       const indirectionDeltas = result.deltas.filter((d) => d.category === 'dependency-indirection');
       expect(indirectionDeltas).toHaveLength(1);
-      expect(indirectionDeltas[0].isNew).toBe(true);
+      expect(indirectionDeltas[0]!.isNew).toBe(true);
     });
 
     it('dependency-only v2 with lifecycle script diff flags install-time', () => {
@@ -436,8 +436,8 @@ describe('capability-delta', () => {
 
       const installTimeDeltas = result.deltas.filter((d) => d.category === 'install-time');
       expect(installTimeDeltas).toHaveLength(1);
-      expect(installTimeDeltas[0].changeType).toBe('added');
-      expect(installTimeDeltas[0].description).toMatch(/postinstall/);
+      expect(installTimeDeltas[0]!.changeType).toBe('added');
+      expect(installTimeDeltas[0]!.description).toMatch(/postinstall/);
       expect(result.overallRisk).toBe('high');
     });
 

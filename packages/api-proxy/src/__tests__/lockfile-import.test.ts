@@ -176,7 +176,7 @@ describe('lockfile import', () => {
 
     const callbacks: Array<{ projectId: string; reason: string }> = [];
     const callbackResult = await refreshProjectReadinessForPackageVersion(
-      projectPackages[0].packageVersionId,
+      projectPackages[0]!.packageVersionId,
       async (projectId, reason) => {
         callbacks.push({ projectId, reason });
         return `project-ready-${projectId}`;
@@ -220,7 +220,7 @@ describe('lockfile import', () => {
 
     const callbacks: Array<{ projectId: string; reason: string }> = [];
     await refreshProjectReadinessForPackageVersion(
-      incompleteProjectPackages[0].packageVersionId,
+      incompleteProjectPackages[0]!.packageVersionId,
       async (projectId, reason) => {
         callbacks.push({ projectId, reason });
         return `project-ready-${projectId}`;
@@ -255,18 +255,18 @@ describe('lockfile import', () => {
 
     const reviewJob = await prisma.reviewJob.create({
       data: {
-        packageVersionId: resilientPackages[0].packageVersion.id,
-        auditContext: `preflight:${resilientPackages[0].packageVersion.packageName}`,
+        packageVersionId: resilientPackages[0]!.packageVersion.id,
+        auditContext: `preflight:${resilientPackages[0]!.packageVersion.packageName}`,
         trigger: 'PREFLIGHT',
         status: 'COMPLETED',
-        idempotencyKey: `ready-callback-${resilientPackages[0].packageVersion.packageName}`,
+        idempotencyKey: `ready-callback-${resilientPackages[0]!.packageVersion.packageName}`,
       },
     });
 
     await getPrisma().decision.create({
       data: {
         reviewJobId: reviewJob.id,
-        packageVersionId: resilientPackages[0].packageVersion.id,
+        packageVersionId: resilientPackages[0]!.packageVersion.id,
         verdict: 'ALLOW',
         reasonSummary: 'Resilience test decision',
         actorType: 'AGENT',
@@ -276,7 +276,7 @@ describe('lockfile import', () => {
     const callbacks: Array<{ projectId: string; reason: string }> = [];
     await expect(
       refreshProjectReadinessForPackageVersion(
-        resilientPackages[0].packageVersionId,
+        resilientPackages[0]!.packageVersionId,
         async (projectId, reason) => {
           callbacks.push({ projectId, reason });
           throw new Error('project-ready transport failed');
@@ -286,7 +286,7 @@ describe('lockfile import', () => {
 
     expect(callbacks).toHaveLength(1);
 
-    await prisma.decision.deleteMany({ where: { packageVersionId: resilientPackages[0].packageVersion.id } });
+    await prisma.decision.deleteMany({ where: { packageVersionId: resilientPackages[0]!.packageVersion.id } });
     await prisma.reviewJob.delete({ where: { id: reviewJob.id } });
     await prisma.importedPackageVersion.deleteMany({ where: { projectId: resilientProjectId } });
     await prisma.lockfileImport.deleteMany({ where: { projectId: resilientProjectId } });

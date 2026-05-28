@@ -6,7 +6,7 @@
  * References prompt pack versions and summaries for decision provenance.
  */
 
-import { getCurrentPromptPacks, getLatestPromptPack } from '@modulewarden/prisma-client';
+import { getCurrentPromptPacks } from '@modulewarden/prisma-client';
 import { getActiveModelProfile, getEscalationModelProfile } from '@modulewarden/prisma-client';
 import type { EvidenceBundle } from '@modulewarden/shared/services/evidence-bundle';
 import type { CapabilityDeltaReport } from '@modulewarden/shared/services/capability-delta';

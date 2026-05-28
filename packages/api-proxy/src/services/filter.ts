@@ -34,7 +34,7 @@ export function filterToApproved(
       if (rewritten.dist?.tarball) {
         // The npm client should download from ModuleWarden's own tarball endpoint,
         // which proxies to Verdaccio for allowed versions.
-        const unscopedName = packument.name.startsWith('@') ? packument.name.split('/')[1] : packument.name;
+        const unscopedName = packument.name.startsWith('@') ? (packument.name.split('/')[1] ?? packument.name) : packument.name;
         const filename = `${unscopedName}-${version}.tgz`;
         const localUrl = `/${encodeURIComponent(packument.name)}/-/${encodeURIComponent(filename)}`;
         rewritten.dist = { ...rewritten.dist, tarball: localUrl };
@@ -57,20 +57,21 @@ export function filterToApproved(
       approvedDistTags[tag] = taggedVersion;
     } else if (sortedAllowed.length > 0) {
       // Fall back to the highest allowed version
-      approvedDistTags[tag] = sortedAllowed[0];
+      approvedDistTags[tag] = sortedAllowed[0]!;
     }
     // If no allowed versions, omit the tag
   }
 
-  const repo = packument.repository as { type?: string; url?: string } | undefined;
   return {
     name: packument.name,
     'dist-tags': approvedDistTags,
     versions: allowedVersions,
-    description: packument.description,
-    license: packument.license,
-    homepage: packument.homepage,
-    repository: repo ? { type: repo.type ?? '', url: repo.url ?? '' } : undefined,
+    ...(packument.description !== undefined ? { description: packument.description } : {}),
+    ...(packument.license !== undefined ? { license: packument.license } : {}),
+    ...(packument.homepage !== undefined ? { homepage: packument.homepage } : {}),
+    ...(packument.repository
+      ? { repository: { type: packument.repository.type, url: packument.repository.url } }
+      : {}),
     modified: new Date().toISOString(),
   };
 }

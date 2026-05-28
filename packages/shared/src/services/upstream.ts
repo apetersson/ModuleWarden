@@ -23,7 +23,7 @@ export async function fetchUpstreamPackument(packageName: string): Promise<NpmPa
     return (await response.json()) as NpmPackument;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to fetch upstream packument for ${packageName}: ${message}`);
+    throw new Error(`Failed to fetch upstream packument for ${packageName}: ${message}`, { cause: err });
   }
 }
 
@@ -50,7 +50,7 @@ export async function fetchUpstreamTarball(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to fetch upstream tarball: ${message}`);
+    throw new Error(`Failed to fetch upstream tarball: ${message}`, { cause: err });
   }
 }
 

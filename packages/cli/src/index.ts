@@ -75,13 +75,15 @@ function parsePackageArg(arg: string): { name: string; version?: string } | null
   }
   const parts = arg.split('@');
   if (parts.length === 1) return { name: arg };
-  return { name: parts[0], version: parts.slice(1).join('@') };
+  const name = parts[0];
+  if (!name) return null;
+  return { name, version: parts.slice(1).join('@') };
 }
 
 async function cmdExplain(args: string[]): Promise<void> {
   const pkgArg = args[0];
-  const parsed = parsePackageArg(pkgArg);
-  if (!parsed || !parsed.version) {
+  const parsed = pkgArg ? parsePackageArg(pkgArg) : null;
+  if (!parsed?.version) {
     console.error('Usage: modulewarden explain <package>@<version>');
     console.error('Examples:');
     console.error('  modulewarden explain lodash@4.17.21');
@@ -183,7 +185,9 @@ async function cmdAdmin(args: string[]): Promise<void> {
   const subCmd = args[0];
 
   if (subCmd === 'override' && args.length >= 4) {
-    const [, pkg, ver, target] = args;
+    const pkg = args[1]!;
+    const ver = args[2]!;
+    const target = args[3]!;
     const reason = args.slice(4).join(' ') || 'Admin override';
 
     if (!['ALLOW', 'BLOCK', 'QUARANTINE'].includes(target.toUpperCase())) {

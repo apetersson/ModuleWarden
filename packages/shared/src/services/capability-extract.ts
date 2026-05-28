@@ -1,5 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 export interface CapabilityFinding {

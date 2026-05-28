@@ -38,10 +38,10 @@ describe('parseLockfile — npm', () => {
       const result = parseLockfile(path);
       expect(result.format).toBe('npm');
       expect(result.entries).toHaveLength(2);
-      expect(result.entries[0].packageName).toBe('lodash');
-      expect(result.entries[0].version).toBe('4.17.21');
-      expect(result.entries[1].packageName).toBe('express');
-      expect(result.entries[1].version).toBe('4.18.2');
+      expect(result.entries[0]!.packageName).toBe('lodash');
+      expect(result.entries[0]!.version).toBe('4.17.21');
+      expect(result.entries[1]!.packageName).toBe('express');
+      expect(result.entries[1]!.version).toBe('4.18.2');
     });
   });
 
@@ -62,7 +62,7 @@ describe('parseLockfile — npm', () => {
 
       const result = parseLockfile(path);
       expect(result.entries).toHaveLength(1);
-      expect(result.entries[0].packageName).toBe('lodash');
+      expect(result.entries[0]!.packageName).toBe('lodash');
     });
   });
 
@@ -101,10 +101,10 @@ describe('parseLockfile — pnpm', () => {
       const result = parseLockfile(path);
       expect(result.format).toBe('pnpm');
       expect(result.entries).toHaveLength(2);
-      expect(result.entries[0].packageName).toBe('lodash');
-      expect(result.entries[0].version).toBe('4.17.21');
-      expect(result.entries[1].packageName).toBe('express');
-      expect(result.entries[1].version).toBe('4.18.2');
+      expect(result.entries[0]!.packageName).toBe('lodash');
+      expect(result.entries[0]!.version).toBe('4.17.21');
+      expect(result.entries[1]!.packageName).toBe('express');
+      expect(result.entries[1]!.version).toBe('4.18.2');
     });
   });
 });
@@ -131,8 +131,8 @@ describe('parseLockfile — yarn', () => {
       const result = parseLockfile(path);
       expect(result.format).toBe('yarn');
       expect(result.entries).toHaveLength(2);
-      expect(result.entries[0].packageName).toBe('lodash');
-      expect(result.entries[0].version).toBe('4.17.21');
+      expect(result.entries[0]!.packageName).toBe('lodash');
+      expect(result.entries[0]!.version).toBe('4.17.21');
     });
   });
 });

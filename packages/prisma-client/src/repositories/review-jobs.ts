@@ -14,6 +14,11 @@ export async function createReviewJob(input: ReviewJobInput): Promise<ReviewJob>
 }
 
 export async function upsertReviewJob(input: ReviewJobInput): Promise<ReviewJob> {
+  const update = {
+    status: 'PENDING' as const,
+    ...(input.pgBossJobId !== undefined ? { pgBossJobId: input.pgBossJobId } : {}),
+  };
+
   return getPrisma().reviewJob.upsert({
     where: {
       packageVersionId_auditContext: {
@@ -22,7 +27,7 @@ export async function upsertReviewJob(input: ReviewJobInput): Promise<ReviewJob>
       },
     },
     create: input,
-    update: { status: 'PENDING', pgBossJobId: input.pgBossJobId },
+    update,
   });
 }
 

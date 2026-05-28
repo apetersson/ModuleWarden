@@ -14,7 +14,7 @@ interface TarballParams {
  * Parse the version from a tarball filename.
  * Format: package-name-1.0.0.tgz, or @scope/package-name-1.0.0.tgz
  */
-function parseVersionFromFilename(packageName: string, filename: string): string | null {
+function parseVersionFromFilename(_packageName: string, filename: string): string | null {
   // Remove .tgz extension
   const withoutExt = filename.replace(/\.tgz$/, '');
 
@@ -27,7 +27,8 @@ function parseVersionFromFilename(packageName: string, filename: string): string
   const parts = withoutExt.split('-');
   // Try to find the version part (starts with digit) from the end
   for (let i = parts.length - 1; i >= 0; i--) {
-    if (/^\d+\.\d+\.\d+/.test(parts[i])) {
+    const part = parts[i];
+    if (part && /^\d+\.\d+\.\d+/.test(part)) {
       return parts.slice(i).join('-');
     }
   }
@@ -83,7 +84,7 @@ export async function registerTarballRoute(
       });
 
       // No enabled project — no tarballs available
-      if (!enabledProject || enabledProject.graphState !== 'READY') {
+      if (enabledProject?.graphState !== 'READY') {
         return reply.status(503).send({
           error: 'Registry not ready',
           reason: enabledProject
@@ -196,7 +197,7 @@ export async function registerTarballRoute(
             auditContext,
             idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
           });
-          enqueued = !!jobId;
+          enqueued = Boolean(jobId);
         } catch {
           // Queueing failure shouldn't crash the proxy
         }

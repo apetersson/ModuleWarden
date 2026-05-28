@@ -15,12 +15,12 @@ export async function createAuditRun(input: AuditRunInput): Promise<AuditRun> {
   return getPrisma().auditRun.create({
     data: {
       reviewJobId: input.reviewJobId,
-      containerId: input.containerId,
-      containerName: input.containerName,
       status: input.status ?? 'PENDING',
-      piSessionId: input.piSessionId,
-      piRunId: input.piRunId,
-      rpcTokenHash: input.rpcTokenHash,
+      ...(input.containerId !== undefined ? { containerId: input.containerId } : {}),
+      ...(input.containerName !== undefined ? { containerName: input.containerName } : {}),
+      ...(input.piSessionId !== undefined ? { piSessionId: input.piSessionId } : {}),
+      ...(input.piRunId !== undefined ? { piRunId: input.piRunId } : {}),
+      ...(input.rpcTokenHash !== undefined ? { rpcTokenHash: input.rpcTokenHash } : {}),
     },
   });
 }

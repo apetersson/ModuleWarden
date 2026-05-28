@@ -62,7 +62,9 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
           registrySource: 'npm',
           tarballHash: effectiveTarballHash,
           hasLifecycleScript: typeof versionData?.scripts === 'object' && Object.keys(versionData.scripts ?? {}).length > 0,
-          publishDate: packument?.time?.[packageVersion] ? new Date(packument.time[packageVersion]) : undefined,
+          ...(packument?.time?.[packageVersion]
+            ? { publishDate: new Date(packument.time[packageVersion]) }
+            : {}),
         },
         update: {},
         select: {
@@ -97,8 +99,6 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
       select: { id: true, status: true },
       orderBy: { updatedAt: 'desc' },
     });
-    const hasExactVersionMatch = !!existingReviewJob;
-
     const existingUnresolvedReviewJob = !existingReviewJob
       ? await prisma.reviewJob.findFirst({
           where: {

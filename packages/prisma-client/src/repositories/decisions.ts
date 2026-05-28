@@ -1,6 +1,6 @@
 import { getPrisma } from '../index.js';
 import { getBestActiveOverrideForPackageVersion } from './overrides.js';
-import type { Decision, Verdict } from '@prisma/client';
+import type { Decision } from '@prisma/client';
 
 export interface DecisionInput {
   reviewJobId: string;
@@ -34,7 +34,6 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
     evidenceArtifactIds,
     scoreEntries,
     promptVersion,
-    onProjectReady,
     onCreated,
     ...decisionData
   } = input;
@@ -50,25 +49,27 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
     data: {
       ...decisionData,
       supersedesDecisionId: parsedSupersedesDecisionId,
-      promptVersion: normalizedPromptVersion,
-      scores: scores ?? undefined,
-      scoresData:
-        scoreEntries?.length
+      ...(normalizedPromptVersion !== undefined ? { promptVersion: normalizedPromptVersion } : {}),
+      ...(scores !== undefined ? { scores } : {}),
+      ...(scoreEntries?.length
         ? {
-            create: scoreEntries.map((score) => ({
-              name: score.name,
-              value: score.value,
-              weight: score.weight,
-              category: score.category,
-            })),
+            scoresData: {
+              create: scoreEntries.map((score) => ({
+                name: score.name,
+                value: score.value,
+                ...(score.weight !== undefined ? { weight: score.weight } : {}),
+                ...(score.category !== undefined ? { category: score.category } : {}),
+              })),
+            },
           }
-          : undefined,
-      evidenceArtifacts:
-        evidenceArtifactIds && evidenceArtifactIds.length > 0
-          ? ({
-            connect: evidenceArtifactIds.map((id) => ({ id })),
-          } as { connect: { id: string }[] })
-          : undefined,
+        : {}),
+      ...(evidenceArtifactIds && evidenceArtifactIds.length > 0
+        ? {
+            evidenceArtifacts: {
+              connect: evidenceArtifactIds.map((id) => ({ id })),
+            },
+          }
+        : {}),
     },
     include: {
       scoresData: true,
@@ -233,7 +234,7 @@ export async function listAllowedVersionsForReAudit(
 
     const override = await getBestActiveOverrideForPackageVersion(entry.packageVersion.id);
     const effectiveVerdict = override
-      ? (override.targetVerdict as Verdict)
+      ? (override.targetVerdict)
       : latestDecision.verdict;
     if (effectiveVerdict === 'ALLOW') {
       allowed.push({
@@ -254,6 +255,12 @@ export async function addScoreToDecision(
   category?: string
 ): Promise<void> {
   await getPrisma().score.create({
-    data: { decisionId, name, value, weight, category },
+    data: {
+      decisionId,
+      name,
+      value,
+      ...(weight !== undefined ? { weight } : {}),
+      ...(category !== undefined ? { category } : {}),
+    },
   });
 }

@@ -22,10 +22,12 @@ export async function createEvidenceArtifact(input: EvidenceArtifactInput): Prom
       name: input.name,
       content: input.content,
       contentHash: input.contentHash,
-      filePath: input.filePath,
-      sizeBytes: input.sizeBytes,
       status: (input.status ?? 'ACTIVE') as any,
-      supersedesEvidenceArtifactId: input.supersedesEvidenceArtifactId,
+      ...(input.filePath !== undefined ? { filePath: input.filePath } : {}),
+      ...(input.sizeBytes !== undefined ? { sizeBytes: input.sizeBytes } : {}),
+      ...(input.supersedesEvidenceArtifactId !== undefined
+        ? { supersedesEvidenceArtifactId: input.supersedesEvidenceArtifactId }
+        : {}),
     },
   });
 }

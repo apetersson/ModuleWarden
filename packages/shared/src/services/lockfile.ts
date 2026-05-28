@@ -75,7 +75,8 @@ function parseNpmLockfile(filePath: string): LockfileParseResult {
 
     // npm v7+ uses "packages" (flat node_modules tree)
     if (lock.packages) {
-      for (const [pkgPath, info] of Object.entries(lock.packages) as [string, any][]) {
+      for (const [pkgPath, rawInfo] of Object.entries(lock.packages)) {
+        const info = rawInfo as Record<string, any>;
         // Skip root package and workspace references
         if (pkgPath === '' || pkgPath.startsWith('node_modules/.package')) continue;
 
@@ -87,14 +88,15 @@ function parseNpmLockfile(filePath: string): LockfileParseResult {
           if (parts.length < 2) continue;
         }
 
+        const dependencies = info.dependencies ? Object.keys(info.dependencies) : undefined;
         entries.push({
           packageName,
           version: info.version,
           integrity: info.integrity ?? '',
-          resolved: info.resolved,
+          ...(info.resolved !== undefined ? { resolved: info.resolved } : {}),
           dev: info.dev ?? false,
           optional: info.optional ?? false,
-          dependencies: info.dependencies ? Object.keys(info.dependencies) : undefined,
+          ...(dependencies ? { dependencies } : {}),
         });
       }
     }
@@ -122,7 +124,7 @@ function flattenNpmDependencies(
         packageName: resolvedName,
         version: info.version,
         integrity: info.integrity ?? '',
-        resolved: info.resolved,
+        ...(info.resolved !== undefined ? { resolved: info.resolved } : {}),
         dev: info.dev ?? false,
         optional: info.optional ?? false,
       });
@@ -143,13 +145,14 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
     const content = readFileSync(filePath, 'utf-8');
     const lock = parseYaml(content) as Record<string, any> | null;
 
-    if (!lock || !lock.packages) {
+    if (!lock?.packages) {
       errors.push('pnpm lockfile has no packages entry');
       return { format: 'pnpm', entries: [], errors };
     }
 
     // pnpm packages key format: /package-name@version
-    for (const [key, info] of Object.entries(lock.packages) as [string, any][]) {
+    for (const [key, rawInfo] of Object.entries(lock.packages)) {
+      const info = rawInfo as Record<string, any>;
       // Skip package group entries (end with another /)
       if (!key.startsWith('/')) continue;
 
@@ -157,20 +160,23 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
       const match = key.match(/^\/((?:@[^/]+\/)?[^@/]+)@(.+)$/);
       if (!match) continue;
 
-      const [, packageName, version] = match;
+      const packageName = match[1];
+      const version = match[2];
+      if (!packageName || !version) continue;
 
       // Extract integrity from resolution
       const resolution = info.resolution ?? {};
-      let integrity = resolution.integrity ?? '';
+      const integrity = resolution.integrity ?? '';
       // H-2: Leave integrity empty if not in lockfile — do not fabricate
 
+      const dependencies = info.dependencies ? Object.keys(info.dependencies) : undefined;
       entries.push({
         packageName,
         version,
         integrity,
         dev: info.dev ?? false,
         optional: info.optional ?? false,
-        dependencies: info.dependencies ? Object.keys(info.dependencies) : undefined,
+        ...(dependencies ? { dependencies } : {}),
       });
     }
   } catch (err) {
@@ -200,11 +206,14 @@ function parseYarnLockfile(filePath: string): LockfileParseResult {
       if (lines.length < 2) continue;
 
       // First line: "package-name@version-specifier:"
-      const firstLine = lines[0].replace(/^"/, '').replace(/":$/, '').replace(/:$/, '');
+      const firstLineRaw = lines[0];
+      if (!firstLineRaw) continue;
+      const firstLine = firstLineRaw.replace(/^"/, '').replace(/":$/, '').replace(/:$/, '');
       const specifierMatch = firstLine.match(/^((?:@[^/]+\/)?[^@]+)@(.+)$/);
       if (!specifierMatch) continue;
 
-      const [, packageName] = specifierMatch;
+      const packageName = specifierMatch[1];
+      if (!packageName) continue;
 
       // Parse YAML-like fields
       let version = '';
@@ -226,7 +235,7 @@ function parseYarnLockfile(filePath: string): LockfileParseResult {
           packageName,
           version,
           integrity: integrity || '',
-          resolved: resolved || undefined,
+          ...(resolved ? { resolved } : {}),
         });
       }
     }

@@ -30,10 +30,6 @@ function decisions(...allowVersions: string[]): Map<string, VersionDecision> {
   return map;
 }
 
-function addDecision(map: Map<string, VersionDecision>, version: string, verdict: 'ALLOW' | 'BLOCK' | 'QUARANTINE') {
-  map.set(version, { version, verdict, tarballHash: `hash-${version}` });
-}
-
 describe('filterToApproved', () => {
   it('includes only ALLOWED versions and omits unreviewed/blocked/quarantined', () => {
     const packument = makePackument(['1.0.0', '1.1.0', '2.0.0']);
@@ -46,7 +42,7 @@ describe('filterToApproved', () => {
 
     // Only allowed versions appear
     expect(filtered.versions['1.0.0']).toBeDefined();
-    expect(filtered.versions['1.0.0'].deprecated).toBeUndefined();
+    expect(filtered.versions['1.0.0']!.deprecated).toBeUndefined();
     // Blocked and quarantined are omitted entirely (C-1)
     expect(filtered.versions['1.1.0']).toBeUndefined();
     expect(filtered.versions['2.0.0']).toBeUndefined();
@@ -101,13 +97,13 @@ describe('filterToApproved', () => {
 
   it('includes repository when present', () => {
     const packument = makePackument(['1.0.0']);
-    packument.repository = { type: 'git', url: 'https://github.com/test/pkg.git' } as any;
+    packument.repository = { type: 'git', url: 'https://github.com/test/pkg.git' };
     const decs = decisions('1.0.0');
 
     const filtered = filterToApproved(packument, decs);
 
     expect(filtered.repository).toBeDefined();
-    expect(filtered.repository!.url).toBe('https://github.com/test/pkg.git');
+    expect(filtered.repository?.url).toBe('https://github.com/test/pkg.git');
   });
 
   it('handles empty packument', () => {

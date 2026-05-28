@@ -72,7 +72,7 @@ export async function getEffectiveDecision(
       packageName: pv.packageName,
       version: pv.version,
       tarballHash: pv.tarballHash,
-      verdict: activeOverride.targetVerdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
+      verdict: activeOverride.targetVerdict,
       source: 'admin-override',
       overridden: true,
       reasonSummary: activeOverride.reason,
@@ -87,7 +87,7 @@ export async function getEffectiveDecision(
       packageName: pv.packageName,
       version: pv.version,
       tarballHash: pv.tarballHash,
-      verdict: baseDecision.verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
+      verdict: baseDecision.verdict,
       source: 'agent',
       overridden: false,
       reasonSummary: baseDecision.reasonSummary,
@@ -136,7 +136,7 @@ export async function getStatusInfo(
   let nextAction: string;
 
   if (activeOverride) {
-    verdict = activeOverride.targetVerdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE';
+    verdict = activeOverride.targetVerdict;
     source = 'admin-override';
     reasonSummary = activeOverride.reason;
     explanation = buildExplanation(packageName, version, verdict, true);
@@ -145,7 +145,7 @@ export async function getStatusInfo(
       : `Contact your security admin for more information.`;
   } else if (pv.predecessorDecisions[0]) {
     const decision = pv.predecessorDecisions[0];
-    verdict = decision.verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE';
+    verdict = decision.verdict;
     source = 'agent';
     reasonSummary = decision.reasonSummary ?? undefined;
     explanation = buildExplanation(packageName, version, verdict, false);
@@ -163,7 +163,7 @@ export async function getStatusInfo(
     tarballHash: pv.tarballHash,
     effectiveVerdict: verdict,
     source,
-    reasonSummary,
+    ...(reasonSummary !== undefined ? { reasonSummary } : {}),
     explanation,
     nextAction,
   };

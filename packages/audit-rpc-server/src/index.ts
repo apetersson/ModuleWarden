@@ -76,9 +76,9 @@ function handlePackageInfo(requestId: string): RpcToolResult {
     };
   }
 
-  const scripts = (pkg as Record<string, unknown>).scripts ?? {};
+  const scripts = (pkg).scripts ?? {};
   const scriptsRecord = scripts as Record<string, string>;
-  const hasInstallScript = !!(scriptsRecord.preinstall || scriptsRecord.install || scriptsRecord.postinstall);
+  const hasInstallScript = Boolean(scriptsRecord.preinstall || scriptsRecord.install || scriptsRecord.postinstall);
 
   let fileCount = 0;
   let totalSizeBytes = 0;
@@ -95,20 +95,20 @@ function handlePackageInfo(requestId: string): RpcToolResult {
   }
 
   const repo =
-    typeof (pkg as Record<string, unknown>).repository === 'object'
-      ? ((pkg as Record<string, unknown>).repository as Record<string, unknown>).url ?? null
-      : ((pkg as Record<string, unknown>).repository as string) ?? null;
+    typeof (pkg).repository === 'object'
+      ? ((pkg).repository as Record<string, unknown>).url ?? null
+      : ((pkg).repository as string) ?? null;
 
   const data: PackageInfoResponse = {
-    name: (pkg as Record<string, unknown>).name as string ?? '',
-    version: (pkg as Record<string, unknown>).version as string ?? '',
-    description: (pkg as Record<string, unknown>).description as string ?? '',
-    license: (pkg as Record<string, unknown>).license as string ?? null,
-    homepage: (pkg as Record<string, unknown>).homepage as string ?? null,
+    name: (pkg).name as string ?? '',
+    version: (pkg).version as string ?? '',
+    description: (pkg).description as string ?? '',
+    license: (pkg).license as string ?? null,
+    homepage: (pkg).homepage as string ?? null,
     repository: repo as string | null,
     scripts: scriptsRecord,
-    dependencies: (pkg as Record<string, unknown>).dependencies as Record<string, string> ?? {},
-    devDependencies: (pkg as Record<string, unknown>).devDependencies as Record<string, string> ?? {},
+    dependencies: (pkg).dependencies as Record<string, string> ?? {},
+    devDependencies: (pkg).devDependencies as Record<string, string> ?? {},
     hasInstallScript,
     fileCount,
     totalSizeBytes,
@@ -164,7 +164,7 @@ function handleStaticChecks(requestId: string): RpcToolResult {
   if (!existsSync(packageDir)) {
     return {
       tool: 'static-checks', requestId, success: true,
-      data: { findings, summary, obfuscationDetected: false, suspiciousPatterns } as unknown as Record<string, unknown>,
+      data: { findings, summary, obfuscationDetected: false, suspiciousPatterns },
     };
   }
 
@@ -213,7 +213,7 @@ function handleStaticChecks(requestId: string): RpcToolResult {
 
   return {
     tool: 'static-checks', requestId, success: true,
-    data: { findings, summary, obfuscationDetected: summary.obfuscation !== 'none', suspiciousPatterns } as unknown as Record<string, unknown>,
+    data: { findings, summary, obfuscationDetected: summary.obfuscation !== 'none', suspiciousPatterns },
   };
 }
 

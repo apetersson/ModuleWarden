@@ -5,7 +5,7 @@
  * produces quality metrics reports.
  */
 
-import type { CorpusEntry, ExpectedVerdict } from './evaluation-corpus.js';
+import type { ExpectedVerdict } from './evaluation-corpus.js';
 
 /**
  * Result from running a single corpus entry through the audit pipeline.
@@ -69,7 +69,7 @@ export interface EvaluationReport {
 /**
  * Convert a verdict to an expected match result.
  */
-function classifyMatch(
+export function classifyMatch(
   expected: ExpectedVerdict,
   actual: string | null
 ): EvaluationResult['matchResult'] {

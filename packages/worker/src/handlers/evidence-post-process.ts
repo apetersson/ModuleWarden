@@ -29,7 +29,7 @@ export async function registerEvidencePostProcessHandler(queue: JobQueue): Promi
       select: { id: true, auditRunId: true },
     });
 
-    if (!evidence || evidence.auditRunId !== auditRunId) {
+    if (evidence?.auditRunId !== auditRunId) {
       throw new Error(`Evidence ${evidenceBundleId} not associated with audit run ${auditRunId}`);
     }
 

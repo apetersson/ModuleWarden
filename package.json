@@ -8,6 +8,7 @@
     "clean": "pnpm -r clean",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
+    "check": "pnpm typecheck && pnpm lint",
     "test": "pnpm -r test",
     "dev:api": "pnpm --filter @modulewarden/api-proxy dev",
     "dev:worker": "pnpm --filter @modulewarden/worker dev",

@@ -38,7 +38,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
   // Auth middleware helper — same pattern as routes/admin.ts
   function checkAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       reply.status(401).send({ error: 'Authentication required' });
       return false;
     }
@@ -88,13 +88,14 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       LIMIT 200
     `);
 
-    const columns: Record<string, AuditRunCard[]> = {};
     const colKeys: KanbanColumn[] = [
       'submitted', 'queued', 'running', 'needs-escalation',
       'quarantined', 'blocked', 'allowed', 'promotion-pending',
       'promoted', 'failed', 'superseded',
     ];
-    for (const key of colKeys) columns[key] = [];
+    const columns = Object.fromEntries(
+      colKeys.map((key) => [key, [] as AuditRunCard[]])
+    ) as Record<KanbanColumn, AuditRunCard[]>;
 
     for (const row of jobs) {
       const jobStatus = String(row.job_status ?? '');
@@ -131,7 +132,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
 
     const allCards = Object.values(columns).flat();
     const dashboard: DashboardState = {
-      columns: columns as Record<KanbanColumn, AuditRunCard[]>,
+      columns: columns,
       summary: {
         total: allCards.length,
         queued: columns.queued.length,
@@ -216,6 +217,9 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       }
 
       const row = rows[0];
+      if (!row) {
+        return reply.status(404).send({ error: 'Audit run not found' });
+      }
       const scoresRaw = row.scores ? String(row.scores) : '{}';
 
       const detail: PackageVersionDetail = {
@@ -255,7 +259,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
         name: String(e.name ?? ''),
         description: '',
         createdAt: String(e.createdAt ?? ''),
-        filePath: e.filePath ? String(e.filePath) : undefined,
+        ...(e.filePath ? { filePath: String(e.filePath) } : {}),
         viewable: true,
       }));
 
@@ -286,6 +290,9 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       }
 
       const row = rows[0];
+      if (!row) {
+        return reply.status(404).send({ error: 'Evidence artifact not found' });
+      }
       const content = row.content ? JSON.parse(String(row.content)) : {};
 
       // Redact hidden content — only show safe fields

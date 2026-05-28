@@ -1,5 +1,5 @@
 import { getPrisma } from '../index.js';
-import type { Override, Verdict } from '@prisma/client';
+import type { Override } from '@prisma/client';
 
 export interface OverrideInput {
   decisionId: string;
@@ -120,7 +120,7 @@ export async function getEffectiveVerdict(
   const activeOverride = await getBestActiveOverrideForPackageVersion(packageVersionId);
 
   if (activeOverride) {
-    return activeOverride.targetVerdict as Verdict;
+    return activeOverride.targetVerdict;
   }
 
   // Otherwise return the most recent decision
