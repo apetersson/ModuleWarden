@@ -132,10 +132,16 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         },
       });
 
+      // Extract token identity from the auth header for audit trail (O-3)
+      const authHeader = request.headers.authorization;
+      const tokenPrefix = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7, 15) + '…'
+        : 'unknown';
+
       // Create the override record
       const override = await createOverride({
         decisionId: decision.id,
-        adminIdentity: 'admin', // Extracted from token context in production
+        adminIdentity: tokenPrefix,
         scope,
         targetVerdict,
         reason,

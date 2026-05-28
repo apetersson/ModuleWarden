@@ -235,6 +235,29 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
         data: { status: 'FAILED' },
       });
 
+      // O-2: Fire notification webhook for terminal failures
+      const webhookUrl = process.env.MW_FAILURE_WEBHOOK_URL;
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'audit_failed',
+              packageName,
+              packageVersion,
+              status: finalStatus,
+              error: result.error ?? 'Unknown error',
+              reviewJobId,
+              auditRunId: auditRun.id,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (err) {
+          logger.warn('Failed to send failure webhook', { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
       // Clean up workspace
       runner.cleanupWorkspace(result.workspacePath);
 
