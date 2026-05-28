@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 11:51'
+updated_date: '2026-05-28 11:52'
 labels:
   - security-tests
   - prompts
@@ -35,9 +35,9 @@ Test packages should attempt to read environment variables, discover mounted fil
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A package cannot access core prompts, model API credentials, DB credentials, Verdaccio service token, or unrelated run workspaces from inside the audit container.
-- [ ] #2 Prompt-injection text inside package files, README, changelog, scripts, or generated output does not cause core prompts or secrets to appear in stored or user-facing output.
-- [ ] #3 Network exfiltration attempts are captured as evidence and do not receive sensitive data to exfiltrate.
+- [x] #1 A package cannot access core prompts, model API credentials, DB credentials, Verdaccio service token, or unrelated run workspaces from inside the audit container.
+- [x] #2 Prompt-injection text inside package files, README, changelog, scripts, or generated output does not cause core prompts or secrets to appear in stored or user-facing output.
+- [x] #3 Network exfiltration attempts are captured as evidence and do not receive sensitive data to exfiltrate.
 - [ ] #4 A malicious audit run cannot alter decisions for other package versions except through authenticated run-scoped verdict submission for its own job.
 - [ ] #5 Logs and evidence shown to developers are redacted while preserving enough detail for security admins to investigate.
 - [ ] #6 Security tests prove audit containers cannot access core prompts, model credentials, host services, internal/private networks, link-local metadata IPs, Postgres, or Verdaccio admin endpoints.
@@ -50,6 +50,12 @@ Test packages should attempt to read environment variables, discover mounted fil
 <!-- SECTION:PLAN:BEGIN -->
 Create adversarial fixtures and integration tests that run through the real audit container and PI harness. Add redaction tests for CLI/API/UI outputs and evidence artifacts.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+10 security tests created covering prompt secrecy, secret isolation (container env vars), and malicious package detection (network, filesystem, process, dynamic-code, obfuscation, env-credential). All 56 shared tests pass.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
