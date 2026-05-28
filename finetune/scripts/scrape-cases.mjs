@@ -18,6 +18,7 @@ Options:
   --github-only         Fetch GitHub advisories without npm or OSV enrichment.
   --skip-npm            Skip npm packument enrichment.
   --skip-osv            Skip OSV enrichment.
+  --stop-on-rate-limit  Fail instead of continuing with partial results on GitHub rate limits.
   --quiet               Disable progress output.
   --dry-run             Fetch and summarize without writing output.
   --help                Show this help.
@@ -38,6 +39,7 @@ function parseArgs(argv) {
     githubOnly: false,
     skipNpm: false,
     skipOsv: false,
+    stopOnRateLimit: false,
     quiet: false,
     dryRun: false
   };
@@ -66,6 +68,8 @@ function parseArgs(argv) {
       args.skipNpm = true;
     } else if (arg === "--skip-osv") {
       args.skipOsv = true;
+    } else if (arg === "--stop-on-rate-limit") {
+      args.stopOnRateLimit = true;
     } else if (arg === "--quiet") {
       args.quiet = true;
     } else {
@@ -86,6 +90,17 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+class HttpError extends Error {
+  constructor(status, url, body, headers) {
+    super(`HTTP ${status} for ${url}: ${body.slice(0, 500)}`);
+    this.name = "HttpError";
+    this.status = status;
+    this.url = String(url);
+    this.body = body;
+    this.headers = headers;
+  }
+}
+
 async function fetchJson(url, options = {}) {
   const { timeoutMs = 30000, ...fetchOptions } = options;
   const controller = new AbortController();
@@ -103,12 +118,31 @@ async function fetchJson(url, options = {}) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`HTTP ${response.status} for ${url}: ${text.slice(0, 500)}`);
+    throw new HttpError(response.status, url, text, response.headers);
   }
   return {
     body: await response.json(),
     headers: response.headers
   };
+}
+
+function isGithubRateLimitError(error) {
+  return (
+    error instanceof HttpError &&
+    error.status === 403 &&
+    /rate limit/i.test(error.body ?? "")
+  );
+}
+
+function githubRateLimitHint(error) {
+  const reset = error.headers?.get("x-ratelimit-reset");
+  const remaining = error.headers?.get("x-ratelimit-remaining");
+  const resetAt = reset ? new Date(Number(reset) * 1000).toISOString() : null;
+  const parts = [];
+  if (remaining != null) parts.push(`remaining=${remaining}`);
+  if (resetAt) parts.push(`reset=${resetAt}`);
+  parts.push("set GITHUB_TOKEN for a higher rate limit");
+  return parts.join("; ");
 }
 
 function parseNextLink(linkHeader) {
@@ -141,6 +175,13 @@ async function fetchGithubAdvisories(config, args) {
   const maxPages = args.maxPages ?? advisoryConfig.max_pages_per_query ?? 1;
   const results = [];
 
+  function finishResults(reason) {
+    const deduped = dedupeBy(results, (advisory) => advisory.ghsa_id ?? advisory.url);
+    if (reason) progress(args, reason);
+    progress(args, `deduped GitHub advisories: ${results.length} -> ${deduped.length}`);
+    return deduped;
+  }
+
   for (const type of advisoryConfig.types ?? ["reviewed"]) {
     for (const severity of advisoryConfig.severities ?? [null]) {
       let url = new URL(advisoryConfig.api_url);
@@ -155,21 +196,36 @@ async function fetchGithubAdvisories(config, args) {
 
       for (let page = 0; page < maxPages && url; page += 1) {
         progress(args, `fetching GitHub advisories type=${type} severity=${severity ?? "any"} page=${page + 1}/${maxPages}`);
-        const { body, headers } = await fetchJson(url, {
-          headers: githubHeaders(),
-          timeoutMs: args.timeoutMs
-        });
+        let body;
+        let headers;
+        try {
+          const response = await fetchJson(url, {
+            headers: githubHeaders(),
+            timeoutMs: args.timeoutMs
+          });
+          body = response.body;
+          headers = response.headers;
+        } catch (error) {
+          if (isGithubRateLimitError(error) && !args.stopOnRateLimit) {
+            return finishResults(
+              `GitHub rate limit hit after ${results.length} advisories; continuing with partial results (${githubRateLimitHint(error)})`
+            );
+          }
+          throw error;
+        }
         results.push(...body);
         progress(args, `received ${body.length} advisories; total fetched=${results.length}`);
+        const remaining = headers.get("x-ratelimit-remaining");
+        if (remaining != null && Number(remaining) <= 5) {
+          progress(args, `GitHub rate limit nearly exhausted; ${githubRateLimitHint({ headers, body: "rate limit" })}`);
+        }
         const next = parseNextLink(headers.get("link"));
         url = next ? new URL(next) : null;
       }
     }
   }
 
-  const deduped = dedupeBy(results, (advisory) => advisory.ghsa_id ?? advisory.url);
-  progress(args, `deduped GitHub advisories: ${results.length} -> ${deduped.length}`);
-  return deduped;
+  return finishResults();
 }
 
 function advisoryIds(advisory) {

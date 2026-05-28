@@ -64,10 +64,18 @@ Fast candidate-only run, without npm or OSV enrichment:
 node finetune/scripts/scrape-cases.mjs --github-only --max-pages 10
 ```
 
+GitHub's unauthenticated API rate limit is low. For broad scrapes, use a token:
+
+```bash
+GITHUB_TOKEN=... node finetune/scripts/scrape-cases.mjs --github-only --max-pages 10
+```
+
+If GitHub rate-limits the run, the scraper keeps the advisories already fetched and continues with partial results. Add `--stop-on-rate-limit` when CI should fail instead.
+
 Enriched run with progress, request timeouts, and concurrent npm/OSV lookups:
 
 ```bash
-node finetune/scripts/scrape-cases.mjs --max-pages 10 --concurrency 16 --timeout-ms 30000
+GITHUB_TOKEN=... node finetune/scripts/scrape-cases.mjs --max-pages 10 --concurrency 16 --timeout-ms 30000
 ```
 
 Useful small dry run:
