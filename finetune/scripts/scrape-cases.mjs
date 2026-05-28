@@ -18,6 +18,8 @@ Options:
   --github-only         Fetch GitHub advisories without npm or OSV enrichment.
   --skip-npm            Skip npm packument enrichment.
   --skip-osv            Skip OSV enrichment.
+  --partial-on-rate-limit
+                        Keep partial results instead of waiting for GitHub rate-limit reset.
   --stop-on-rate-limit  Fail instead of continuing with partial results on GitHub rate limits.
   --quiet               Disable progress output.
   --dry-run             Fetch and summarize without writing output.
@@ -39,6 +41,7 @@ function parseArgs(argv) {
     githubOnly: false,
     skipNpm: false,
     skipOsv: false,
+    partialOnRateLimit: false,
     stopOnRateLimit: false,
     quiet: false,
     dryRun: false
@@ -68,6 +71,8 @@ function parseArgs(argv) {
       args.skipNpm = true;
     } else if (arg === "--skip-osv") {
       args.skipOsv = true;
+    } else if (arg === "--partial-on-rate-limit") {
+      args.partialOnRateLimit = true;
     } else if (arg === "--stop-on-rate-limit") {
       args.stopOnRateLimit = true;
     } else if (arg === "--quiet") {
@@ -145,6 +150,40 @@ function githubRateLimitHint(error) {
   return parts.join("; ");
 }
 
+function rateLimitWaitMs(headers) {
+  const retryAfter = headers?.get("retry-after");
+  if (retryAfter && Number.isFinite(Number(retryAfter))) {
+    return Math.max(0, Number(retryAfter) * 1000);
+  }
+
+  const reset = headers?.get("x-ratelimit-reset");
+  if (!reset) return 60_000;
+
+  const resetMs = Number(reset) * 1000;
+  if (!Number.isFinite(resetMs)) return 60_000;
+  return Math.max(0, resetMs - Date.now() + 1_000);
+}
+
+async function sleep(ms) {
+  await new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+async function waitForRateLimitReset(args, headers) {
+  const waitMs = rateLimitWaitMs(headers);
+  const target = new Date(Date.now() + waitMs).toISOString();
+  progress(args, `respecting GitHub rate limit; waiting ${Math.ceil(waitMs / 1000)}s until ${target}`);
+
+  let remaining = waitMs;
+  while (remaining > 0) {
+    const step = Math.min(remaining, 30_000);
+    await sleep(step);
+    remaining -= step;
+    if (remaining > 0) {
+      progress(args, `still waiting for GitHub rate-limit reset: ${Math.ceil(remaining / 1000)}s remaining`);
+    }
+  }
+}
+
 function parseNextLink(linkHeader) {
   if (!linkHeader) return null;
   for (const part of linkHeader.split(",")) {
@@ -198,26 +237,39 @@ async function fetchGithubAdvisories(config, args) {
         progress(args, `fetching GitHub advisories type=${type} severity=${severity ?? "any"} page=${page + 1}/${maxPages}`);
         let body;
         let headers;
-        try {
-          const response = await fetchJson(url, {
-            headers: githubHeaders(),
-            timeoutMs: args.timeoutMs
-          });
-          body = response.body;
-          headers = response.headers;
-        } catch (error) {
-          if (isGithubRateLimitError(error) && !args.stopOnRateLimit) {
-            return finishResults(
-              `GitHub rate limit hit after ${results.length} advisories; continuing with partial results (${githubRateLimitHint(error)})`
-            );
+        for (;;) {
+          try {
+            const response = await fetchJson(url, {
+              headers: githubHeaders(),
+              timeoutMs: args.timeoutMs
+            });
+            body = response.body;
+            headers = response.headers;
+            break;
+          } catch (error) {
+            if (isGithubRateLimitError(error)) {
+              if (args.stopOnRateLimit) throw error;
+              if (args.partialOnRateLimit) {
+                return finishResults(
+                  `GitHub rate limit hit after ${results.length} advisories; continuing with partial results (${githubRateLimitHint(error)})`
+                );
+              }
+              progress(args, `GitHub rate limit hit after ${results.length} advisories (${githubRateLimitHint(error)})`);
+              await waitForRateLimitReset(args, error.headers);
+              progress(args, "retrying GitHub advisory request after rate-limit reset");
+              continue;
+            }
+            throw error;
           }
-          throw error;
         }
         results.push(...body);
         progress(args, `received ${body.length} advisories; total fetched=${results.length}`);
         const remaining = headers.get("x-ratelimit-remaining");
         if (remaining != null && Number(remaining) <= 5) {
           progress(args, `GitHub rate limit nearly exhausted; ${githubRateLimitHint({ headers, body: "rate limit" })}`);
+        }
+        if (remaining != null && Number(remaining) <= 0) {
+          await waitForRateLimitReset(args, headers);
         }
         const next = parseNextLink(headers.get("link"));
         url = next ? new URL(next) : null;

@@ -70,7 +70,16 @@ GitHub's unauthenticated API rate limit is low. For broad scrapes, use a token:
 GITHUB_TOKEN=... node finetune/scripts/scrape-cases.mjs --github-only --max-pages 10
 ```
 
-If GitHub rate-limits the run, the scraper keeps the advisories already fetched and continues with partial results. Add `--stop-on-rate-limit` when CI should fail instead.
+You can export the token for the current shell instead of prefixing every command:
+
+```bash
+export GITHUB_TOKEN=...
+node finetune/scripts/scrape-cases.mjs --github-only --max-pages 10
+```
+
+Do not commit tokens or put them in repo-tracked files. A classic personal access token or fine-grained token with public-read access is enough for public advisory scraping.
+
+By default, the scraper respects GitHub rate-limit headers and waits until reset before retrying. Add `--partial-on-rate-limit` to keep only the advisories already fetched, or `--stop-on-rate-limit` when CI should fail instead.
 
 Enriched run with progress, request timeouts, and concurrent npm/OSV lookups:
 
