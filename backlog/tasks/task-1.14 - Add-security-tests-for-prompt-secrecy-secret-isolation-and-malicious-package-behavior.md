@@ -3,10 +3,11 @@ id: TASK-1.14
 title: >-
   Add security tests for prompt secrecy, secret isolation, and malicious package
   behavior
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:15'
+updated_date: '2026-05-28 11:51'
 labels:
   - security-tests
   - prompts
@@ -43,10 +44,6 @@ Test packages should attempt to read environment variables, discover mounted fil
 - [ ] #7 Fallback and external model endpoint configurations are tested for prompt redaction in stored evidence and user-facing output.
 - [ ] #8 Prompt-injection fixtures cannot cause in-container PI to reveal hidden prompt source, change package/job scope, or submit verdicts for unrelated audit jobs.
 <!-- AC:END -->
-
-
-
-
 
 ## Implementation Plan
 
