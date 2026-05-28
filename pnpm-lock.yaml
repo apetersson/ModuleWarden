@@ -62,7 +62,18 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@25.9.1)
 
-  packages/audit-runner: {}
+  packages/audit-runner:
+    dependencies:
+      '@modulewarden/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
 
   packages/cli:
     dependencies:

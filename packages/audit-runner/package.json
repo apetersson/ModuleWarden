@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "docker build -t modulewarden-audit-runner .",
-    "clean": "rm -rf dist"
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@modulewarden/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^5.5.0"
+  }
 }

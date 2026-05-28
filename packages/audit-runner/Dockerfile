@@ -1,12 +1,13 @@
 # ── ModuleWarden Audit Runner ─────────────────────────────────
 # Disposable container image for PI-based agentic audit runs.
-# Each container gets a fresh workspace, run-specific inputs, and
-# audit tools. Does NOT include core prompts, model credentials,
-# Postgres credentials, or Verdaccio credentials.
+# Each container gets a fresh workspace, run-specific inputs,
+# the RPC bridge server, the audit orchestrator, and audit tools.
+# Does NOT include core prompts, model credentials, Postgres
+# credentials, or Verdaccio credentials.
 
 FROM node:20-alpine AS base
 
-# Install system tools needed for package inspection
+# Install system tools needed for package inspection + networking
 RUN apk add --no-cache \
     git \
     ripgrep \
@@ -18,13 +19,16 @@ RUN apk add --no-cache \
     openssl \
     ca-certificates \
     build-base \
-    python3
+    python3 \
+    netcat-openbsd
 
-# Enable corepack for pnpm, install pnpm and yarn
+# Enable corepack for pnpm
 RUN npm install -g corepack@latest && \
     corepack enable && \
-    corepack prepare pnpm@latest --activate && \
-    npm install -g yarn@1 2>/dev/null || true
+    corepack prepare pnpm@latest --activate
+
+# Install PI as the agentic audit runtime
+RUN npm install -g @earendil-works/pi-coding-agent@latest
 
 # Create workspace directory structure
 RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence && \
@@ -32,10 +36,16 @@ RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence &&
 
 WORKDIR /workspace
 
-# ── Runtime entrypoint ──────────────────────────────────────
-# The worker injects run-specific workspace, RPC token, and inputs
-# before starting the container. The entrypoint starts RPC mode.
-COPY entrypoint.sh /entrypoint.sh
+# ── Copy the RPC bridge server ────────────────────────────────
+# Built from packages/audit-rpc-server
+COPY packages/audit-rpc-server/dist/ /app/rpc-bridge/
+
+# ── Copy the PI audit orchestrator ────────────────────────────
+# Built from packages/audit-runner/src/orchestrator.ts
+COPY packages/audit-runner/dist/orchestrator.js /app/orchestrator/index.js
+
+# ── Copy the entrypoint ───────────────────────────────────────
+COPY packages/audit-runner/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
