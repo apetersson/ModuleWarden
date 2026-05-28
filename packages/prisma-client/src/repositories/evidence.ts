@@ -1,5 +1,5 @@
 import { getPrisma } from '../index.js';
-import type { EvidenceArtifact } from '@prisma/client';
+import type { EvidenceArtifact, EvidenceStatus, EvidenceType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
 export interface EvidenceArtifactInput {
@@ -18,11 +18,11 @@ export async function createEvidenceArtifact(input: EvidenceArtifactInput): Prom
   return getPrisma().evidenceArtifact.create({
     data: {
       auditRunId: input.auditRunId,
-      artifactType: input.artifactType as any,
+      artifactType: input.artifactType as EvidenceType,
       name: input.name,
       content: input.content,
       contentHash: input.contentHash,
-      status: (input.status ?? 'ACTIVE') as any,
+      status: (input.status ?? 'ACTIVE') as EvidenceStatus,
       ...(input.filePath !== undefined ? { filePath: input.filePath } : {}),
       ...(input.sizeBytes !== undefined ? { sizeBytes: input.sizeBytes } : {}),
       ...(input.supersedesEvidenceArtifactId !== undefined
