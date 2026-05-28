@@ -166,7 +166,7 @@ describe('evidence bundle assembly', () => {
     const fileDiff: FileDiff = { added: [{ path: 'index.js', size: 100, mode: '644', isDir: false, isExecutable: false }], removed: [], changed: [] };
     const depDiff: DependencyDiff = { added: {}, removed: {}, changed: {} };
     const lcDiff: LifecycleScriptDiff = { scripts: [] };
-    const capReport = { findings: [], summary: { network: 'none', filesystem: 'none', process: 'none', 'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none', obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none' } };
+    const capReport = { findings: [], summary: { network: 'none' as const, filesystem: 'none' as const, process: 'none' as const, 'dynamic-code': 'none' as const, 'env-credential': 'none' as const, 'native-wasm': 'none' as const, obfuscation: 'none' as const, 'dependency-indirection': 'none' as const, 'install-time': 'none' as const } };
 
     const bundle = buildEvidenceBundle({
       packageName: 'test-pkg',
@@ -195,7 +195,7 @@ describe('evidence bundle assembly', () => {
     const lcDiff: LifecycleScriptDiff = { scripts: [{ name: 'postinstall', command: 'node setup.js', new: true }] };
     const capReport = {
       findings: [{ category: 'network' as const, severity: 'medium' as const, description: 'HTTP require', files: ['index.js'], evidence: ['require("http")'] }],
-      summary: { network: 'medium', filesystem: 'none', process: 'none', 'dynamic-code': 'none', 'env-credential': 'none', 'native-wasm': 'none', obfuscation: 'none', 'dependency-indirection': 'none', 'install-time': 'none' },
+      summary: { network: 'medium' as const, filesystem: 'none' as const, process: 'none' as const, 'dynamic-code': 'none' as const, 'env-credential': 'none' as const, 'native-wasm': 'none' as const, obfuscation: 'none' as const, 'dependency-indirection': 'none' as const, 'install-time': 'none' as const },
     };
 
     const bundle = buildEvidenceBundle({

@@ -3,7 +3,7 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { getEffectiveVerdictByHash } from '../services/decisions.js';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
-import type { RegistryError } from '@modulewarden/shared/npm-types';
+import type { RegistryError, NpmPackument } from '@modulewarden/shared/npm-types';
 
 interface TarballParams {
   package: string;
@@ -63,6 +63,19 @@ export async function registerTarballRoute(
 
       const prisma = getPrisma();
 
+      // Fetch upstream packument
+      let upstream: NpmPackument | null;
+      try {
+        upstream = await fetchUpstreamPackument(packageName);
+      } catch {
+        return reply.status(502).send({
+          error: 'Backend unavailable',
+          reason: 'Could not fetch upstream package metadata',
+          package: packageName,
+          requestedVersion: version,
+        } satisfies RegistryError);
+      }
+
       // Check project readiness (same logic as packument route)
       const enabledProject = await prisma.project.findFirst({
         where: { registryEnabled: true },
@@ -82,7 +95,6 @@ export async function registerTarballRoute(
         } satisfies RegistryError);
       }
 
-      const upstream = await fetchUpstreamPackument(packageName);
       const versionData = upstream?.versions?.[version];
       const resolvedHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum;
 
@@ -134,7 +146,17 @@ export async function registerTarballRoute(
 
         if (verdict === 'ALLOW') {
           // Proxy tarball from Verdaccio
-          const tarballResponse = await fetch(`${verdaccioUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`);
+          let tarballResponse: Response;
+          try {
+            tarballResponse = await fetch(`${verdaccioUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`);
+          } catch {
+            return reply.status(502).send({
+              error: 'Backend unavailable',
+              reason: 'Could not fetch tarball from backing registry',
+              package: packageName,
+              requestedVersion: version,
+            } satisfies RegistryError);
+          }
           if (!tarballResponse.ok) {
             return reply.status(502).send({
               error: 'Backend unavailable',
