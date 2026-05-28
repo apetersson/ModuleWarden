@@ -7,6 +7,7 @@ RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 export MW_E2E_AUDIT_WORKSPACE_HOST="${MW_E2E_AUDIT_WORKSPACE_HOST:-$ROOT_DIR/.e2e/audit-workspaces}"
 export MW_E2E_AUDIT_SESSION_ARCHIVE_HOST="${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST:-$ROOT_DIR/.e2e/audit-sessions}"
+export MW_E2E_VERDACCIO_STORAGE_HOST="${MW_E2E_VERDACCIO_STORAGE_HOST:-$ROOT_DIR/.e2e/verdaccio-storage}"
 export MW_E2E_RESULTS_HOST="${MW_E2E_RESULTS_HOST:-$ROOT_DIR/.e2e/results}"
 export MW_E2E_API_PORT="${MW_E2E_API_PORT:-8080}"
 export MW_E2E_WEB_UI_PORT="${MW_E2E_WEB_UI_PORT:-13000}"
@@ -16,13 +17,13 @@ export MW_E2E_BROWSER_API_BASE_URL="${MW_E2E_BROWSER_API_BASE_URL:-$MW_E2E_HOST_
 
 export MW_MODEL_ENDPOINT_BASE_URL="${MW_MODEL_ENDPOINT_BASE_URL:-https://api.deepseek.com/v1}"
 export MW_MODEL_ENDPOINT_API_KEY="${MW_MODEL_ENDPOINT_API_KEY:-${DEEPSEEK_API_KEY:-sk-change-me}}"
-export MW_MODEL_ENDPOINT_MODEL="${MW_MODEL_ENDPOINT_MODEL:-deepseek-flash-4}"
+export MW_MODEL_ENDPOINT_MODEL="${MW_MODEL_ENDPOINT_MODEL:-deepseek-v4-flash}"
 export MW_PRESERVE_AUDIT_SESSIONS="${MW_PRESERVE_AUDIT_SESSIONS:-true}"
 export MW_AUTH_ADMIN_TOKENS="${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}"
 export MW_AUTH_DEV_TOKENS="${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}"
 
 RESULTS_DIR="$MW_E2E_RESULTS_HOST/$RUN_ID"
-mkdir -p "$MW_E2E_AUDIT_WORKSPACE_HOST" "$MW_E2E_AUDIT_SESSION_ARCHIVE_HOST" "$RESULTS_DIR"
+mkdir -p "$MW_E2E_AUDIT_WORKSPACE_HOST" "$MW_E2E_AUDIT_SESSION_ARCHIVE_HOST" "$MW_E2E_VERDACCIO_STORAGE_HOST" "$RESULTS_DIR"
 
 compose() {
   docker compose \
@@ -249,6 +250,7 @@ if [ "${MW_E2E_KEEP_EXISTING:-0}" != "1" ]; then
 fi
 
 echo "Building local audit-runner dist..."
+pnpm --filter @modulewarden/audit-rpc-server bundle
 pnpm --filter @modulewarden/audit-runner build
 
 echo "Building E2EValidationScenario images..."

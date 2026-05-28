@@ -9,6 +9,7 @@ coverage
 docker-compose.override.yml
 .e2e/
 audit-sessions/
+.e2e/verdaccio-storage/
 .DS_Store
 
 # JetBrains IDE

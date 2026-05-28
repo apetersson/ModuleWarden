@@ -1,9 +1,9 @@
 #!/bin/sh
 # ── ModuleWarden Audit Container Entrypoint ────────────────
 #
-# This container runs the PI audit orchestrator in the foreground. The
-# orchestrator requires an RPC bridge server on MW_RPC_PORT; missing bridge,
-# PI, or model configuration is a hard audit failure.
+# This container runs the RPC bridge server in the background and the PI
+# audit orchestrator in the foreground. Missing bridge, PI, or model
+# configuration is a hard audit failure.
 #
 # The worker injects the run-specific workspace, RPC token,
 # package inputs, and prepared evidence before starting.
@@ -45,18 +45,36 @@ if [ -f inputs/package.tgz ]; then
     echo "Warning: Could not extract tarball" >&2
 fi
 
-# ── Step 2: Run PI audit orchestrator ──────────────────────
+BRIDGE="/app/packages/audit-rpc-server/dist/index.js"
 ORCHESTRATOR="/app/orchestrator/index.js"
-if [ -f "${ORCHESTRATOR}" ]; then
-  echo "[entrypoint] Starting PI audit orchestrator..."
-  set +e
-  node "${ORCHESTRATOR}"
-  ORCH_EXIT=$?
-  set -e
-  echo "[entrypoint] Orchestrator exited with code ${ORCH_EXIT}"
-else
-  echo "[entrypoint] Orchestrator not found at ${ORCHESTRATOR}"
+
+if [ ! -f "${BRIDGE}" ]; then
+  echo "[entrypoint] RPC bridge not found at ${BRIDGE}"
   ORCH_EXIT=1
+else
+  echo "[entrypoint] Starting RPC bridge..."
+  node "${BRIDGE}" &
+  BRIDGE_PID=$!
+
+  cleanup() {
+    if [ -n "${BRIDGE_PID:-}" ] && kill -0 "${BRIDGE_PID}" 2>/dev/null; then
+      kill "${BRIDGE_PID}" 2>/dev/null || true
+      wait "${BRIDGE_PID}" 2>/dev/null || true
+    fi
+  }
+  trap cleanup EXIT INT TERM
+
+  if [ -f "${ORCHESTRATOR}" ]; then
+    echo "[entrypoint] Starting PI audit orchestrator..."
+    set +e
+    node "${ORCHESTRATOR}"
+    ORCH_EXIT=$?
+    set -e
+    echo "[entrypoint] Orchestrator exited with code ${ORCH_EXIT}"
+  else
+    echo "[entrypoint] Orchestrator not found at ${ORCHESTRATOR}"
+    ORCH_EXIT=1
+  fi
 fi
 
 # Capture final workspace state

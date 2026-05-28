@@ -183,9 +183,22 @@ async function main(): Promise<void> {
     throw new Error('MW_MODEL_ENDPOINT_BASE_URL is required for agentic audit but was not configured');
   }
 
+  const requestedModel = process.env.MW_MODEL_ENDPOINT_MODEL ?? 'deepseek-v4-flash';
+  const modelName = requestedModel === 'deepseek-flash-4' ? 'deepseek-v4-flash' : requestedModel;
+  const apiKey = process.env.MW_MODEL_ENDPOINT_API_KEY;
+  if (!apiKey) {
+    throw new Error('MW_MODEL_ENDPOINT_API_KEY is required for agentic audit but was not configured');
+  }
+
   // Start PI in RPC mode
   console.log('[orchestrator] Starting PI RPC session...');
-  const piProc = spawn('pi', ['--mode', 'rpc', '--no-session', '--provider', 'openai-compatible', '--model', 'gpt-4o'], {
+  const piProc = spawn('pi', [
+    '--mode', 'rpc',
+    '--no-session',
+    '--provider', 'deepseek',
+    '--model', modelName,
+    '--api-key', apiKey,
+  ], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,

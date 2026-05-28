@@ -4,6 +4,10 @@ services:
   postgres:
     ports: !reset []
 
+  verdaccio:
+    volumes: !override
+      - ${MW_E2E_VERDACCIO_STORAGE_HOST:?MW_E2E_VERDACCIO_STORAGE_HOST must be set}:/verdaccio/storage
+
   migrate:
     build:
       context: .

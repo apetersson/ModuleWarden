@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "bundle": "esbuild src/index.ts --bundle --platform=node --outfile=dist/bundle.js --external:./node_modules/* --external:@modulewarden/shared",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --outfile=dist/bundle.js --external:@modulewarden/shared",
     "start": "node dist/index.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "typecheck": "tsc --noEmit",

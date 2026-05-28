@@ -139,6 +139,8 @@ export class ContainerRunner {
       // Pass through ModuleWarden API URL and model endpoint from worker env
       ...(process.env.MW_API_BASE ? [`MW_API_BASE=${process.env.MW_API_BASE}`] : []),
       ...(process.env.MW_MODEL_ENDPOINT_BASE_URL ? [`MW_MODEL_ENDPOINT_BASE_URL=${process.env.MW_MODEL_ENDPOINT_BASE_URL}`] : []),
+      ...(process.env.MW_MODEL_ENDPOINT_API_KEY ? [`MW_MODEL_ENDPOINT_API_KEY=${process.env.MW_MODEL_ENDPOINT_API_KEY}`] : []),
+      ...(process.env.MW_MODEL_ENDPOINT_MODEL ? [`MW_MODEL_ENDPOINT_MODEL=${process.env.MW_MODEL_ENDPOINT_MODEL}`] : []),
     ];
 
     const volumeMounts = [

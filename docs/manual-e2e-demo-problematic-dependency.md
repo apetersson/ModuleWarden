@@ -56,7 +56,7 @@ test -n "$DEEPSEEK_API_KEY" || {
 
 export MW_MODEL_ENDPOINT_BASE_URL="https://api.deepseek.com/v1"
 export MW_MODEL_ENDPOINT_API_KEY="$DEEPSEEK_API_KEY"
-export MW_MODEL_ENDPOINT_MODEL="deepseek-flash-4"
+export MW_MODEL_ENDPOINT_MODEL="deepseek-v4-flash"
 export MW_AUTH_ADMIN_TOKENS="mw-admin-token-change-me"
 export MW_AUTH_DEV_TOKENS="mw-dev-token-change-me"
 ```
