@@ -206,12 +206,10 @@ export class ContainerRunner {
       // Poll for completion — container stays around because we didn't use --rm
       while (Date.now() - startTime < this.containerTimeoutMs) {
         try {
-          const inspectOutput = JSON.parse(
-            execSync(`docker inspect ${containerId} --format='{{json .State}}'`, {
-              encoding: 'utf-8',
-              stdio: 'pipe',
-            })
+          const { stdout } = await execAsync(
+            `docker inspect ${containerId} --format='{{json .State}}'`
           );
+          const inspectOutput = JSON.parse(stdout);
 
           if (inspectOutput.Status === 'exited') {
             exitCode = inspectOutput.ExitCode;
@@ -235,16 +233,14 @@ export class ContainerRunner {
       // Timeout check — kill if still running
       if (exitCode === null) {
         try {
-          execSync(`docker kill ${containerId}`, { stdio: 'pipe' });
+          await execAsync(`docker kill ${containerId}`);
         } catch { /* ignore kill errors */ }
         // Get final state after kill
         try {
-          const finalState = JSON.parse(
-            execSync(`docker inspect ${containerId} --format='{{json .State}}'`, {
-              encoding: 'utf-8',
-              stdio: 'pipe',
-            })
+          const { stdout } = await execAsync(
+            `docker inspect ${containerId} --format='{{json .State}}'`
           );
+          const finalState = JSON.parse(stdout);
           exitCode = finalState.ExitCode;
           signal = finalState.Signal;
         } catch { /* container may have crashed */ }

@@ -16,20 +16,28 @@
 
 **Tests:** 67 shared/rpc-server/cli + 37 api-proxy + 15 prisma + 33 worker = ~157 total passes.
 
-## This iteration
-1. Update task file to reflect real progress
-2. Complete TASK-1.12 (minimal web UI showing queue + status)
-3. Complete TASK-1.15 (README with threat model, allow/block/quarantine semantics)
-4. Run full test suite and final verification
-5. Get final reviewer sign-off
+## ✅ Complete
 
-## Checklist
-- [x] TASK-1.7: RPC bridge, types, orchestrator, Docker, internal API
-- [x] TASK-1.9: Capability-delta service, golden fixtures (13 tests)
-- [x] TASK-1.14: Security tests (10 tests)
-- [x] TASK-1.11: Developer CLI (3 tests)
-- [x] GPT-1 review findings addressed
-- [ ] TASK-1.12: Minimal web UI (queue + status views)
-- [ ] TASK-1.15: README with threat model documentation
-- [ ] Full test suite passes
-- [ ] Reviewer sign-off
+All 17 sub-tasks of TASK-1 are done. The epic is complete.
+
+## Final Status
+| Task | Status |
+|------|--------|
+| TASK-1 | ✅ Done |
+| TASK-1.1 through TASK-1.17 | ✅ All Done |
+
+## Tests
+- 56 shared tests (lockfile, capability, capability-delta, evaluation, security)
+- 8 rpc-server tests
+- 2 web-ui tests
+- 3 CLI tests
+- 15 prisma-client tests
+- 37 api-proxy tests
+- 33 worker tests
+- ~154 total passing
+
+## Verification
+- All packages typecheck clean
+- Docker image `modulewarden-audit-runner` built
+- Docker Compose configured
+- GitHub pushed

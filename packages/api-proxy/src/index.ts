@@ -1,28 +1,60 @@
 import Fastify from 'fastify';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
-import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
+import { defaultConfig } from '@modulewarden/shared/config';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerInternalRoutes } from './routes/internal.js';
-import { JobQueue } from '@modulewarden/worker';
+
+/**
+ * Lightweight pg-boss enqueue function for the api-proxy.
+ * Does NOT start a full JobQueue worker — it directly inserts a job
+ * into pg-boss's queue using a raw SQL call. The dedicated worker
+ * service handles job processing (C-4).
+ */
+import { randomBytes } from 'node:crypto';
+
+async function enqueuePackageReviewLight(
+  packageName: string,
+  packageVersion: string,
+  tarballHash: string,
+  auditContext: string
+): Promise<string | null> {
+  const prisma = getPrisma();
+  const idempotencyKey = buildIdempotencyKey('package-review', packageName, packageVersion, tarballHash, auditContext);
+  const jobId = `mw:${Date.now()}:${randomBytes(4).toString('hex')}`;
+
+  try {
+    // Direct pg-boss insert via raw query — lightweight, no worker overhead
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO pgboss.schedule (name, data) VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+    `, [
+      `package-review:${packageName}@${packageVersion}`,
+      JSON.stringify({
+        type: 'package-review',
+        data: {
+          packageName,
+          packageVersion,
+          tarballHash,
+          auditContext,
+          idempotencyKey,
+          pgBossJobId: jobId,
+        },
+      }),
+    ]);
+    return jobId;
+  } catch {
+    return null;
+  }
+}
 
 export async function buildServer() {
   const config = defaultConfig();
   const prisma = getPrisma();
   await prisma.$connect();
-  const connectionString = buildPostgresConnectionString(config, true);
-
-  const queue = new JobQueue({
-    connectionString,
-    schema: config.postgres.schema,
-    maxRetries: config.jobs.retryPolicy.maxRetries,
-    backoffDelayMs: config.jobs.retryPolicy.backoffDelayMs,
-    timeoutMs: config.jobs.retryPolicy.timeoutMs,
-    concurrency: config.jobs.concurrency,
-  });
-  await queue.start();
 
   const app = Fastify({
     logger: {
@@ -38,7 +70,7 @@ export async function buildServer() {
     app,
     config.verdaccio.registryUrl,
     async (data: Record<string, unknown>) => {
-      return queue.enqueuePackageReview(
+      return enqueuePackageReviewLight(
         String(data.packageName),
         String(data.packageVersion),
         String(data.tarballHash),
@@ -63,7 +95,6 @@ export async function buildServer() {
   });
 
   app.addHook('onClose', async () => {
-    await queue.stop();
     await disconnectPrisma();
   });
 

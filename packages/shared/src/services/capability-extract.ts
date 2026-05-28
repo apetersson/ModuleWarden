@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 
 export interface CapabilityFinding {
   category: CapabilityCategory;
@@ -154,7 +155,6 @@ export function extractCapabilities(sourceDir: string): CapabilityReport {
 }
 
 function findSourceFiles(dir: string): string[] {
-  const { execSync } = require('node:child_process');
   try {
     const output = execSync(
       `find "${dir}" -type f \\( -name "*.js" -o -name ".jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.mjs" -o -name "*.cjs" -o -name "*.mts" \\) 2>/dev/null | sort`,

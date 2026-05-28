@@ -3,11 +3,10 @@ import { defaultConfig } from '@modulewarden/shared/config';
 import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { writeFileSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createHash } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 
 function hashContent(content: string): string {
@@ -51,9 +50,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       data: { status: 'RUNNING' },
     });
 
-    // 2. Generate run-scoped RPC token
+    // 2. Generate run-scoped RPC token, hash before storing (C-3)
     const rpcToken = randomBytes(32).toString('hex');
-    const rpcTokenHash = rpcToken; // In production, hash this
+    const rpcTokenHash = createHash('sha256').update(rpcToken).digest('hex');
 
     await prisma.auditRun.update({
       where: { id: auditRun.id },
@@ -198,11 +197,18 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       throw new Error(result.error ?? `Audit container failed with status ${finalStatus}`);
     }
 
-    // Update review job to completed (decision creation is separate)
-    await prisma.reviewJob.update({
+    // Prevent regression: only transition to RUNNING if still QUEUED/PENDING
+    // (the /internal/verdict endpoint may have already set COMPLETED) (A-1)
+    const currentJob = await prisma.reviewJob.findUnique({
       where: { id: reviewJobId },
-      data: { status: 'RUNNING' }, // Still need decision — keep as RUNNING
+      select: { status: true },
     });
+    if (currentJob?.status === 'QUEUED' || currentJob?.status === 'PENDING') {
+      await prisma.reviewJob.update({
+        where: { id: reviewJobId },
+        data: { status: 'RUNNING' },
+      });
+    }
 
     // 6. Enqueue evidence post-processing
     if (evidenceArtifactIds.length > 0) {

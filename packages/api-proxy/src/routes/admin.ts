@@ -102,10 +102,25 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         orderBy: { createdAt: 'desc' },
       });
 
-      // Create a new decision with admin verdict (if admin wants a specific verdict)
+      // Ensure a review job exists for this package version (M-4)
+      let reviewJobId = latestDecision?.reviewJobId;
+      if (!reviewJobId) {
+        // Create a sentinel review job for admin-created decisions
+        const sentinelJob = await prisma.reviewJob.create({
+          data: {
+            packageVersionId: pv.id,
+            auditContext: `admin-override:${packageName}@${version}`,
+            trigger: 'MANUAL',
+            status: 'COMPLETED',
+            idempotencyKey: `admin-override:${pv.id}`,
+          },
+        });
+        reviewJobId = sentinelJob.id;
+      }
+
       const decision = await prisma.decision.create({
         data: {
-          reviewJobId: latestDecision?.reviewJobId ?? 'admin-override',
+          reviewJobId,
           packageVersionId: pv.id,
           verdict: targetVerdict,
           reasonSummary: reason,

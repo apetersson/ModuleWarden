@@ -7,12 +7,11 @@
  * - Malicious package detection: capability extract identifies known patterns
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { extractCapabilities } from '../services/capability-extract.js';
-import { existsSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { rmSync } from 'node:fs';
 
 // ── Prompt secrecy tests ───────────────────────────────────
 // These verify the prompt-pack.ts service contract:
