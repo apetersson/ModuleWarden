@@ -1,5 +1,6 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
+import { getBestActiveOverrideForPackageVersion } from '@modulewarden/prisma-client';
 import type { JobQueue } from '../jobs/queue.js';
 
 /**
@@ -10,10 +11,9 @@ import type { JobQueue } from '../jobs/queue.js';
  * and enqueues version-diff audits for any new versions found.
  */
 export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<void> {
-  await queue.work('upstream-subscription-poll', async (job) => {
-    const { packageName } = job.data;
-    const prisma = getPrisma();
+  const prisma = getPrisma();
 
+  const pollSinglePackage = async (packageName: string) => {
     // 1. Fetch upstream packument
     const packument = await fetchUpstreamPackument(packageName);
     if (!packument) {
@@ -21,17 +21,16 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
       return;
     }
 
-    const upstreamVersions = Object.keys(packument.versions);
-
-    // 2. Get known versions for this package
+    const upstreamVersions = Object.entries(packument.versions);
     const knownVersions = await prisma.packageVersion.findMany({
       where: { packageName, registrySource: 'npm' },
       select: { version: true, tarballHash: true },
     });
-    const knownVersionSet = new Set(knownVersions.map((v) => v.version));
+    const knownVersionSet = new Set(knownVersions.map((v) => `${v.version}::${v.tarballHash}`));
 
-    // 3. Find new versions (in upstream but not in our DB)
-    const newVersions = upstreamVersions.filter((v) => !knownVersionSet.has(v));
+    const newVersions = upstreamVersions.filter(
+      ([version, versionData]) => !knownVersionSet.has(`${version}::${versionData.dist?.integrity ?? versionData.dist?.shasum ?? `unresolved:${packageName}@${version}`}`)
+    );
 
     if (newVersions.length === 0) {
       console.log(`[subscriptions] No new versions for ${packageName}`);
@@ -39,28 +38,54 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
     }
 
     console.log(
-      `[subscriptions] Found ${newVersions.length} new version(s) for ${packageName}: ${newVersions.join(', ')}`
+      `[subscriptions] Found ${newVersions.length} new version(s) for ${packageName}: ${newVersions.map(([version]) => version).join(', ')}`
     );
 
-    // 4. For each new version, find the last allowed predecessor
-    const lastAllowedVersion = await prisma.packageVersion.findFirst({
+    // 2. Find last allowed predecessor version for this package,
+    // accounting for active overrides.
+    const candidateVersions = await prisma.packageVersion.findMany({
       where: {
         packageName,
-        predecessorDecisions: {
-          some: { verdict: 'ALLOW' },
-        },
+        registrySource: 'npm',
       },
       orderBy: { createdAt: 'desc' },
-      select: { version: true, tarballHash: true },
+      select: {
+        id: true,
+        version: true,
+        tarballHash: true,
+        predecessorDecisions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { verdict: true },
+        },
+      },
     });
 
-    // 5. Create package versions and enqueue reviews for each new version
-    for (const version of newVersions) {
-      const versionData = packument.versions[version];
-      const tarballHash = versionData?.dist?.integrity ?? `sha512-${packageName}-${version}`;
+    let lastAllowedVersion: { id: string; version: string; tarballHash: string } | null = null;
+
+    for (const candidate of candidateVersions) {
+      if (candidate.predecessorDecisions.length === 0) {
+        continue;
+      }
+
+      const latestDecision = candidate.predecessorDecisions[0];
+      const override = await getBestActiveOverrideForPackageVersion(candidate.id);
+      const effectiveVerdict = override?.targetVerdict ?? latestDecision.verdict;
+
+      if (effectiveVerdict === 'ALLOW') {
+        lastAllowedVersion = {
+          id: candidate.id,
+          version: candidate.version,
+          tarballHash: candidate.tarballHash,
+        };
+        break;
+      }
+    }
+
+    for (const [version, versionData] of newVersions) {
+      const tarballHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum ?? `unresolved:${packageName}@${version}`;
 
       try {
-        // Upsert the package version
         const pv = await prisma.packageVersion.upsert({
           where: {
             packageName_version_registrySource_tarballHash: {
@@ -79,39 +104,22 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
             publishDate: packument.time?.[version]
               ? new Date(packument.time[version])
               : undefined,
+            predecessorId: lastAllowedVersion?.id,
           },
-          update: {},
+          update: {
+            predecessorId: lastAllowedVersion?.id,
+          },
         });
 
-        // Set predecessor link if one exists
-        if (lastAllowedVersion) {
-          await prisma.packageVersion.update({
-            where: { id: pv.id },
-            data: {
-              predecessorId: (
-                await prisma.packageVersion.findFirst({
-                  where: {
-                    packageName,
-                    version: lastAllowedVersion.version,
-                    registrySource: 'npm',
-                  },
-                  select: { id: true },
-                  orderBy: { createdAt: 'desc' },
-                })
-              )?.id ?? undefined,
-            },
-          });
-        }
-
-        // Enqueue a package-review job (version-diff or cold-start)
+        // 3. Enqueue a package-review job (version-diff or cold-start)
         const auditContext = lastAllowedVersion
           ? `subscription:diff:v${lastAllowedVersion.version}->v${version}`
           : `subscription:cold-start:v${version}`;
 
         await queue.enqueuePackageReview(
           packageName,
-          version,
-          tarballHash,
+          pv.version,
+          pv.tarballHash,
           auditContext
         );
 
@@ -122,7 +130,7 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
       }
     }
 
-    // 6. Record upstream metadata snapshot for active subscriptions
+    // 4. Record upstream metadata snapshot for active subscriptions
     const subscriptions = await prisma.packageSubscription.findMany({
       where: { packageName, registrySource: 'npm', active: true },
       select: { id: true },
@@ -135,7 +143,7 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
           packageName,
           registrySource: 'npm',
           metadata: {
-            versions: upstreamVersions,
+            versions: Object.fromEntries(upstreamVersions),
             distTags: packument['dist-tags'],
             newVersions: newVersions.length,
             fetchedAt: new Date().toISOString(),
@@ -144,6 +152,26 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
       }).catch(() => {
         // Snapshot is best-effort
       });
+    }
+  };
+
+  await queue.work('upstream-subscription-poll', async (job) => {
+    const packageNames = job.data.packageName
+      ? [job.data.packageName]
+      : Array.from(new Set(
+        (await prisma.packageSubscription.findMany({
+          where: { active: true, registrySource: 'npm' },
+          select: { packageName: true },
+        })).map((subscription) => subscription.packageName)
+      ));
+
+    if (packageNames.length === 0) {
+      console.log('[subscriptions] No active subscriptions to poll');
+      return;
+    }
+
+    for (const targetPackage of packageNames) {
+      await pollSinglePackage(targetPackage);
     }
   });
 }
