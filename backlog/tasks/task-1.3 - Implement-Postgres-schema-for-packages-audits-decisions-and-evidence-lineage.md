@@ -55,6 +55,19 @@ Important nuance: an allowed verdict is currently valid until revoked, not proof
 Implemented full Prisma schema for ModuleWarden v1 with 16 models: Project, LockfileImport, PackageSubscription, UpstreamMetadataSnapshot, PackageVersion (keyed by name+version+registry+tarballHash with @@unique), TarballArtifact, ReviewJob (dedup by packageVersionId+auditContext), AuditRun, PromptPack, ModelProfile, EvidenceArtifact (immutable), Decision (with verdict, predecessor, prompt/model versions, scores, PI session/run IDs), Score, Override (admin identity, scope, reason, supersedes), ReAuditCampaign, and EvaluationLabel (ADMIN_OVERRIDE, POST_HOC_RELABEL, INCIDENT_OUTCOME, EVALUATION_RESULT). Auto-generated migration via prisma migrate dev. Repository APIs for all domains with upsert/dedup/create/list/get patterns. 9 integration tests verifying constraints, dedup, decision history, evidence immutability, and graph state transitions all pass.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
+## Test Spec
+
+<!-- SECTION:TEST_SPEC:BEGIN -->
+- [ ] #1 Schema-validation tests assert package versions are uniquely keyed by name/version/registry/tarball hash/integrity.
+- [ ] #2 Model tests assert review-job dedupe keys include package version hash + audit context.
+- [ ] #3 Decision tests assert verdict records contain prompt/model metadata, predecessor links, actor type, scores, evidence references, and PI session IDs.
+- [ ] #4 Override tests assert override rows capture admin identity, scope, reason, and superseded decision lineage.
+- [ ] #5 Re-audit tests assert campaign selectors include allowed versions and can surface context changes from prompts/models/patterns.
+- [ ] #6 Project readiness tests assert readiness transitions require all imported package versions to have effective decisions.
+- [ ] #7 Evidence tests assert artifact immutability and that new evidence/versioning creates new immutable rows.
+- [ ] #8 Label tests assert post-hoc relabel/admin outcome labels are linked to prior decisions.
+<!-- SECTION:TEST_SPEC:END -->
+
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 Database tests cover Prisma migrations, constraints, dedupe, decision history, and re-audit selection.

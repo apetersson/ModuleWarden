@@ -57,6 +57,17 @@ The document should also explain the important critique from planning: shared ve
 Created docs/architecture.md — the v1 implementation contract covering all 11 acceptance criteria. The document defines threat classification (compromised-maintainer bumps, supply-chain malware, novel vulnerabilities), core diff-review thesis, private-prompts rationale, prompt secrecy model, verdict semantics (allow/block/quarantine/override/re-audit), persistence choices (Prisma + pg-boss, Redis excluded), cold-start definition and conservative verdict rules, trust boundaries with model-endpoint operator as trusted infrastructure, recorded-open egress model, in-container PI audit execution, non-goals, success criteria, architecture diagram, component inventory, and planning critique/rationale.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
+## Test Spec
+
+<!-- SECTION:TEST_SPEC:BEGIN -->
+- [ ] #1 Architecture-canon tests assert all 11 acceptance criteria are explicitly represented in `docs/architecture.md`.
+- [ ] #2 Verification tests assert Prisma and pg-boss are named as the sole persistence/events stack and Redis is excluded.
+- [ ] #3 Threat-model tests assert compromise classes, threat boundaries, and prompt-secrecy/degradation assumptions are documented.
+- [ ] #4 Workflow tests assert allow/block/quarantine/override/re-audit/revocation semantics are explicit and testable.
+- [ ] #5 Governance tests assert cold-start behavior and conservative verdict defaults are documented as operational policy.
+- [ ] #6 Security tests assert recorded-open egress and network restrictions are concretely written in threat-model docs.
+<!-- SECTION:TEST_SPEC:END -->
+
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 Architecture document reviewed against every major planning decision in this thread.

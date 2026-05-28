@@ -55,6 +55,18 @@ The Compose stack should include ModuleWarden API/proxy, worker, web UI, Postgre
 Scaffolded the complete ModuleWarden monorepo with Docker Compose stack. Created 7 workspace packages (api-proxy, worker, cli, web-ui, shared, prisma-client, audit-runner) with TypeScript configs, pnpm workspace configuration, shared typed config module, Docker Compose with Postgres/Verdaccio/API/worker/UI/audit-runner build, dev scripts, audit-runner Dockerfile with PI RPC entrypoint, Prisma schema placeholder, and dogfood lockfile. Verified: pnpm install, prisma generate, docker compose config all pass. No Redis services.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
+## Test Spec
+
+<!-- SECTION:TEST_SPEC:BEGIN -->
+- [ ] #1 Scaffold smoke tests verify a fresh clone can run pnpm install and `pnpm -r build` with no manual local bootstrap.
+- [ ] #2 Compose integration tests verify stack starts with Postgres, Verdaccio, API, worker, UI, and audit-runner build target.
+- [ ] #3 Config tests verify `.env` and shared config expose typed Postgres, token, model-endpoint, and audit-runner controls.
+- [ ] #4 Workspace tests verify pnpm workspace resolves `@modulewarden/*` packages and script fan-out works.
+- [ ] #5 Network tests verify Redis is absent from compose and startup checks.
+- [ ] #6 Script tests verify shared local workflow commands for lint/test/typecheck are executable.
+- [ ] #7 Image tests verify audit-runner image exists as a separate Dockerfile target and worker references it.
+<!-- SECTION:TEST_SPEC:END -->
+
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 No product behavior is hidden inside Compose magic; all ports, tokens, and service roles are documented.
