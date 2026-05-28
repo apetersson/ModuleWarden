@@ -1,10 +1,11 @@
 ---
 id: TASK-1.13
 title: Create real-incident replay evaluation harness and quality metrics
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-28 11:48'
 labels:
   - evaluation
   - security
@@ -41,8 +42,6 @@ This harness should not overclaim “novel vulnerability discovery.” It proves
 - [ ] #8 Admin overrides, post-hoc relabels, and incident outcomes are included as labeled feedback for prompt and threshold calibration.
 - [ ] #9 The hackathon runbook records a campaign target of starting Friday 2026-05-29 and finishing by Saturday evening 2026-05-30, with measured variance reported.
 <!-- AC:END -->
-
-
 
 ## Implementation Plan
 
