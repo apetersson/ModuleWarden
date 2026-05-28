@@ -1,4 +1,5 @@
 import { getPrisma } from '../index.js';
+import { getBestActiveOverrideForPackageVersion } from './overrides.js';
 import type { Decision } from '@prisma/client';
 
 export interface DecisionInput {
@@ -43,14 +44,18 @@ export async function listDecisionsForPackage(
 export async function getEffectiveDecision(
   packageVersionId: string
 ): Promise<Decision | null> {
-  // Return the most recent active decision (not superseded by an override)
-  return getPrisma().decision.findFirst({
-    where: {
-      packageVersionId,
-      overrides: {
-        none: { active: true },
-      },
-    },
+  const prisma = getPrisma();
+  const activeOverride = await getBestActiveOverrideForPackageVersion(packageVersionId);
+  if (activeOverride) {
+    const decision = await prisma.decision.findFirst({
+      where: { packageVersionId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return decision ? { ...decision, verdict: activeOverride.targetVerdict } : null;
+  }
+
+  return prisma.decision.findFirst({
+    where: { packageVersionId },
     orderBy: { createdAt: 'desc' },
   });
 }
@@ -58,36 +63,39 @@ export async function getEffectiveDecision(
 export async function listAllowedVersionsForReAudit(
   projectId: string
 ): Promise<{ packageVersionId: string; decisionId: string }[]> {
-  const decisions = await getPrisma().decision.findMany({
-    where: {
-      verdict: 'ALLOW',
-      reviewJob: {
-        packageVersion: {
-          reviewJobs: {
-            some: {
-              packageVersion: {
-                // Package versions that belong to subscribed packages in this project
-                // This requires a join through subscriptions
-              },
-            },
+  const prisma = getPrisma();
+  const importedVersions = await prisma.importedPackageVersion.findMany({
+    where: { projectId },
+    select: {
+      packageVersion: {
+        select: {
+          id: true,
+          predecessorDecisions: {
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, verdict: true },
           },
         },
       },
-      overrides: {
-        none: { active: true },
-      },
     },
-    select: {
-      id: true,
-      packageVersionId: true,
-    },
-    orderBy: { createdAt: 'desc' },
   });
 
-  return decisions.map((d) => ({
-    decisionId: d.id,
-    packageVersionId: d.packageVersionId,
-  }));
+  const allowed: { packageVersionId: string; decisionId: string }[] = [];
+
+  for (const entry of importedVersions) {
+    const latestDecision = entry.packageVersion.predecessorDecisions[0];
+    if (!latestDecision) continue;
+
+    const override = await getBestActiveOverrideForPackageVersion(entry.packageVersion.id);
+    const effectiveVerdict = override?.targetVerdict ?? latestDecision.verdict;
+    if (effectiveVerdict === 'ALLOW') {
+      allowed.push({
+        packageVersionId: entry.packageVersion.id,
+        decisionId: latestDecision.id,
+      });
+    }
+  }
+
+  return allowed;
 }
 
 export async function addScoreToDecision(

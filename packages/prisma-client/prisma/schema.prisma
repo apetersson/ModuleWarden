@@ -24,6 +24,7 @@ model Project {
 
   lockfileImports       LockfileImport[]
   packageSubscriptions  PackageSubscription[]
+  importedPackageVersions ImportedPackageVersion[]
   reAuditCampaigns      ReAuditCampaign[]
 }
 
@@ -101,12 +102,28 @@ model PackageVersion {
 
   tarballArtifacts      TarballArtifact[]
   reviewJobs            ReviewJob[]
+  importedByProjects    ImportedPackageVersion[]
   predecessorOf         PackageVersion[] @relation("PredecessorLink")
   predecessorDecisions  Decision[]       @relation("PredecessorDecision")
 
   @@unique([packageName, version, registrySource, tarballHash])
   @@index([packageName, registrySource])
   @@index([tarballHash])
+}
+
+// ── Exact Imported Project Graph ─────────────────────────────────
+model ImportedPackageVersion {
+  id               String @id @default(uuid())
+  projectId        String
+  project          Project @relation(fields: [projectId], references: [id])
+  packageVersionId String
+  packageVersion   PackageVersion @relation(fields: [packageVersionId], references: [id])
+  lockfileImportId String?
+  importedAt       DateTime @default(now())
+
+  @@unique([projectId, packageVersionId])
+  @@index([projectId])
+  @@index([packageVersionId])
 }
 
 // ── Tarball Artifacts ──────────────────────────────────────────────
@@ -338,6 +355,7 @@ model Override {
   decision              Decision @relation(fields: [decisionId], references: [id])
   adminIdentity         String
   scope                 OverrideScope
+  targetVerdict         Verdict @default(ALLOW)
   reason                String
   supersedesDecisionId  String?
   active                Boolean  @default(true)

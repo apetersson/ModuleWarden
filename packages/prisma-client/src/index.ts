@@ -1,9 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 
 let client: PrismaClient | null = null;
 
 export function getPrisma(): PrismaClient {
   if (!client) {
+    if (!process.env.DATABASE_URL) {
+      const config = defaultConfig();
+      process.env.DATABASE_URL = buildPostgresConnectionString(config, true);
+    }
+
     client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     });

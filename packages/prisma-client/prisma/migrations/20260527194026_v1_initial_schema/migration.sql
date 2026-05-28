@@ -124,6 +124,17 @@ CREATE TABLE "TarballArtifact" (
 );
 
 -- CreateTable
+CREATE TABLE "ImportedPackageVersion" (
+    "id" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
+    "packageVersionId" TEXT NOT NULL,
+    "lockfileImportId" TEXT,
+    "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ImportedPackageVersion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ReviewJob" (
     "id" TEXT NOT NULL,
     "packageVersionId" TEXT NOT NULL,
@@ -244,6 +255,7 @@ CREATE TABLE "Override" (
     "decisionId" TEXT NOT NULL,
     "adminIdentity" TEXT NOT NULL,
     "scope" "OverrideScope" NOT NULL,
+    "targetVerdict" "Verdict" NOT NULL DEFAULT 'ALLOW',
     "reason" TEXT NOT NULL,
     "supersedesDecisionId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
@@ -317,6 +329,15 @@ CREATE INDEX "PackageVersion_tarballHash_idx" ON "PackageVersion"("tarballHash")
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PackageVersion_packageName_version_registrySource_tarballHa_key" ON "PackageVersion"("packageName", "version", "registrySource", "tarballHash");
+
+-- CreateIndex
+CREATE INDEX "ImportedPackageVersion_projectId_idx" ON "ImportedPackageVersion"("projectId");
+
+-- CreateIndex
+CREATE INDEX "ImportedPackageVersion_packageVersionId_idx" ON "ImportedPackageVersion"("packageVersionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ImportedPackageVersion_projectId_packageVersionId_key" ON "ImportedPackageVersion"("projectId", "packageVersionId");
 
 -- CreateIndex
 CREATE INDEX "TarballArtifact_packageVersionId_idx" ON "TarballArtifact"("packageVersionId");
@@ -398,6 +419,12 @@ ALTER TABLE "PackageVersion" ADD CONSTRAINT "PackageVersion_predecessorId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "TarballArtifact" ADD CONSTRAINT "TarballArtifact_packageVersionId_fkey" FOREIGN KEY ("packageVersionId") REFERENCES "PackageVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ImportedPackageVersion" ADD CONSTRAINT "ImportedPackageVersion_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ImportedPackageVersion" ADD CONSTRAINT "ImportedPackageVersion_packageVersionId_fkey" FOREIGN KEY ("packageVersionId") REFERENCES "PackageVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ReviewJob" ADD CONSTRAINT "ReviewJob_packageVersionId_fkey" FOREIGN KEY ("packageVersionId") REFERENCES "PackageVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
