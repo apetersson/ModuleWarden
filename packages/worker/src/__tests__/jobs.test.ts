@@ -20,6 +20,8 @@ import { JobQueue } from '../jobs/queue.js';
 import { DEFAULT_WORKER_CONFIG, JOB_RETRY_CONFIG, shouldDeadLetter } from '../jobs/definitions.js';
 import { registerVerdaccioPromotionHandler } from '../handlers/promotion.js';
 import { registerPackageReviewHandler } from '../handlers/reviews.js';
+import { registerProjectReadyHandler } from '../handlers/project-ready.js';
+import { registerReAuditCampaignHandler } from '../handlers/reaudit.js';
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const TEST_DSN = 'postgresql://modulewarden:modulewarden@localhost:5422/modulewarden';
@@ -130,11 +132,27 @@ const readRootManifest = (relativePath: string): Record<string, unknown> => {
 
 describe('JobQueue — pg-boss integration', () => {
   let queue: JobQueue;
-  let hasFailureReasonColumn = true;
-  let hasOverrideTargetVerdictColumn = true;
-  let promotionHandlerRegistered = false;
+let hasFailureReasonColumn = true;
+let hasOverrideTargetVerdictColumn = true;
+let promotionHandlerRegistered = false;
+let hasImportedPackageVersionTable = true;
 
-  const ensureVerdaccioPromotionHandler = async () => {
+beforeAll(async () => {
+  const probe = await getPrisma().$queryRawUnsafe<Array<{ exists: boolean }>>(
+    `
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND lower(table_name) = 'importedpackageversion'
+    ) AS exists
+  `
+  ).catch(() => [{ exists: false }]);
+
+  hasImportedPackageVersionTable = probe[0]?.exists ?? false;
+});
+
+ const ensureVerdaccioPromotionHandler = async () => {
     if (!promotionHandlerRegistered) {
       await registerVerdaccioPromotionHandler(queue);
       promotionHandlerRegistered = true;
@@ -811,5 +829,291 @@ describe('JobQueue — pg-boss integration', () => {
     } finally {
       await reviewQueue.stop();
     }
+  });
+
+  it('22. marks project-ready only after all imported packages have decisions', async () => {
+    if (!hasImportedPackageVersionTable) {
+      return;
+    }
+
+    const isolatedSchema = `pgboss_ready_${RUN_ID}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const readyQueue = new JobQueue({
+      connectionString: TEST_DSN,
+      schema: isolatedSchema,
+      maxRetries: 1,
+      backoffDelayMs: 1000,
+      timeoutMs: 30_000,
+      concurrency: {},
+    });
+
+    const prisma = getPrisma();
+    await readyQueue.start();
+    await registerProjectReadyHandler(readyQueue);
+
+    const project = await prisma.project.create({
+      data: { name: `project-ready-${RUN_ID}`, graphState: 'READY', registryEnabled: false },
+    });
+
+    const firstVersion = await prisma.packageVersion.create({
+      data: {
+        packageName: `ready-${RUN_ID}-pkg-a`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-ready-a-${RUN_ID}`,
+      },
+    });
+
+    const secondVersion = await prisma.packageVersion.create({
+      data: {
+        packageName: `ready-${RUN_ID}-pkg-b`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-ready-b-${RUN_ID}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.createMany({
+      data: [
+        { projectId: project.id, packageVersionId: firstVersion.id },
+        { projectId: project.id, packageVersionId: secondVersion.id },
+      ],
+    });
+
+    await readyQueue.send('project-ready', {
+      projectId: project.id,
+      reason: 'initial-check',
+    } as any);
+
+    await sleep(1000);
+
+    const stillPending = await prisma.project.findUnique({ where: { id: project.id } });
+    expect(stillPending?.registryEnabled).toBe(false);
+    expect(stillPending?.graphState).toBe('READY');
+
+    const firstReviewJob = await createReviewJobRow(
+      firstVersion.id,
+      `manual:${firstVersion.packageName}:1.0.0`,
+      'MANUAL',
+      `ready-${RUN_ID}-pkg-a`
+    );
+    await prisma.decision.create({
+      data: {
+        reviewJobId: firstReviewJob,
+        packageVersionId: firstVersion.id,
+        verdict: 'ALLOW',
+        reasonSummary: 'Partial readiness path',
+        actorType: 'AGENT',
+      },
+    });
+
+    await readyQueue.send('project-ready', {
+      projectId: project.id,
+      reason: 'partial-check',
+    } as any);
+    await sleep(1000);
+
+    const stillWaiting = await prisma.project.findUnique({ where: { id: project.id } });
+    expect(stillWaiting?.registryEnabled).toBe(false);
+
+    const secondReviewJob = await createReviewJobRow(
+      secondVersion.id,
+      `manual:${secondVersion.packageName}:1.0.0`,
+      'MANUAL',
+      `ready-${RUN_ID}-pkg-b`
+    );
+    await prisma.decision.create({
+      data: {
+        reviewJobId: secondReviewJob,
+        packageVersionId: secondVersion.id,
+        verdict: 'ALLOW',
+        reasonSummary: 'Partial readiness path',
+        actorType: 'AGENT',
+      },
+    });
+
+    await readyQueue.send('project-ready', {
+      projectId: project.id,
+      reason: 'final-check',
+    } as any);
+
+    for (let i = 0; i < 8; i++) {
+      const projectReady = await prisma.project.findUnique({ where: { id: project.id } });
+      if (projectReady?.registryEnabled) {
+        break;
+      }
+      await sleep(500);
+    }
+
+    const doneProject = await prisma.project.findUnique({ where: { id: project.id } });
+    expect(doneProject?.registryEnabled).toBe(true);
+    expect(doneProject?.graphState).toBe('READY');
+
+    await readyQueue.stop();
+    await deleteReviewJobs([firstReviewJob, secondReviewJob]);
+    await prisma.decision.deleteMany({ where: { packageVersionId: { in: [firstVersion.id, secondVersion.id] } } });
+    await prisma.importedPackageVersion.deleteMany({ where: { projectId: project.id } });
+    await prisma.project.delete({ where: { id: project.id } });
+    await prisma.packageVersion.deleteMany({ where: { id: { in: [firstVersion.id, secondVersion.id] } } });
+  });
+
+  it('23. re-audit campaigns re-enqueue only currently allowed versions', async () => {
+    if (!hasImportedPackageVersionTable) {
+      return;
+    }
+
+    const isolatedSchema = `pgboss_reaudit_${RUN_ID}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const reAuditQueue = new JobQueue({
+      connectionString: TEST_DSN,
+      schema: isolatedSchema,
+      maxRetries: 1,
+      backoffDelayMs: 1000,
+      timeoutMs: 30_000,
+      concurrency: {},
+    });
+
+    const prisma = getPrisma();
+    await reAuditQueue.start();
+
+    await registerReAuditCampaignHandler(reAuditQueue);
+
+    const project = await prisma.project.create({
+      data: { name: `project-reaudit-${RUN_ID}`, graphState: 'READY', registryEnabled: true },
+    });
+
+    const allowedVersion = await prisma.packageVersion.create({
+      data: {
+        packageName: `reaudit-${RUN_ID}-allow`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-reaudit-allow-${RUN_ID}`,
+      },
+    });
+
+    const blockedVersion = await prisma.packageVersion.create({
+      data: {
+        packageName: `reaudit-${RUN_ID}-block`,
+        version: '2.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-reaudit-block-${RUN_ID}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.createMany({
+      data: [
+        { projectId: project.id, packageVersionId: allowedVersion.id },
+        { projectId: project.id, packageVersionId: blockedVersion.id },
+      ],
+    });
+
+    const allowedReviewJob = await createReviewJobRow(
+      allowedVersion.id,
+      `manual:${allowedVersion.packageName}:1.0.0`,
+      'MANUAL',
+      `reaudit-${RUN_ID}:allow`
+    );
+    const allowedDecision = await prisma.decision.create({
+      data: {
+        reviewJobId: allowedReviewJob,
+        packageVersionId: allowedVersion.id,
+        verdict: 'ALLOW',
+        reasonSummary: 'No active override',
+        actorType: 'AGENT',
+      },
+    });
+
+    const blockedReviewJob = await createReviewJobRow(
+      blockedVersion.id,
+      `manual:${blockedVersion.packageName}:2.0.0`,
+      'MANUAL',
+      `reaudit-${RUN_ID}:blocked`
+    );
+    const blockedDecision = await prisma.decision.create({
+      data: {
+        reviewJobId: blockedReviewJob,
+        packageVersionId: blockedVersion.id,
+        verdict: 'ALLOW',
+        reasonSummary: 'Allow but overridden',
+        actorType: 'AGENT',
+      },
+    });
+
+    const override = await createOverride({
+      decisionId: blockedDecision.id,
+      adminIdentity: `admin-${RUN_ID}@example.com`,
+      scope: 'SPECIFIC_VERSION',
+      targetVerdict: 'BLOCK',
+      reason: 'Security hold for re-audit path',
+    });
+
+    await reAuditQueue.send('re-audit-campaign' as any, { reason: `scheduled-${RUN_ID}` } as any);
+
+    for (let i = 0; i < 12; i++) {
+      const matchingJobs = await prisma.reviewJob.findMany({
+        where: {
+          trigger: 'RE_AUDIT',
+          packageVersionId: { in: [allowedVersion.id, blockedVersion.id] },
+        },
+      });
+      if (matchingJobs.length > 0) {
+        break;
+      }
+      await sleep(500);
+    }
+
+    const allowedReAuditJobs = await prisma.reviewJob.findMany({
+      where: {
+        trigger: 'RE_AUDIT',
+        packageVersionId: allowedVersion.id,
+        auditContext: { startsWith: 're-audit:' },
+      },
+    });
+    const blockedReAuditJobs = await prisma.reviewJob.findMany({
+      where: {
+        trigger: 'RE_AUDIT',
+        packageVersionId: blockedVersion.id,
+        auditContext: { startsWith: 're-audit:' },
+      },
+    });
+
+    expect(allowedReAuditJobs).toHaveLength(1);
+    expect(blockedReAuditJobs).toHaveLength(0);
+
+    const campaign = await prisma.reAuditCampaign.findFirst({
+      where: { projectId: project.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(campaign).toBeDefined();
+    expect(allowedDecision).toBeDefined();
+
+    let completedCampaign = campaign;
+    for (let i = 0; i < 12; i++) {
+      const current = await prisma.reAuditCampaign.findFirst({
+        where: { id: campaign!.id },
+      });
+      if (current?.status === 'COMPLETED') {
+        completedCampaign = current;
+        break;
+      }
+      await sleep(500);
+    }
+
+    expect(completedCampaign?.status).toBe('COMPLETED');
+
+    const campaignDecisionLinks = await prisma.decision.findMany({
+      where: {
+        reAuditCampaigns: { some: { id: completedCampaign?.id } },
+      },
+    });
+    expect(campaignDecisionLinks.some((decision) => decision.id === allowedDecision.id)).toBe(true);
+
+    await reAuditQueue.stop();
+    await prisma.override.delete({ where: { id: override.id } });
+    await deleteReviewJobs([allowedReviewJob, blockedReviewJob]);
+    await prisma.decision.deleteMany({ where: { packageVersionId: { in: [allowedVersion.id, blockedVersion.id] } } });
+    await prisma.importedPackageVersion.deleteMany({ where: { projectId: project.id } });
+    await prisma.reAuditCampaign.deleteMany({ where: { projectId: project.id } });
+    await prisma.project.delete({ where: { id: project.id } });
+    await prisma.packageVersion.deleteMany({ where: { id: { in: [allowedVersion.id, blockedVersion.id] } } });
+
   });
 });
