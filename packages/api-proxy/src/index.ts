@@ -1,13 +1,22 @@
 import Fastify from 'fastify';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
-import { defaultConfig } from '@modulewarden/shared/config';
+import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
+import PgBoss from 'pg-boss';
 
 export async function buildServer() {
   const config = defaultConfig();
   const prisma = getPrisma();
   await prisma.$connect();
+  const connectionString = buildPostgresConnectionString(config, true);
+
+  const boss = new PgBoss({
+    connectionString,
+    schema: config.postgres.schema,
+  });
+  await boss.start();
+  await boss.createQueue('package-review');
 
   const app = Fastify({
     logger: {
@@ -22,14 +31,15 @@ export async function buildServer() {
   await registerTarballRoute(
     app,
     config.verdaccio.registryUrl,
-    // Inline pg-boss send for tarball review enqueueing
-    // Worker will register the actual handler for package-review
     async (queue: string, data: Record<string, unknown>) => {
-      // TODO: wire pg-boss send through shared JobQueue
-      // For now, this is a no-op placeholder — the worker package
-      // will provide the actual JobQueue instance in production.
-      console.log(`[proxy] Would enqueue ${queue}:`, JSON.stringify(data).slice(0, 200));
-      return 'placeholder';
+      return boss.send(queue, data, {
+        singletonKey: String(data.idempotencyKey),
+        singletonSeconds: 86400,
+        retryLimit: config.jobs.retryPolicy.maxRetries,
+        retryBackoff: true,
+        retryDelay: config.jobs.retryPolicy.backoffDelayMs,
+        expireInSeconds: Math.ceil(config.jobs.retryPolicy.timeoutMs / 1000),
+      });
     }
   );
 
@@ -37,6 +47,11 @@ export async function buildServer() {
 
   app.get('/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
+  });
+
+  app.addHook('onClose', async () => {
+    await boss.stop();
+    await disconnectPrisma();
   });
 
   return app;

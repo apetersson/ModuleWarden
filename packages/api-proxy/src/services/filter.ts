@@ -22,7 +22,7 @@ export function filterToApproved(
   const versions: Record<string, NpmPackageVersion> = {};
 
   for (const [version, versionData] of Object.entries(packument.versions)) {
-    const decision = decisions.get(version);
+    const decision = getDecisionForPackumentVersion(version, versionData, decisions);
 
     if (decision?.verdict === 'ALLOW') {
       allowedVersions[version] = versionData;
@@ -52,7 +52,10 @@ export function filterToApproved(
   const sortedAllowed = Object.keys(allowedVersions).sort(semverSortDesc);
 
   for (const [tag, taggedVersion] of Object.entries(packument['dist-tags'])) {
-    const decision = decisions.get(taggedVersion);
+    const taggedData = packument.versions[taggedVersion];
+    const decision = taggedData
+      ? getDecisionForPackumentVersion(taggedVersion, taggedData, decisions)
+      : null;
 
     if (decision?.verdict === 'ALLOW') {
       approvedDistTags[tag] = taggedVersion;
@@ -96,6 +99,24 @@ export function isVersionDenied(
 ): boolean {
   const decision = decisions.get(version);
   return decision?.verdict === 'BLOCK' || decision?.verdict === 'QUARANTINE';
+}
+
+function getDecisionForPackumentVersion(
+  version: string,
+  versionData: NpmPackageVersion,
+  decisions: Map<string, VersionDecision>
+): VersionDecision | undefined {
+  const upstreamHash = versionData.dist?.integrity ?? versionData.dist?.shasum;
+  if (upstreamHash) {
+    const exact = decisions.get(decisionKey(version, upstreamHash));
+    if (exact) return exact;
+  }
+
+  return decisions.get(version);
+}
+
+function decisionKey(version: string, tarballHash: string): string {
+  return `${version}::${tarballHash}`;
 }
 
 /**

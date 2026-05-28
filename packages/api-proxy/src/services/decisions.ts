@@ -1,9 +1,13 @@
-import { getPrisma } from '@modulewarden/prisma-client';
+import {
+  getBestActiveOverrideForPackageVersion,
+  getPrisma,
+} from '@modulewarden/prisma-client';
 import type { VersionDecision } from './filter.js';
 
 /**
  * Collect all decisions for a list of package versions.
- * Returns a Map of version -> effective decision (respecting active overrides).
+ * Returns a map keyed by `version::hash` so same version with different tarball
+ * hashes are tracked independently.
  */
 export async function getDecisionsForVersions(
   packageName: string,
@@ -13,26 +17,18 @@ export async function getDecisionsForVersions(
   if (upstreamVersions.length === 0) return decisions;
 
   const prisma = getPrisma();
-
   const packageVersions = await prisma.packageVersion.findMany({
     where: {
       packageName,
       version: { in: upstreamVersions },
     },
     select: {
+      id: true,
       version: true,
       tarballHash: true,
       predecessorDecisions: {
         orderBy: { createdAt: 'desc' },
-        take: 1,
-        select: {
-          verdict: true,
-          overrides: {
-            where: { active: true },
-            take: 1,
-            select: { id: true },
-          },
-        },
+        select: { id: true, verdict: true },
       },
     },
   });
@@ -41,27 +37,19 @@ export async function getDecisionsForVersions(
     const latestDecision = pv.predecessorDecisions[0];
     if (!latestDecision) continue;
 
-    // If there's an active override, the decision is superseded.
-    // An overridden decision means the admin changed the verdict.
-    // For now, an active override means the original decision is suspended.
-    const hasActiveOverride = latestDecision.overrides.length > 0;
-
-    if (hasActiveOverride) {
-      // Decision is overridden — to determine the effective verdict,
-      // look for the most recent override-linked decision or treat the
-      // override as blocking the original verdict.
-      // v1 simplifies: if overridden, we check if there's a follow-up
-      // decision that the admin created. Otherwise the effective verdict
-      // is what the admin set in the override's associated decision.
-      // For now, skip overridden decisions (they'll be handled separately)
-      continue;
-    }
-
-    decisions.set(pv.version, {
+    const activeOverride = await getBestActiveOverrideForPackageVersion(pv.id);
+    const verdict = activeOverride?.targetVerdict ?? latestDecision.verdict;
+    const value: VersionDecision = {
       version: pv.version,
-      verdict: latestDecision.verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
+      verdict: verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE',
       tarballHash: pv.tarballHash,
-    });
+    };
+    decisions.set(decisionKey(pv.version, pv.tarballHash), value);
+    // fallback key by version remains for compatibility with code paths that do not
+    // yet pass the exact hash through.
+    if (!decisions.has(pv.version)) {
+      decisions.set(pv.version, value);
+    }
   }
 
   return decisions;
@@ -87,25 +75,25 @@ export async function getEffectiveVerdictByHash(
       },
     },
     select: {
+      id: true,
       predecessorDecisions: {
         orderBy: { createdAt: 'desc' },
-        take: 1,
-        select: {
-          verdict: true,
-          overrides: {
-            where: { active: true },
-            take: 1,
-            select: { id: true },
-          },
-        },
+        select: { verdict: true },
       },
     },
   });
 
   if (!pv || pv.predecessorDecisions.length === 0) return null;
 
-  const latest = pv.predecessorDecisions[0];
-  if (latest.overrides.length > 0) return null; // Overridden — needs admin re-check
+  const latestDecision = pv.predecessorDecisions[0];
+  const activeOverride = await getBestActiveOverrideForPackageVersion(pv.id);
+  return (activeOverride?.targetVerdict ?? latestDecision.verdict) as
+    | 'ALLOW'
+    | 'BLOCK'
+    | 'QUARANTINE'
+    | null;
+}
 
-  return latest.verdict as 'ALLOW' | 'BLOCK' | 'QUARANTINE';
+function decisionKey(version: string, tarballHash: string): string {
+  return `${version}::${tarballHash}`;
 }

@@ -78,7 +78,7 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
         });
       }
 
-      // Collect decisions for all upstream versions
+      // Collect decisions for all upstream versions (keyed by version + exact hash).
       const upstreamVersions = Object.keys(upstream.versions);
       const decisions = await getDecisionsForVersions(packageName, upstreamVersions);
 

@@ -24,6 +24,9 @@ beforeAll(async () => {
 afterAll(async () => {
   const prisma = getPrisma();
   // Clean up test data
+  await prisma.importedPackageVersion.deleteMany({
+    where: { packageVersion: { packageName: { startsWith: 'import-test-' } } },
+  });
   await prisma.reviewJob.deleteMany({
     where: { packageVersion: { packageName: { startsWith: 'import-test-' } } },
   });

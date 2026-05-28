@@ -126,6 +126,7 @@ describe('npm proxy e2e', () => {
     await prisma.decision.deleteMany({ where: { reviewJob: { packageVersion: { packageName: 'e2e-test-pkg' } } } });
     await prisma.reviewJob.deleteMany({ where: { packageVersion: { packageName: 'e2e-test-pkg' } } });
     await prisma.tarballArtifact.deleteMany({ where: { packageVersion: { packageName: 'e2e-test-pkg' } } });
+    await prisma.importedPackageVersion.deleteMany({ where: { packageVersion: { packageName: 'e2e-test-pkg' } } });
     await prisma.packageVersion.deleteMany({ where: { packageName: 'e2e-test-pkg' } });
     await prisma.project.deleteMany({ where: { id: projectId } });
     await app.close();

@@ -1,6 +1,7 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import type { LockfileEntry, LockfileParseResult } from '@modulewarden/shared/services/lockfile';
 import { parseLockfile } from '@modulewarden/shared/services/lockfile';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { existsSync } from 'node:fs';
 
 export interface ImportResult {
@@ -24,7 +25,8 @@ export interface ImportResult {
  */
 export async function importLockfile(
   projectId: string,
-  lockfilePath: string
+  lockfilePath: string,
+  pgBossSend?: (queue: string, data: Record<string, unknown>) => Promise<string | null>
 ): Promise<ImportResult> {
   const result: ImportResult = {
     projectId,
@@ -51,12 +53,19 @@ export async function importLockfile(
   }
 
   const prisma = getPrisma();
+  const lockfileImport = await prisma.lockfileImport.create({
+    data: {
+      projectId,
+      lockfilePath,
+      packageCount: parseResult.entries.length,
+    },
+  });
 
   // 3. Upsert each package version and create subscriptions
   for (const entry of parseResult.entries) {
     try {
       // Upsert package version
-      await prisma.packageVersion.upsert({
+      const packageVersion = await prisma.packageVersion.upsert({
         where: {
           packageName_version_registrySource_tarballHash: {
             packageName: entry.packageName,
@@ -75,6 +84,21 @@ export async function importLockfile(
         update: {}, // No-op on conflict
       });
       result.newVersions++;
+
+      await prisma.importedPackageVersion.upsert({
+        where: {
+          projectId_packageVersionId: {
+            projectId,
+            packageVersionId: packageVersion.id,
+          },
+        },
+        create: {
+          projectId,
+          packageVersionId: packageVersion.id,
+          lockfileImportId: lockfileImport.id,
+        },
+        update: { lockfileImportId: lockfileImport.id },
+      });
 
       // Create subscription for each package (upsert)
       await prisma.packageSubscription.upsert({
@@ -95,32 +119,33 @@ export async function importLockfile(
       });
       result.newSubscriptions++;
 
-      // Enqueue cold-start review via pg-boss (create review job)
-      // v1 uses createReviewJob directly — pg-boss integration will be wired later
-      const idempotencyKey = `import:${entry.packageName}:${entry.version}:${entry.integrity}`;
-
-      // Check if a review job already exists
-      const existingJob = await prisma.reviewJob.findUnique({
+      const auditContext = `lockfile-import:${lockfilePath.split('/').pop()}`;
+      const idempotencyKey = buildIdempotencyKey('package-review', entry.packageName, entry.version, entry.integrity, auditContext);
+      const reviewJob = await prisma.reviewJob.upsert({
         where: { idempotencyKey },
+        create: {
+          packageVersionId: packageVersion.id,
+          auditContext,
+          trigger: 'PREFLIGHT',
+          status: 'PENDING',
+          idempotencyKey,
+        },
+        update: {},
       });
 
-      if (!existingJob) {
-        await prisma.reviewJob.create({
+      if (reviewJob.status === 'PENDING') {
+        const pgBossJobId = await pgBossSend?.('package-review', {
+          packageName: entry.packageName,
+          packageVersion: entry.version,
+          tarballHash: entry.integrity,
+          auditContext,
+          idempotencyKey,
+        });
+        await prisma.reviewJob.update({
+          where: { id: reviewJob.id },
           data: {
-            packageVersion: {
-              connect: {
-                packageName_version_registrySource_tarballHash: {
-                  packageName: entry.packageName,
-                  version: entry.version,
-                  registrySource: 'npm',
-                  tarballHash: entry.integrity,
-                },
-              },
-            },
-            auditContext: `lockfile-import:${lockfilePath.split('/').pop()}`,
-            trigger: 'PREFLIGHT',
-            status: 'PENDING',
-            idempotencyKey,
+            status: pgBossJobId ? 'QUEUED' : 'PENDING',
+            pgBossJobId: pgBossJobId ?? undefined,
           },
         });
         result.enqueuedReviews++;
@@ -130,15 +155,6 @@ export async function importLockfile(
       result.errors.push(`Failed to process ${entry.packageName}@${entry.version}: ${message}`);
     }
   }
-
-  // 4. Record lockfile import
-  await prisma.lockfileImport.create({
-    data: {
-      projectId,
-      lockfilePath,
-      packageCount: parseResult.entries.length,
-    },
-  });
 
   // 5. Update project graph state
   await prisma.project.update({
@@ -162,19 +178,17 @@ export async function checkProjectReadiness(projectId: string): Promise<{
 }> {
   const prisma = getPrisma();
 
-  // Get all imported package versions for this project's subscriptions
-  const subscriptions = await prisma.packageSubscription.findMany({
-    where: { projectId, active: true },
-  });
-
-  const packageNames = subscriptions.map((s) => s.packageName);
-  const versions = await prisma.packageVersion.findMany({
-    where: { packageName: { in: packageNames } },
-    select: { id: true, predecessorDecisions: { take: 1, select: { id: true } } },
+  const versions = await prisma.importedPackageVersion.findMany({
+    where: { projectId },
+    select: {
+      packageVersion: {
+        select: { predecessorDecisions: { take: 1, select: { id: true } } },
+      },
+    },
   });
 
   const total = versions.length;
-  const decided = versions.filter((v) => v.predecessorDecisions.length > 0).length;
+  const decided = versions.filter((v) => v.packageVersion.predecessorDecisions.length > 0).length;
   const pending = total - decided;
 
   return {
@@ -183,6 +197,21 @@ export async function checkProjectReadiness(projectId: string): Promise<{
     decided,
     pending,
   };
+}
+
+/**
+ * Re-check all projects that currently include this package version and promote
+ * them to READY when all imported versions are decided.
+ */
+export async function refreshProjectReadinessForPackageVersion(packageVersionId: string): Promise<void> {
+  const prisma = getPrisma();
+  const projectLinks = await prisma.importedPackageVersion.findMany({
+    where: { packageVersionId },
+    select: { projectId: true },
+  });
+  for (const { projectId } of projectLinks) {
+    await tryEnableProjectRegistry(projectId);
+  }
 }
 
 /**

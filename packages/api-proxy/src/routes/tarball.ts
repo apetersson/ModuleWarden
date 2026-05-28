@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { getEffectiveVerdictByHash } from '../services/decisions.js';
-import { fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
+import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import type { RegistryError } from '@modulewarden/shared/npm-types';
 
 interface TarballParams {
@@ -81,15 +82,51 @@ export async function registerTarballRoute(
         } satisfies RegistryError);
       }
 
-      // Find the package version in our database by name + version
-      const pv = await prisma.packageVersion.findFirst({
-        where: { packageName, version },
+      const upstream = await fetchUpstreamPackument(packageName);
+      const versionData = upstream?.versions?.[version];
+      const resolvedHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum;
+
+      let pv = await prisma.packageVersion.findFirst({
+        where: {
+          packageName,
+          version,
+          registrySource: 'npm',
+          ...(resolvedHash ? { tarballHash: resolvedHash } : {}),
+        },
         orderBy: { createdAt: 'desc' },
       });
 
-      if (pv) {
+      if (!pv && resolvedHash) {
+        // Preserve exact version/hash identity for this incoming request.
+        pv = await prisma.packageVersion.upsert({
+          where: {
+            packageName_version_registrySource_tarballHash: {
+              packageName,
+              version,
+              registrySource: 'npm',
+              tarballHash: resolvedHash,
+            },
+          },
+          create: {
+            packageName,
+            version,
+            registrySource: 'npm',
+            tarballHash: resolvedHash,
+            hasLifecycleScript: typeof versionData?.scripts === 'object' &&
+              Object.keys(versionData.scripts ?? {}).length > 0,
+          },
+          update: {},
+          select: {
+            id: true,
+            tarballHash: true,
+          },
+        });
+      }
+
+      const effectiveHash = pv?.tarballHash ?? resolvedHash ?? '';
+      if (pv || resolvedHash) {
         // We know about this version — check its effective verdict
-        const verdict = await getEffectiveVerdictByHash(packageName, version, pv.tarballHash);
+        const verdict = await getEffectiveVerdictByHash(packageName, version, effectiveHash);
 
         if (verdict === 'ALLOW') {
           // Proxy tarball from Verdaccio
@@ -122,12 +159,14 @@ export async function registerTarballRoute(
 
       // Version not found or no decision — enqueue review
       if (pgBossSend) {
+        const auditContext = `preflight:tarball:${packageName}@${version}`;
+        const tarballHash = effectiveHash || `unresolved:${packageName}@${version}`;
         await pgBossSend('package-review', {
           packageName,
           packageVersion: version,
-          tarballHash: pv?.tarballHash ?? 'unknown',
-          auditContext: `preflight:tarball:${packageName}@${version}`,
-          idempotencyKey: `tarball:${packageName}:${version}`,
+          tarballHash,
+          auditContext,
+          idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
         }).catch(() => {
           // Fire-and-forget: queueing failure shouldn't crash the proxy
         });
