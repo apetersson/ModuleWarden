@@ -3,11 +3,11 @@ id: TASK-1.8
 title: >-
   Build private core prompt packs, custom prompts, escalation, and re-audit
   scheduling
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:50'
+updated_date: '2026-05-28 11:57'
 labels:
   - prompts
   - models
@@ -59,6 +59,12 @@ Escalation path wired: shouldEscalateVerdict() in api-proxy/service/escalation.t
 
 TASK-1.13 started. Evaluation corpus and runner created.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Prompt pack and model profile repositories created. Prompt-pack.ts service provides assembleAuditInstructions, buildContainerInstructionFile for per-audit instruction bundles, shouldEscalate for escalation detection. Prompt-reaudit.ts service triggers re-audit campaigns on prompt/model changes. Escalation detection wired in internal verdict endpoint.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
