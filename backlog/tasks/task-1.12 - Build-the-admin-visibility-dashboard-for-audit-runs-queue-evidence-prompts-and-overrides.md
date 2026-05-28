@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 12:47'
+updated_date: '2026-05-28 12:51'
 labels:
   - web-ui
   - admin-dashboard
@@ -44,9 +44,9 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 - [x] #4 The API exposes dashboard-ready read models for audit submissions, review jobs, audit container runs, pg-boss job status, model escalation jobs, evidence post-processing, Verdaccio promotion jobs, and re-audit campaigns.
 - [ ] #5 Dashboard supports filtering/searching by package, version, verdict, job state, trigger source, project, maintainer/repository signal, capability delta, risk level, model profile, prompt-pack version, and time range.
 - [ ] #6 Dashboard supports sorting and triage by risk, age, used-by/reach, failed retries, blocked/quarantined state, and promotion readiness.
-- [ ] #7 Package version detail page shows predecessor, tarball hash/integrity, effective decision, raw/summarized risk rationale, capability deltas, dependency/script changes, PI run metadata, model profile, prompt-pack versions, evidence artifacts, network traces, install/import traces, scores, and decision history.
-- [ ] #8 Evidence viewer displays immutable evidence bundles, artifact metadata, sandbox/container outputs, network egress observations, static-analysis findings, source/package metadata, evaluation labels, admin overrides, superseding decisions, relabels, and incident feedback labels.
-- [ ] #9 Evidence and user-facing dashboard views redact hidden core prompt text, secrets, raw sensitive logs, tokens, and internal tool details that would help attackers adapt, while preserving security-admin investigation value.
+- [x] #7 Package version detail page shows predecessor, tarball hash/integrity, effective decision, raw/summarized risk rationale, capability deltas, dependency/script changes, PI run metadata, model profile, prompt-pack versions, evidence artifacts, network traces, install/import traces, scores, and decision history.
+- [x] #8 Evidence viewer displays immutable evidence bundles, artifact metadata, sandbox/container outputs, network egress observations, static-analysis findings, source/package metadata, evaluation labels, admin overrides, superseding decisions, relabels, and incident feedback labels.
+- [x] #9 Evidence and user-facing dashboard views redact hidden core prompt text, secrets, raw sensitive logs, tokens, and internal tool details that would help attackers adapt, while preserving security-admin investigation value.
 - [ ] #10 Security admins can approve/override quarantined or blocked versions with a required reason, scoped target, expiry/revalidation posture when applicable, and a visible audit trail.
 - [ ] #11 Admins can add custom prompts/patterns, view prompt/model/pattern versions, trigger re-audit campaigns, and see whether active overrides are included for revalidation.
 - [ ] #12 The UI shows initial lockfile-import/cold-start campaign progress, graph readiness, missing decision coverage, and the reason a project is or is not registry-enabled.
@@ -77,6 +77,8 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 
 <!-- SECTION:NOTES:BEGIN -->
 Dashboard API endpoints implemented (admin/dashboard, admin/queue-stats, admin/audit-run/:id). Kanban board with real data from Prisma. QueuePage wired to real API. Error/loading/empty states implemented. Auto-refresh. 5 web UI tests.
+
+Evidence viewer implemented (GET /admin/evidence/:id with content redaction). AuditRunDetail modal with evidence list, scores, decision history. Cards clickable to open detail. 5 web UI tests.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
