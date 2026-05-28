@@ -92,4 +92,106 @@ describe('web-ui dashboard', () => {
     expect(source).toContain('getBearerToken');
     expect(source).toContain('MW_AUTH_ADMIN_TOKENS');
   });
+
+  // ── Prompts Page (AC #11) ─────────────────────────────────
+
+  it('has PromptsPage with fetch to /admin/prompts', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('PromptsPage');
+    expect(source).toContain('/admin/prompts');
+    expect(source).toContain('Core Prompts');
+    expect(source).toContain('Custom Prompts');
+    expect(source).toContain('Prompt Packs');
+  });
+
+  it('PromptsPage has loading, error, and empty states', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('Loading prompts');
+    expect(source).toContain('Unable to load prompts');
+    expect(source).toContain('No prompt packs found');
+  });
+
+  // ── Campaigns Page (AC #15) ─────────────────────────────
+
+  it('has CampaignsPage with fetch to /admin/campaigns', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('CampaignsPage');
+    expect(source).toContain('/admin/campaigns');
+    expect(source).toContain('Re-Audit Campaigns');
+    expect(source).toContain('campaignStatusColor');
+    expect(source).toContain('triggerType');
+  });
+
+  it('CampaignsPage has loading, error, and empty states', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('Loading campaigns');
+    expect(source).toContain('Unable to load campaigns');
+    expect(source).toContain('No re-audit campaigns found');
+    expect(source).toContain('COMPLETED');
+    expect(source).toContain('RUNNING');
+    expect(source).toContain('PENDING');
+    expect(source).toContain('CANCELLED');
+  });
+
+  // ── Evaluation Page (AC #16) ────────────────────────────
+
+  it('has EvaluationPage with fetch to /admin/evaluation', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('EvaluationPage');
+    expect(source).toContain('/admin/evaluation');
+    expect(source).toContain('Evaluation Results');
+  });
+
+  it('EvaluationPage has loading, error, and empty states', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('Loading evaluation data');
+    expect(source).toContain('Unable to load evaluation results');
+    expect(source).toContain('No evaluation results available');
+  });
+
+  // ── Nav tabs (AC #11, #15, #16) ─────────────────────────
+
+  it('has Prompts, Campaigns, Evaluation nav tabs', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain("key: 'prompts'");
+    expect(source).toContain("key: 'campaigns'");
+    expect(source).toContain("key: 'evaluation'");
+    expect(source).toContain("label: 'Prompts'");
+    expect(source).toContain("label: 'Campaigns'");
+    expect(source).toContain("label: 'Evaluation'");
+  });
+
+  // ── Evidence redaction notice (AC #17) ─────────────────
+
+  it('shows redaction notice in evidence content viewer', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('redacted from this view');
+    expect(source).toContain('prompts, secrets, tokens, API keys');
+  });
+
+  // ── API connectivity in footer (AC #18) ─────────────────
+
+  it('checks API availability on mount with /health', () => {
+    const source = readFileSync('src/main.tsx', 'utf-8');
+    expect(source).toContain('/health');
+    expect(source).toContain('apiConnected');
+    expect(source).toContain('Connected');
+    expect(source).toContain('Disconnected');
+  });
+
+  // ── Dashboard API endpoint tests ───────────────────────
+
+  it('dashboard.ts has prompts, evaluation endpoints', () => {
+    const dashboardSource = readFileSync('../api-proxy/src/routes/dashboard.ts', 'utf-8');
+    expect(dashboardSource).toContain('/admin/prompts');
+    expect(dashboardSource).toContain('promptPack.findMany');
+    expect(dashboardSource).toContain('/admin/evaluation');
+    expect(dashboardSource).toContain('EVALUATION_RESULT');
+  });
+
+  it('dashboard.ts has campaigns endpoint', () => {
+    const dashboardSource = readFileSync('../api-proxy/src/routes/dashboard.ts', 'utf-8');
+    expect(dashboardSource).toContain('/admin/campaigns');
+    expect(dashboardSource).toContain('reAuditCampaign.findMany');
+  });
 });

@@ -284,4 +284,95 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       });
     }
   );
+
+  // ── GET /admin/campaigns — List re-audit campaigns ───────────
+
+  app.get('/admin/campaigns', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const prisma = getPrisma();
+    try {
+      const campaigns = await prisma.reAuditCampaign.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          reason: true,
+          triggerType: true,
+          status: true,
+          createdAt: true,
+          completedAt: true,
+          projectId: true,
+        },
+      });
+      return reply.send(campaigns);
+    } catch {
+      return reply.send([]);
+    }
+  });
+
+  // ── GET /admin/prompts — List prompt pack versions ──────────
+
+  app.get('/admin/prompts', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const prisma = getPrisma();
+    try {
+      const prompts = await prisma.promptPack.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          name: true,
+          version: true,
+          category: true,
+          createdAt: true,
+        },
+      });
+      return reply.send(prompts);
+    } catch {
+      return reply.send([]);
+    }
+  });
+
+  // ── GET /admin/evaluation — List evaluation corpus results ──
+
+  app.get('/admin/evaluation', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const prisma = getPrisma();
+    try {
+      // Query evaluation results: decisions with EVALUATION_RESULT labels
+      const results = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        SELECT
+          el.id as label_id,
+          el.label_value,
+          el.label_description,
+          el.created_at as label_created_at,
+          d.id as decision_id,
+          d.verdict,
+          d.reason_summary,
+          d.created_at as decision_created_at,
+          pv.package_name,
+          pv.version
+        FROM evaluation_labels el
+        JOIN decisions d ON d.id = el.decision_id
+        JOIN package_versions pv ON pv.id = d.package_version_id
+        WHERE el.label_type = 'EVALUATION_RESULT'
+        ORDER BY el.created_at DESC
+        LIMIT 100
+      `);
+
+      const mapped = results.map((r) => ({
+        labelId: String(r.label_id),
+        labelValue: String(r.label_value),
+        labelDescription: r.label_description ? String(r.label_description) : null,
+        labelCreatedAt: String(r.label_created_at),
+        decisionId: String(r.decision_id),
+        verdict: r.verdict ? String(r.verdict) : null,
+        reasonSummary: r.reason_summary ? String(r.reason_summary) : null,
+        decisionCreatedAt: String(r.decision_created_at),
+        packageName: String(r.package_name ?? ''),
+        packageVersion: String(r.version ?? ''),
+      }));
+
+      return reply.send(mapped);
+    } catch {
+      return reply.send([]);
+    }
+  });
 }

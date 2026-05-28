@@ -512,6 +512,397 @@ function DashboardPage({ onCardClick }: { onCardClick?: (id: string) => void }) 
   );
 }
 
+// ── Prompts Page ─────────────────────────────────────────
+
+interface PromptPack {
+  id: string;
+  name: string;
+  version: string;
+  category: string;
+  createdAt: string;
+}
+
+function PromptsPage() {
+  const [prompts, setPrompts] = useState<PromptPack[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function doFetch() {
+      try {
+        const resp = await fetch(`${API_BASE}/admin/prompts`);
+        if (resp.ok) {
+          setPrompts(await resp.json() as PromptPack[]);
+        } else {
+          setError(`Prompts API: ${resp.status}`);
+        }
+      } catch (err) {
+        setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      setLoading(false);
+    }
+    doFetch();
+  }, []);
+
+  if (loading) {
+    return <div><h2>Prompt Packs</h2><p style={{ color: '#666' }}>Loading prompts...</p></div>;
+  }
+
+  if (error) {
+    return (
+      <div>
+        <h2>Prompt Packs</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#c62828' }}>
+          <p style={{ fontSize: '1.2rem' }}>Unable to load prompts</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (prompts.length === 0) {
+    return (
+      <div>
+        <h2>Prompt Packs</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+          <p>No prompt packs found.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+            Prompt packs are created when packages are audited. Import a lockfile or trigger a review to generate prompts.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const corePrompts = prompts.filter((p) => p.category === 'CORE' || p.category === 'PATTERN_CHECK');
+  const customPrompts = prompts.filter((p) => p.category === 'CUSTOM_ADMIN' || p.category === 'ESCALATION');
+
+  function renderTable(rows: PromptPack[]) {
+    return (
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #ddd' }}>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Name</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Version</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Category</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((p) => (
+            <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+              <td style={{ padding: '0.4rem', fontFamily: 'monospace' }}>{p.name}</td>
+              <td style={{ padding: '0.4rem' }}>{p.version}</td>
+              <td style={{ padding: '0.4rem' }}>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  background: p.category === 'CORE' ? '#e3f2fd' : p.category === 'CUSTOM_ADMIN' ? '#fff3e0' : '#f3e5f5',
+                  color: p.category === 'CORE' ? '#1565c0' : p.category === 'CUSTOM_ADMIN' ? '#e65100' : '#6a1b9a',
+                }}>
+                  {p.category}
+                </span>
+              </td>
+              <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(p.createdAt).toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  return (
+    <div>
+      <h2>Prompt Packs</h2>
+      <p style={{ color: '#666', fontSize: '0.9rem' }}>{prompts.length} total prompt packs</p>
+
+      {customPrompts.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}>Custom Prompts ({customPrompts.length})</h3>
+          {renderTable(customPrompts)}
+        </div>
+      )}
+
+      <div style={{ marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}>Core Prompts ({corePrompts.length})</h3>
+        {renderTable(corePrompts)}
+      </div>
+    </div>
+  );
+}
+
+// ── Campaigns Page ───────────────────────────────────────
+
+interface Campaign {
+  id: string;
+  reason: string;
+  triggerType: string;
+  status: string;
+  createdAt: string;
+  completedAt: string | null;
+  projectId: string;
+}
+
+function CampaignsPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function doFetch() {
+      try {
+        const resp = await fetch(`${API_BASE}/admin/campaigns`);
+        if (resp.ok) {
+          setCampaigns(await resp.json() as Campaign[]);
+        } else {
+          setError(`Campaigns API: ${resp.status}`);
+        }
+      } catch (err) {
+        setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      setLoading(false);
+    }
+    doFetch();
+  }, []);
+
+  if (loading) {
+    return <div><h2>Re-Audit Campaigns</h2><p style={{ color: '#666' }}>Loading campaigns...</p></div>;
+  }
+
+  if (error) {
+    return (
+      <div>
+        <h2>Re-Audit Campaigns</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#c62828' }}>
+          <p style={{ fontSize: '1.2rem' }}>Unable to load campaigns</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (campaigns.length === 0) {
+    return (
+      <div>
+        <h2>Re-Audit Campaigns</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+          <p>No re-audit campaigns found.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+            Campaigns are created when prompts or model profiles change, triggering re-evaluation of previously audited packages.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function campaignStatusColor(status: string): string {
+    switch (status) {
+      case 'COMPLETED': return '#2e7d32';
+      case 'RUNNING': return '#1565c0';
+      case 'PENDING': return '#f57f17';
+      case 'CANCELLED': return '#757575';
+      default: return '#757575';
+    }
+  }
+
+  return (
+    <div>
+      <h2>Re-Audit Campaigns</h2>
+      <p style={{ color: '#666', fontSize: '0.9rem' }}>{campaigns.length} total campaigns</p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #ddd' }}>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>ID</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Reason</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Trigger</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Status</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Created</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Completed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {campaigns.map((c) => (
+            <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+              <td style={{ padding: '0.4rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                {c.id.slice(0, 8)}...
+              </td>
+              <td style={{ padding: '0.4rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {c.reason}
+              </td>
+              <td style={{ padding: '0.4rem' }}>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  background: '#e8eaf6',
+                  color: '#283593',
+                }}>
+                  {c.triggerType}
+                </span>
+              </td>
+              <td style={{ padding: '0.4rem' }}>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#fff',
+                  background: campaignStatusColor(c.status),
+                }}>
+                  {c.status}
+                </span>
+              </td>
+              <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(c.createdAt).toLocaleString()}</td>
+              <td style={{ padding: '0.4rem', color: '#666' }}>
+                {c.completedAt ? new Date(c.completedAt).toLocaleString() : '\u2014'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Evaluation Page ──────────────────────────────────────
+
+interface EvaluationResult {
+  labelId: string;
+  labelValue: string;
+  labelDescription: string | null;
+  labelCreatedAt: string;
+  decisionId: string;
+  verdict: string | null;
+  reasonSummary: string | null;
+  decisionCreatedAt: string;
+  packageName: string;
+  packageVersion: string;
+}
+
+function EvaluationPage() {
+  const [results, setResults] = useState<EvaluationResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function doFetch() {
+      try {
+        const resp = await fetch(`${API_BASE}/admin/evaluation`);
+        if (resp.ok) {
+          setResults(await resp.json() as EvaluationResult[]);
+        } else {
+          setError(`Evaluation API: ${resp.status}`);
+        }
+      } catch (err) {
+        setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      setLoading(false);
+    }
+    doFetch();
+  }, []);
+
+  if (loading) {
+    return <div><h2>Evaluation Results</h2><p style={{ color: '#666' }}>Loading evaluation data...</p></div>;
+  }
+
+  if (error) {
+    return (
+      <div>
+        <h2>Evaluation Results</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#c62828' }}>
+          <p style={{ fontSize: '1.2rem' }}>Unable to load evaluation results</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div>
+        <h2>Evaluation Results</h2>
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+          <p>No evaluation results available.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+            Evaluation results appear when packages are audited through the evaluation pipeline. Trigger a re-audit campaign or run the evaluation corpus to populate this view.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function verdictColor(verdict: string | null): string {
+    switch (verdict) {
+      case 'ALLOW': return '#2e7d32';
+      case 'BLOCK': return '#c62828';
+      case 'QUARANTINE': return '#f57f17';
+      default: return '#757575';
+    }
+  }
+
+  function matchResultColor(value: string): string {
+    if (value === 'caught' || value === 'correct-allow') return '#2e7d32';
+    if (value === 'missed' || value === 'false-positive-block' || value === 'false-positive-quarantine') return '#c62828';
+    if (value === 'quarantined') return '#f57f17';
+    return '#757575';
+  }
+
+  return (
+    <div>
+      <h2>Evaluation Results</h2>
+      <p style={{ color: '#666', fontSize: '0.9rem' }}>{results.length} evaluation result{results.length !== 1 ? 's' : ''}</p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #ddd' }}>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Package</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Version</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Verdict</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Result</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Description</th>
+            <th style={{ padding: '0.4rem', textAlign: 'left' }}>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((r) => (
+            <tr key={r.labelId} style={{ borderBottom: '1px solid #eee' }}>
+              <td style={{ padding: '0.4rem', fontFamily: 'monospace' }}>{r.packageName}</td>
+              <td style={{ padding: '0.4rem' }}>{r.packageVersion}</td>
+              <td style={{ padding: '0.4rem' }}>
+                {r.verdict ? (
+                  <span style={{ color: '#fff', background: verdictColor(r.verdict), padding: '1px 6px', borderRadius: 10, fontSize: '0.8rem', fontWeight: 600 }}>
+                    {r.verdict}
+                  </span>
+                ) : (
+                  <span style={{ color: '#999' }}>\u2014</span>
+                )}
+              </td>
+              <td style={{ padding: '0.4rem' }}>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#fff',
+                  background: matchResultColor(r.labelValue),
+                }}>
+                  {r.labelValue}
+                </span>
+              </td>
+              <td style={{ padding: '0.4rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#666' }}>
+                {r.labelDescription ?? r.reasonSummary ?? ''}
+              </td>
+              <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(r.labelCreatedAt).toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────
 
 // ── Audit Run Detail Modal ──────────────────────────────
@@ -761,6 +1152,9 @@ function AuditRunDetail({ runId, onClose }: { runId: string; onClose: () => void
             {evidenceContent && (
               <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: 4 }}>
                 <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}>Evidence Content</h3>
+                <div style={{ padding: '0.4rem 0.6rem', marginBottom: '0.5rem', background: '#fff8e1', borderRadius: 4, fontSize: '0.8rem', color: '#f57f17', border: '1px solid #ffe082' }}>
+                  Sensitive fields (prompts, secrets, tokens, API keys) are redacted from this view for security.
+                </div>
                 <pre style={{ fontSize: '0.8rem', overflow: 'auto', maxHeight: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   {JSON.stringify(evidenceContent, null, 2)}
                 </pre>
@@ -805,52 +1199,84 @@ function AuditRunDetail({ runId, onClose }: { runId: string; onClose: () => void
 }
 
 function App() {
-  const [page, setPage] = useState<'dashboard' | 'queue'>('dashboard');
+  const [page, setPage] = useState<'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation'>('dashboard');
   const [detailRunId, setDetailRunId] = useState<string | null>(null);
+  const [apiConnected, setApiConnected] = useState<boolean | null>(null);
+
+  // AC #18: Check API availability on mount
+  useEffect(() => {
+    async function checkApi() {
+      try {
+        const resp = await fetch(`${API_BASE}/health`);
+        setApiConnected(resp.ok);
+      } catch {
+        setApiConnected(false);
+      }
+    }
+    checkApi();
+  }, []);
+
+  const navItems: Array<{ key: typeof page; label: string }> = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'queue', label: 'Queue' },
+    { key: 'prompts', label: 'Prompts' },
+    { key: 'campaigns', label: 'Campaigns' },
+    { key: 'evaluation', label: 'Evaluation' },
+  ];
+
+  function renderPage() {
+    switch (page) {
+      case 'dashboard': return <DashboardPage onCardClick={(id) => setDetailRunId(id)} />;
+      case 'queue': return <QueuePage />;
+      case 'prompts': return <PromptsPage />;
+      case 'campaigns': return <CampaignsPage />;
+      case 'evaluation': return <EvaluationPage />;
+    }
+  }
+
   return (
     <>
       {detailRunId && (
         <AuditRunDetail runId={detailRunId} onClose={() => setDetailRunId(null)} />
       )}
       <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', maxWidth: 1200, margin: '0 auto', padding: '1rem' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>ModuleWarden</h1>
-        <nav style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() => setPage('dashboard')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: 'none',
-              borderRadius: 4,
-              background: page === 'dashboard' ? '#1976d2' : '#e0e0e0',
-              color: page === 'dashboard' ? '#fff' : '#333',
-              cursor: 'pointer',
-              fontWeight: page === 'dashboard' ? 600 : 400,
-            }}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => setPage('queue')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: 'none',
-              borderRadius: 4,
-              background: page === 'queue' ? '#1976d2' : '#e0e0e0',
-              color: page === 'queue' ? '#fff' : '#333',
-              cursor: 'pointer',
-              fontWeight: page === 'queue' ? 600 : 400,
-            }}
-          >
-            Queue
-          </button>
+        <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setPage(item.key)}
+              style={{
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: 4,
+                background: page === item.key ? '#1976d2' : '#e0e0e0',
+                color: page === item.key ? '#fff' : '#333',
+                cursor: 'pointer',
+                fontWeight: page === item.key ? 600 : 400,
+                fontSize: '0.9rem',
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
       </header>
 
-      {page === 'dashboard' ? <DashboardPage onCardClick={(id) => setDetailRunId(id)} /> : <QueuePage />}
+      {renderPage()}
 
-      <footer style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', color: '#999', fontSize: '0.85rem' }}>
-        ModuleWarden v0.1.0 — Auto-refreshes every {REFRESH_INTERVAL / 1000}s
+      <footer style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', color: '#999', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>ModuleWarden v0.1.0 — Auto-refreshes every {REFRESH_INTERVAL / 1000}s</span>
+        <span>
+          API: {apiConnected === null ? (
+            <span style={{ color: '#999' }}>Checking...</span>
+          ) : apiConnected ? (
+            <span style={{ color: '#2e7d32' }}>Connected</span>
+          ) : (
+            <span style={{ color: '#c62828' }}>Disconnected</span>
+          )}
+        </span>
       </footer>
     </div>
     </>
