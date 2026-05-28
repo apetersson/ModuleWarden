@@ -132,11 +132,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     if (!checkAdmin(request, reply)) return;
 
     const prisma = getPrisma();
-    const queueNames = [
-      'package-review', 'upstream-subscription-poll', 'audit-container-exec',
-      'model-escalation', 're-audit-campaign', 'evidence-post-process',
-      'verdaccio-promotion', 'project-ready',
-    ];
+    const queueNames = Object.values(JOB_TYPES);
     const stats: QueueStats[] = [];
 
     for (const q of queueNames) {

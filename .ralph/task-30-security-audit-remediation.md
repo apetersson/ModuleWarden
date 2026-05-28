@@ -23,30 +23,30 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [x] SEC-02: Split RPC token — use distinct tokens for PI auth vs outbound API calls
 - [ ] SEC-03: Replace `$queryRawUnsafe` with type-safe Prisma queries in dashboard
 - [x] SEC-05: Reject tarball if integrity hash cannot be resolved from upstream (fail closed)
-- [ ] SEC-06: Consolidate to single AST-aware implementation for static analysis
+- [x] SEC-06: Consolidate to single AST-aware implementation for static analysis (combined with ARCH-03)
 - [x] SEC-07: Only set `hasLifecycleScript: true` for install-phase lifecycle hooks
-- [ ] SEC-08: Implement recursive redaction of keys AND string values in evidence
+- [x] SEC-08: Implement recursive redaction of keys AND string values in evidence
 - [x] SEC-09: Extract `checkAdmin` into shared Fastify plugin/middleware
 
 ### Logic Bugs (5)
 - [x] BUG-01: Fix empty `tarballHash: ''` fallback in admin override route
 - [ ] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
-- [ ] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
+- [x] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
 - [ ] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
 - [ ] BUG-06: Add `active` boolean field to `ModelProfile` (migration)
 
 ### Architecture Issues (6)
 - [ ] ARCH-01: Fix PI process management — readiness check instead of fixed sleep, check stderr
-- [ ] ARCH-02: Fix fragile `isMainModule` detection
-- [ ] ARCH-03: Deduplicate static analysis — RPC server should import from shared
-- [ ] ARCH-04: Use shared `JobQueue` class in API proxy
+- [x] ARCH-02: Fix fragile `isMainModule` detection
+- [x] ARCH-03: Deduplicate static analysis — RPC server should import from shared
+- [x] ARCH-04: Use shared `JobQueue` class in API proxy
 - [ ] ARCH-05: Container runner — use Docker SDK instead of CLI (or defer with rationale)
 - [ ] ARCH-06: Add `schemaVersion` field to `EvidenceArtifact`
 
 ### Code Quality (6)
 - [ ] QUAL-01: Replace `as any` with generated Prisma enum types
 - [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) — or defer with rationale
-- [ ] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
+- [x] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
 - [ ] QUAL-04: Fix silent error swallowing — every catch block must log
 - [ ] QUAL-05: Use `JOB_TYPES` constant everywhere instead of magic strings
 - [ ] QUAL-06: Add input validation in admin override route

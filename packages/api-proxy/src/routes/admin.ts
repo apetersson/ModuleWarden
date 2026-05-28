@@ -39,6 +39,27 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'targetVerdict must be ALLOW, BLOCK, or QUARANTINE' });
       }
 
+      // Input validation for scope, packageName, version, reason (QUAL-06)
+      if (scope && !['SPECIFIC_VERSION', 'PACKAGE', 'PROJECT', 'GLOBAL'].includes(scope)) {
+        return reply.status(400).send({ error: 'scope must be SPECIFIC_VERSION, PACKAGE, PROJECT, or GLOBAL' });
+      }
+
+      if (!/^@?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
+        return reply.status(400).send({ error: 'Invalid package name format. Must be a valid npm package name.' });
+      }
+
+      if (!/^\d+\.\d+\.\d+/.test(version)) {
+        return reply.status(400).send({ error: 'Invalid version format. Must be a valid semver (e.g. 1.0.0).' });
+      }
+
+      if (reason.length < 10) {
+        return reply.status(400).send({ error: 'Reason must be at least 10 characters.' });
+      }
+
+      if (reason.length > 2000) {
+        return reply.status(400).send({ error: 'Reason must not exceed 2000 characters.' });
+      }
+
       const prisma = getPrisma();
 
       // Find the specific package version
