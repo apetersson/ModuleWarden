@@ -33,6 +33,7 @@ export interface ModuleWardenConfig {
   auditRunner: {
     imageName: string;
     containerWorkspacePath: string;
+    workspaceRoot?: string;
     recordedOpenEgress: boolean;
   };
   jobs: {
@@ -109,6 +110,7 @@ export function defaultConfig(): ModuleWardenConfig {
     auditRunner: {
       imageName: process.env.MW_AUDIT_IMAGE ?? 'modulewarden-audit-runner',
       containerWorkspacePath: process.env.MW_AUDIT_CONTAINER_WORKSPACE ?? '/workspace',
+      ...(process.env.MW_AUDIT_WORKSPACE_ROOT ? { workspaceRoot: process.env.MW_AUDIT_WORKSPACE_ROOT } : {}),
       recordedOpenEgress: process.env.MW_RECORDED_OPEN_EGRESS !== 'false',
     },
     jobs: {

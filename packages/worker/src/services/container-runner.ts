@@ -55,15 +55,18 @@ export class ContainerRunner {
   private readonly imageName: string;
   private readonly auditNetworkName: string;
   private readonly containerTimeoutMs: number;
+  private readonly workspaceRoot: string;
 
   constructor(opts: {
     imageName: string;
     auditNetworkName?: string;
     containerTimeoutMs?: number;
+    workspaceRoot?: string;
   }) {
     this.imageName = opts.imageName;
     this.auditNetworkName = opts.auditNetworkName ?? 'mw-audit-net';
     this.containerTimeoutMs = opts.containerTimeoutMs ?? 600_000; // 10 min
+    this.workspaceRoot = opts.workspaceRoot ?? tmpdir();
   }
 
   /**
@@ -99,7 +102,8 @@ export class ContainerRunner {
     await this.ensureNetwork();
 
     // 1. Create temp workspace
-    const workspacePath = mkdtempSync(join(tmpdir(), 'mw-audit-'));
+    mkdirSync(this.workspaceRoot, { recursive: true });
+    const workspacePath = mkdtempSync(join(this.workspaceRoot, 'mw-audit-'));
     const evidenceDir = join(workspacePath, 'evidence');
     mkdirSync(evidenceDir, { recursive: true });
 

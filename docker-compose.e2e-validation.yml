@@ -1,0 +1,117 @@
+name: e2e-validation-scenario
+
+services:
+  postgres:
+    ports: !reset []
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-proxy
+    environment:
+      DATABASE_URL: postgresql://modulewarden:modulewarden@postgres:5432/modulewarden?schema=public
+      MW_POSTGRES_HOST: postgres
+      MW_POSTGRES_PORT: "5432"
+      MW_POSTGRES_DB: modulewarden
+      MW_POSTGRES_USER: modulewarden
+      MW_POSTGRES_PASSWORD: modulewarden
+    volumes:
+      - ./packages/shared:/app/packages/shared
+      - ./packages/prisma-client:/app/packages/prisma-client
+    command: >
+      sh -lc "pnpm --filter @modulewarden/shared build &&
+      pnpm --filter @modulewarden/prisma-client generate &&
+      pnpm --filter @modulewarden/prisma-client build &&
+      pnpm --filter @modulewarden/prisma-client exec prisma migrate deploy"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api-proxy:
+    ports: !override
+      - "${MW_E2E_API_PORT:-8080}:8080"
+    command: >
+      sh -lc "pnpm --filter @modulewarden/shared build &&
+      pnpm --filter @modulewarden/prisma-client generate &&
+      pnpm --filter @modulewarden/prisma-client build &&
+      pnpm --filter @modulewarden/api-proxy dev"
+    volumes:
+      - ./packages/api-proxy:/app/packages/api-proxy
+      - ./packages/shared:/app/packages/shared
+      - ./packages/prisma-client:/app/packages/prisma-client
+    depends_on:
+      postgres:
+        condition: service_healthy
+      verdaccio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  worker:
+    ports: !reset []
+    command: >
+      sh -lc "pnpm --filter @modulewarden/shared build &&
+      pnpm --filter @modulewarden/prisma-client generate &&
+      pnpm --filter @modulewarden/prisma-client build &&
+      pnpm --filter @modulewarden/worker dev"
+    environment:
+      MW_AUDIT_WORKSPACE_ROOT: ${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}:${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}
+      - ./packages/worker:/app/packages/worker
+      - ./packages/shared:/app/packages/shared
+      - ./packages/prisma-client:/app/packages/prisma-client
+    depends_on:
+      postgres:
+        condition: service_healthy
+      verdaccio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+  web-ui:
+    ports: !override
+      - "${MW_E2E_WEB_UI_PORT:-13000}:3000"
+    build:
+      args:
+        VITE_MW_API_BASE_URL: ${MW_E2E_BROWSER_API_BASE_URL:-http://localhost:8080}
+    command: >
+      sh -lc "pnpm --filter @modulewarden/shared build &&
+      pnpm --filter @modulewarden/web-ui exec vite dev --host 0.0.0.0 --port 3000"
+    environment:
+      VITE_MW_API_BASE_URL: ${MW_E2E_BROWSER_API_BASE_URL:-http://localhost:8080}
+    volumes:
+      - ./packages/web-ui:/app/packages/web-ui
+      - ./packages/shared:/app/packages/shared
+    depends_on:
+      api-proxy:
+        condition: service_healthy
+
+  e2e-runner:
+    image: node:20-alpine
+    profiles: ["e2e"]
+    working_dir: /scenario/demo-project
+    environment:
+      MW_REGISTRY_URL: http://api-proxy:8080/
+      MW_API_BASE: http://api-proxy:8080
+      MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
+      MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
+    volumes:
+      - e2e-demo-project:/scenario/demo-project
+      - ${MW_E2E_RESULTS_HOST:?MW_E2E_RESULTS_HOST must be set}:/scenario/results
+    depends_on:
+      api-proxy:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-lc"]
+    command: "sleep infinity"
+
+volumes:
+  e2e-demo-project:
