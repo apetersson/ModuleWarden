@@ -3,10 +3,11 @@ id: TASK-1.10
 title: >-
   Implement verdict policy, security-admin overrides, and developer-safe failure
   messages
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-28 06:57'
 labels:
   - policy
   - auth
@@ -45,13 +46,24 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 - [ ] #9 Prompt, model, pattern, or incident relabel changes revalidate affected overrides and can produce superseding effective decisions.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Build policy evaluation around PI structured verdicts, effective decision resolution with overrides, static-token roles, failure response templates, and status/explain APIs. Implement security-admin-only override endpoints and audit logs. Verdict side effects, such as promotion, re-audit scheduling, or follow-up escalation, must be emitted through pg-boss jobs with idempotent payloads.
+1. Create verdict policy service with effective decision resolution\n2. Create admin override endpoints with auth\n3. Create developer-safe status/explain API\n4. Wire cold-start policy into existing import flow\n5. Add re-audit revalidation logic\n6. Write comprehensive policy tests\n7. Commit and push
 <!-- SECTION:PLAN:END -->
+
+## Test Spec
+
+<!-- SECTION:TEST_SPEC:BEGIN -->
+- [ ] #1 Policy tests assert allow decisions promote and serve only the exact package version hash/integrity recorded by the decision; same name/version with a different hash remains denied.
+- [ ] #2 Block/quarantine tests assert neither state serves or promotes the package, both return deterministic developer-facing guidance, and neither leaks hidden prompts, secrets, internal tool transcripts, or raw sensitive logs.
+- [ ] #3 Override authorization tests assert only security-admin tokens can override block or quarantine decisions, every override requires a recorded reason, and developer/ordinary-user tokens are denied.
+- [ ] #4 Effective-decision tests cover base verdicts, active overrides, superseding agent decisions, post-hoc relabels, incident outcomes, and decision history ordering.
+- [ ] #5 Cold-start policy tests assert allow requires clean provenance, behavior, install-trace, and heuristic evidence; missing, ambiguous, or failed evidence resolves to quarantine.
+- [ ] #6 Registry-enablement tests assert imported project graphs require complete decision coverage and partial coverage produces safe npm/CLI/API failures with package/version, current state, status URL/command, and next action.
+- [ ] #7 Revalidation tests assert prompt, model, pattern, or incident relabel changes enqueue affected override revalidation and may produce superseding effective decisions through pg-boss jobs.
+- [ ] #8 Score tests assert scores are stored for calibration but v1 final policy does not silently convert numeric thresholds into allow/block/quarantine without the agent verdict and policy context.
+<!-- SECTION:TEST_SPEC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
