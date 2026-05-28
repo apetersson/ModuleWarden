@@ -60,13 +60,34 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
       throw new Error(`Promotion payload does not match decision ${decisionId}`);
     }
 
-    const latestDecision = await prisma.decision.findFirst({
-      where: { packageVersionId: decision.packageVersionId },
+    const newerDecision = await prisma.decision.findFirst({
+      where: {
+        packageVersionId: decision.packageVersionId,
+        OR: [
+          { createdAt: { gt: decision.createdAt } },
+          {
+            createdAt: decision.createdAt,
+            id: { not: decision.id },
+          },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
     });
-    if (!latestDecision || latestDecision.id !== decision.id) {
+    if (newerDecision) {
       throw new Error(
         `Decision ${decisionId} for ${packageName}@${packageVersion} is not the latest decision`
+      );
+    }
+
+    const directOverride = await prisma.override.findFirst({
+      where: {
+        active: true,
+        decisionId,
+      },
+    });
+    if (directOverride && directOverride.targetVerdict !== 'ALLOW') {
+      throw new Error(
+        `Decision ${decisionId} for ${packageName}@${packageVersion} has direct ${directOverride.targetVerdict} override ${directOverride.id}`
       );
     }
 

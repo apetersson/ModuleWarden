@@ -88,7 +88,25 @@ const getReviewJobStatus = async (
 const deleteReviewJobs = async (ids: string[]): Promise<void> => {
   const idsCsv = ids.map((id) => `'${escapeSql(id)}'`).join(',');
   if (!idsCsv) return;
-  await getPrisma().$executeRawUnsafe(`DELETE FROM "ReviewJob" WHERE "id" IN (${idsCsv})`);
+
+  await getPrisma().$transaction([
+    getPrisma().auditRun.deleteMany({
+      where: {
+        reviewJobId: {
+          in: ids,
+        },
+      },
+    }),
+    getPrisma().decision.deleteMany({
+      where: {
+        reviewJobId: {
+          in: ids,
+        },
+      },
+    }),
+    getPrisma().$executeRawUnsafe(`DELETE FROM "ReviewJob" WHERE "id" IN (${idsCsv})`),
+  ]);
+
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => {
@@ -726,7 +744,6 @@ beforeAll(async () => {
 
     await prisma.override.delete({ where: { id: override.id } }).catch(() => undefined);
     await deleteReviewJobs([decisionReviewJobId]);
-    await prisma.decision.delete({ where: { id: allowedDecision.id } }).catch(() => undefined);
     await prisma.packageVersion.delete({ where: { id: overridePackage.id } }).catch(() => undefined);
   });
 
@@ -1115,7 +1132,18 @@ beforeAll(async () => {
 
     await reAuditQueue.stop();
     await prisma.override.delete({ where: { id: override.id } });
-    await deleteReviewJobs([allowedReviewJob, blockedReviewJob]);
+    const reAuditReviewJobs = await prisma.reviewJob.findMany({
+      where: {
+        trigger: 'RE_AUDIT',
+        packageVersionId: { in: [allowedVersion.id, blockedVersion.id] },
+      },
+      select: { id: true },
+    });
+    await deleteReviewJobs([
+      allowedReviewJob,
+      blockedReviewJob,
+      ...reAuditReviewJobs.map((reviewJob) => reviewJob.id),
+    ]);
     await prisma.decision.deleteMany({ where: { packageVersionId: { in: [allowedVersion.id, blockedVersion.id] } } });
     await prisma.importedPackageVersion.deleteMany({ where: { projectId: project.id } });
     await prisma.reAuditCampaign.deleteMany({ where: { projectId: project.id } });

@@ -291,6 +291,14 @@ export class JobQueue {
     const status = deadLetter ? 'DEAD_LETTER' : 'FAILED';
     const prisma = getPrisma();
 
+    const existing = await prisma.reviewJob.findUnique({
+      where: { id: reviewJobId },
+      select: { id: true },
+    }).catch(() => null);
+    if (!existing) {
+      return;
+    }
+
     await prisma.reviewJob.update({
       where: { id: reviewJobId },
       data: {
@@ -299,8 +307,6 @@ export class JobQueue {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         failureReason: `${new Date().toISOString()}: ${failureReason}` as any,
       },
-    }).catch(() => {
-      // Some jobs (like package-review) may fail before a review row exists.
     });
   }
 
@@ -313,6 +319,14 @@ export class JobQueue {
     const prisma = getPrisma();
     const reviewJobId = payload.reviewJobId;
     if (!reviewJobId) {
+      return;
+    }
+
+    const existing = await prisma.reviewJob.findUnique({
+      where: { id: reviewJobId },
+      select: { id: true },
+    }).catch(() => null);
+    if (!existing) {
       return;
     }
 
