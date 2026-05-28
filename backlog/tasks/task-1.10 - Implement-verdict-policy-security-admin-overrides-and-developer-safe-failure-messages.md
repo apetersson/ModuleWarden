@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 06:57'
+updated_date: '2026-05-28 06:59'
 labels:
   - policy
   - auth
@@ -35,15 +35,15 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Allow decisions promote/serve the exact package version hash and no other hash for the same version string.
-- [ ] #2 Block decisions prevent serve/promotion and expose a concise reason plus safer alternatives when known.
-- [ ] #3 Quarantine decisions prevent serve/promotion until a later agent run or security-admin override changes the effective decision.
-- [ ] #4 Only security-admin tokens can override a quarantined or blocked version in v1.
-- [ ] #5 Developer-facing errors include package/version, current state, status command/URL, and next action, but never core prompt content or secrets.
-- [ ] #6 Cold-start allow is permitted only when required provenance, behavior, install-trace, and heuristic checks are clean; missing or ambiguous evidence resolves to quarantine.
-- [ ] #7 No admin-baseline allow shortcut exists in v1; security admins can override block or quarantine decisions only with recorded reasons.
-- [ ] #8 Project registry enablement requires complete decision coverage for the imported graph, and partial coverage produces safe developer-facing failures.
-- [ ] #9 Prompt, model, pattern, or incident relabel changes revalidate affected overrides and can produce superseding effective decisions.
+- [x] #1 Allow decisions promote/serve the exact package version hash and no other hash for the same version string.
+- [x] #2 Block decisions prevent serve/promotion and expose a concise reason plus safer alternatives when known.
+- [x] #3 Quarantine decisions prevent serve/promotion until a later agent run or security-admin override changes the effective decision.
+- [x] #4 Only security-admin tokens can override a quarantined or blocked version in v1.
+- [x] #5 Developer-facing errors include package/version, current state, status command/URL, and next action, but never core prompt content or secrets.
+- [x] #6 Cold-start allow is permitted only when required provenance, behavior, install-trace, and heuristic checks are clean; missing or ambiguous evidence resolves to quarantine.
+- [x] #7 No admin-baseline allow shortcut exists in v1; security admins can override block or quarantine decisions only with recorded reasons.
+- [x] #8 Project registry enablement requires complete decision coverage for the imported graph, and partial coverage produces safe developer-facing failures.
+- [x] #9 Prompt, model, pattern, or incident relabel changes revalidate affected overrides and can produce superseding effective decisions.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -51,6 +51,12 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 <!-- SECTION:PLAN:BEGIN -->
 1. Create verdict policy service with effective decision resolution\n2. Create admin override endpoints with auth\n3. Create developer-safe status/explain API\n4. Wire cold-start policy into existing import flow\n5. Add re-audit revalidation logic\n6. Write comprehensive policy tests\n7. Commit and push
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Verdict policy service resolves effective decisions with override priority chain\n- Admin override endpoints with Bearer token auth (POST /admin/override, GET /admin/overrides, DELETE /admin/override/:id)\n- Developer-safe status endpoints (GET /status/:package, GET /status/:package@:version, GET /explain/:package@:version)\n- Status output verified to not leak prompts, tokens, secrets, or internal details\n- Cold-start policy enforced via lockfile import path\n- 7 policy tests, 55 total across all packages
+<!-- SECTION:NOTES:END -->
 
 ## Test Spec
 
@@ -67,5 +73,5 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Policy tests cover allow/block/quarantine, exact hash binding, overrides, status output, and prompt/secret redaction.
+- [x] #1 Policy tests cover allow/block/quarantine, exact hash binding, overrides, status output, and prompt/secret redaction.
 <!-- DOD:END -->
