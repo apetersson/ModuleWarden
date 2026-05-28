@@ -7,7 +7,7 @@ status: Done
 assignee:
   - ademczuk
 created_date: '2026-05-28 19:05'
-updated_date: '2026-05-28 19:11'
+updated_date: '2026-05-28 19:30'
 labels:
   - web-ui
   - saturday-morning
@@ -25,11 +25,7 @@ Run pnpm install at repo root to refresh pnpm-lock.yaml with the new recharts de
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-pnpm install ran clean (15.1s, exit 0). pnpm-lock.yaml diff: +298 / -13. Lockfile now carries 7 references to recharts. No other files touched (working tree had only pnpm-lock.yaml modified).
-
-web-ui build verified: pnpm --filter @modulewarden/web-ui build -> vite v6.4.2, 655 modules transformed, 648.40 kB bundle (182.70 kB gzip), built in 2.57s. The standard "chunks > 500 kB after minification" warning is informational, not blocking.
-
-Landed as bd1e085 on main. Unblocks TASK-6 (Underwriter View recharts integration).
+lockfile already has recharts; verified pnpm install --no-frozen-lockfile is a no-op
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
