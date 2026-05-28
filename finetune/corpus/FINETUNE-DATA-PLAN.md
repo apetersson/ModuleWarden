@@ -90,6 +90,7 @@ With the PAT:
 | Friday 23:00 | Pull enriched scraped cases from Nextcloud (`./nextcloud-sync.sh pull scraped-cases.npm-enriched.jsonl`) |
 | Friday 23:00 | Run expanded scraper overnight (`GITHUB_TOKEN=xxx node finetune/scripts/scrape-cases.mjs --max-pages 30 --partial-on-rate-limit`) |
 | Saturday 07:30 | Stop the overnight scraper, push the latest snapshot to Nextcloud |
+| Saturday 07:35 | **Failsafe: `bash finetune/scripts/verify-overnight-corpus.sh`**. Confirms `scraped-cases-overnight.jsonl` is the expected line count before any consumer reads it. Override the expected line count with `EXPECTED_LINES=...` after the overnight scrape grew. Non-zero exit means STOP and re-scrape. See TASK-24. |
 | Saturday 08:00 | Run `select-golden-cases.mjs --target 150 --max-per-cwe 8` |
 | Saturday 08:15 | Run benign-package seeder (`bash finetune/python/data/benign-packages/seed.sh --upload-to-nextcloud`) |
 | Saturday 08:30 | Run corpus walker on the golden cases (~45 min, no GPU) |
