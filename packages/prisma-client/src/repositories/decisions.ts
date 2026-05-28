@@ -25,6 +25,7 @@ export interface DecisionInput {
   }>;
   supersedesDecisionId?: string;
   onCreated?: (decision: Decision) => Promise<void> | void;
+  onProjectReady?: (projectId: string, reason: string) => Promise<string | null> | void;
 }
 
 export async function createDecision(input: DecisionInput): Promise<Decision> {
@@ -33,6 +34,7 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
     evidenceArtifactIds,
     scoreEntries,
     promptVersion,
+    onProjectReady,
     onCreated,
     ...decisionData
   } = input;
@@ -76,6 +78,14 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
 
   await Promise.resolve(onCreated?.(decision));
 
+  if (input.packageVersionId) {
+    await refreshProjectReadinessFromDecision(
+      prisma,
+      input.packageVersionId,
+      input.onProjectReady
+    );
+  }
+
   return decision;
 }
 
@@ -85,6 +95,10 @@ async function inferSupersededDecisionId(
   prisma: ReturnType<typeof getPrisma>,
   reviewJobId: string
 ): Promise<string | null> {
+  if (!reviewJobId) {
+    return null;
+  }
+
   const reviewJob = await prisma.reviewJob.findUnique({
     where: { id: reviewJobId },
     select: { auditContext: true },
@@ -96,6 +110,61 @@ async function inferSupersededDecisionId(
 
   const match = RE_AUDIT_CONTEXT.exec(reviewJob.auditContext);
   return match?.[1] ?? null;
+}
+
+async function refreshProjectReadinessFromDecision(
+  prisma: ReturnType<typeof getPrisma>,
+  packageVersionId: string,
+  projectReadyHook?: (projectId: string, reason: string) => Promise<string | null> | void
+): Promise<void> {
+  const projectLinks = await prisma.importedPackageVersion.findMany({
+    where: { packageVersionId },
+    select: { projectId: true },
+  });
+
+  if (projectLinks.length === 0) {
+    return;
+  }
+
+  const uniqueProjectIds = [...new Set(projectLinks.map((link) => link.projectId))];
+
+  for (const projectId of uniqueProjectIds) {
+    const versions = await prisma.importedPackageVersion.findMany({
+      where: { projectId },
+      select: {
+        packageVersion: {
+          select: {
+            predecessorDecisions: {
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (versions.length === 0) {
+      continue;
+    }
+
+    const undecided = versions.some((entry) => entry.packageVersion.predecessorDecisions.length === 0);
+    if (undecided) {
+      continue;
+    }
+
+    if (projectReadyHook) {
+      await Promise.resolve(
+        projectReadyHook(projectId, `Project ${projectId} is now ready for registry enablement`)
+      );
+      continue;
+    }
+
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { graphState: 'READY', registryEnabled: true },
+    });
+  }
 }
 
 export async function getDecision(id: string): Promise<Decision | null> {

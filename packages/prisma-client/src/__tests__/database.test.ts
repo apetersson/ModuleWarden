@@ -334,8 +334,9 @@ describe('Prisma Schema & Repositories', () => {
     expect(allowed[0].packageVersionId).toBe(overridePkg.id);
     expect(allowed[0].decisionId).toBe(decision.id);
 
-    await prisma.importedPackageVersion.delete({ where: { id: importedLink.id } });
+    await prisma.override.delete({ where: { id: override.id } });
     await prisma.decision.delete({ where: { id: decision.id } });
+    await prisma.importedPackageVersion.delete({ where: { id: importedLink.id } });
     await prisma.reviewJob.delete({ where: { id: importedReviewJob.id } });
     await prisma.packageVersion.delete({ where: { id: overridePkg.id } });
     await prisma.project.delete({ where: { id: overrideProject.id } });
@@ -482,5 +483,121 @@ describe('Prisma Schema & Repositories', () => {
     });
     await prisma.packageVersion.delete({ where: { id: packageEntry.id } });
     await prisma.project.delete({ where: { id: project.id } });
+  });
+
+  it('14. triggers project-ready callback only after all imported versions are decided', async () => {
+    const prisma = getPrisma();
+    const readinessProject = await prisma.project.create({
+      data: { name: `decision-ready-${Date.now()}`, graphState: 'AUDITING', registryEnabled: false },
+    });
+
+    const pkgA = await prisma.packageVersion.create({
+      data: {
+        packageName: `decision-ready-a-${Date.now()}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-decision-ready-a-${Date.now()}`,
+      },
+    });
+
+    const pkgB = await prisma.packageVersion.create({
+      data: {
+        packageName: `decision-ready-b-${Date.now()}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-decision-ready-b-${Date.now()}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.createMany({
+      data: [
+        { projectId: readinessProject.id, packageVersionId: pkgA.id },
+        { projectId: readinessProject.id, packageVersionId: pkgB.id },
+      ],
+    });
+
+    const jobA = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: pkgA.id,
+        auditContext: `preflight:${pkgA.packageName}`,
+        trigger: 'PREFLIGHT',
+        status: 'COMPLETED',
+        idempotencyKey: `decision-ready-a-${Date.now()}`,
+      },
+    });
+
+    const jobB = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: pkgB.id,
+        auditContext: `preflight:${pkgB.packageName}`,
+        trigger: 'PREFLIGHT',
+        status: 'COMPLETED',
+        idempotencyKey: `decision-ready-b-${Date.now()}`,
+      },
+    });
+
+    const callbacks: Array<{ projectId: string; reason: string }> = [];
+
+    await createDecision({
+      reviewJobId: jobA.id,
+      packageVersionId: pkgA.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Decision ready partial',
+      actorType: 'AGENT',
+      onProjectReady: async (projectId, reason) => {
+        callbacks.push({ projectId, reason });
+        return `project-ready-${projectId}`;
+      },
+    });
+
+    expect(callbacks).toEqual([]);
+
+    await createDecision({
+      reviewJobId: jobB.id,
+      packageVersionId: pkgB.id,
+      verdict: 'BLOCK',
+      reasonSummary: 'Decision ready complete',
+      actorType: 'AGENT',
+      onProjectReady: async (projectId, reason) => {
+        callbacks.push({ projectId, reason });
+        return `project-ready-${projectId}`;
+      },
+    });
+
+    expect(callbacks).toEqual([
+      {
+        projectId: readinessProject.id,
+        reason: `Project ${readinessProject.id} is now ready for registry enablement`,
+      },
+    ]);
+
+    await prisma.decision.deleteMany({
+      where: {
+        packageVersionId: {
+          in: [pkgA.id, pkgB.id],
+        },
+      },
+    });
+    await prisma.reviewJob.deleteMany({
+      where: {
+        id: {
+          in: [jobA.id, jobB.id],
+        },
+      },
+    });
+    await prisma.importedPackageVersion.deleteMany({
+      where: {
+        projectId: readinessProject.id,
+        packageVersionId: { in: [pkgA.id, pkgB.id] },
+      },
+    });
+    await prisma.project.delete({ where: { id: readinessProject.id } });
+    await prisma.packageVersion.deleteMany({
+      where: {
+        id: {
+          in: [pkgA.id, pkgB.id],
+        },
+      },
+    });
   });
 });
