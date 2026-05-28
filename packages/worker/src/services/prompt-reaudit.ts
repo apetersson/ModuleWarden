@@ -8,7 +8,7 @@
 
 import { getPrisma, createReAuditCampaign } from '@modulewarden/prisma-client';
 import type { JobQueue } from '../jobs/queue.js';
-import type { PromptCategory } from '@prisma/client';
+import type { PromptCategory } from '@modulewarden/prisma-client';
 
 /**
  * Result of a prompt-change re-audit trigger.

@@ -8,7 +8,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { writeFileSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@modulewarden/prisma-client';
 
 function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex');

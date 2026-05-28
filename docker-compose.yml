@@ -9,7 +9,7 @@ services:
     ports:
       - "5422:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ${MW_LOCALDATA_ROOT:-../localdata}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U modulewarden -d modulewarden"]
       interval: 5s
@@ -22,7 +22,7 @@ services:
     expose:
       - "4873"
     volumes:
-      - verdaccio-storage:/verdaccio/storage
+      - ${MW_LOCALDATA_ROOT:-../localdata}/verdaccio:/verdaccio/storage
     # Developers do NOT talk directly to Verdaccio.
     # ModuleWarden is the gate. This service is internal.
     # It is exposed only on the Compose network for ModuleWarden services.
@@ -77,8 +77,12 @@ services:
       MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
       MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
       MW_AUDIT_IMAGE: modulewarden-audit-runner
+      MW_AUDIT_WORKSPACE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/workspaces
+      MW_PRESERVE_AUDIT_SESSIONS: "true"
+      MW_AUDIT_SESSION_ARCHIVE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/sessions
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${MW_LOCALDATA_ROOT:-../localdata}:${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,11 +130,6 @@ services:
       - MODELS=llama-3-70b,llama-3-8b
     command: ["--models-path", "/models", "--listen", "0.0.0.0:8080"]
     volumes:
-      - models-cache:/models
+      - ${MW_LOCALDATA_ROOT:-../localdata}/models-cache:/models
     # Not required for basic Compose startup.
     # Configure MW_MODEL_ENDPOINT_BASE_URL to skip this.
-
-volumes:
-  pgdata:
-  verdaccio-storage:
-  models-cache:

@@ -141,7 +141,7 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
     await prisma.$transaction(async (tx) => {
       const postDecision = await tx.decision.findFirst({
         where: {
-          packageName_version_registrySource_tarballHash: {
+          packageVersion: {
             packageName,
             version: packageVersion,
             registrySource: 'npm',

@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+**/dist/**
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage
+**/coverage
+**/coverage/**
+.git
+.env
+localdata
+../localdata

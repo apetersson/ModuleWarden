@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 # ── Stage 2: API / Proxy ────────────────────────────────────
 FROM node:20-alpine AS api-proxy
 RUN npm install -g pnpm@9
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/packages/api-proxy/node_modules /app/packages/api-proxy/node_modules
@@ -39,7 +40,7 @@ CMD ["node", "packages/api-proxy/dist/index.js"]
 # ── Stage 3: Worker ──────────────────────────────────────────
 FROM node:20-alpine AS worker
 RUN npm install -g pnpm@9
-RUN apk add --no-cache docker-cli
+RUN apk add --no-cache docker-cli openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/packages/worker/node_modules /app/packages/worker/node_modules

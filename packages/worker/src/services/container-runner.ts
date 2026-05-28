@@ -282,7 +282,7 @@ export class ContainerRunner {
             execSync(`cp "${file}" "${destPath}"`, { stdio: 'pipe' });
             evidenceArtifacts.push(destPath);
           } catch (err) {
-            logger.warn('Failed to copy artifact from container (file may have disappeared)', { containerId, path, error: err instanceof Error ? err.message : String(err) });
+            logger.warn('Failed to copy artifact from container (file may have disappeared)', { containerId, path: file, error: err instanceof Error ? err.message : String(err) });
           }
         }
       }

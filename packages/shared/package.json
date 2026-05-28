@@ -12,22 +12,80 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "types": ["dist/types.d.ts"],
+      "config": ["dist/config.d.ts"],
+      "constants": ["dist/constants.d.ts"],
+      "npm-types": ["dist/npm-types.d.ts"],
+      "services/*": ["dist/services/*.d.ts"]
+    }
+  },
   "exports": {
-    ".": "./dist/index.js",
-    "./types": "./dist/types.js",
-    "./config": "./dist/config.js",
-    "./constants": "./dist/constants.js",
-    "./npm-types": "./dist/npm-types.js",
-    "./services/upstream": "./dist/services/upstream.js",
-    "./services/lockfile": "./dist/services/lockfile.js",
-    "./services/package-diff": "./dist/services/package-diff.js",
-    "./services/capability-extract": "./dist/services/capability-extract.js",
-    "./services/evidence-bundle": "./dist/services/evidence-bundle.js",
-    "./services/rpc-tools": "./dist/services/rpc-tools.js",
-    "./services/capability-delta": "./dist/services/capability-delta.js",
-    "./services/evaluation-corpus": "./dist/services/evaluation-corpus.js",
-    "./services/evaluation-runner": "./dist/services/evaluation-runner.js",
-    "./services/dashboard": "./dist/services/dashboard.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
+    "./constants": {
+      "types": "./dist/constants.d.ts",
+      "import": "./dist/constants.js"
+    },
+    "./npm-types": {
+      "types": "./dist/npm-types.d.ts",
+      "import": "./dist/npm-types.js"
+    },
+    "./services/upstream": {
+      "types": "./dist/services/upstream.d.ts",
+      "import": "./dist/services/upstream.js"
+    },
+    "./services/lockfile": {
+      "types": "./dist/services/lockfile.d.ts",
+      "import": "./dist/services/lockfile.js"
+    },
+    "./services/package-diff": {
+      "types": "./dist/services/package-diff.d.ts",
+      "import": "./dist/services/package-diff.js"
+    },
+    "./services/capability-extract": {
+      "types": "./dist/services/capability-extract.d.ts",
+      "import": "./dist/services/capability-extract.js"
+    },
+    "./services/evidence-bundle": {
+      "types": "./dist/services/evidence-bundle.d.ts",
+      "import": "./dist/services/evidence-bundle.js"
+    },
+    "./services/rpc-tools": {
+      "types": "./dist/services/rpc-tools.d.ts",
+      "import": "./dist/services/rpc-tools.js"
+    },
+    "./services/capability-delta": {
+      "types": "./dist/services/capability-delta.d.ts",
+      "import": "./dist/services/capability-delta.js"
+    },
+    "./services/evaluation-corpus": {
+      "types": "./dist/services/evaluation-corpus.d.ts",
+      "import": "./dist/services/evaluation-corpus.js"
+    },
+    "./services/evaluation-runner": {
+      "types": "./dist/services/evaluation-runner.d.ts",
+      "import": "./dist/services/evaluation-runner.js"
+    },
+    "./services/dashboard": {
+      "types": "./dist/services/dashboard.d.ts",
+      "import": "./dist/services/dashboard.js"
+    },
+    "./services/logger": {
+      "types": "./dist/services/logger.d.ts",
+      "import": "./dist/services/logger.js"
+    }
   },
   "dependencies": {
     "js-yaml": "^4.1.1"

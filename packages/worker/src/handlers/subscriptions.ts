@@ -2,7 +2,7 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { getBestActiveOverrideForPackageVersion } from '@modulewarden/prisma-client';
 import type { JobQueue } from '../jobs/queue.js';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@modulewarden/prisma-client';
 
 /**
  * Register the upstream subscription poll handler.

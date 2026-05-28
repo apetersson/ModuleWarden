@@ -1,5 +1,5 @@
 import type { JobType, WorkerConfig } from '@modulewarden/shared/types';
-import { JOB_TYPES } from '@modulewarden/shared/types';
+export { JOB_TYPES } from '@modulewarden/shared/types';
 
 /**
  * Default worker configuration for each job type.

@@ -4,6 +4,13 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "jobs": ["dist/jobs/index.d.ts"],
+      "jobs/queue.js": ["dist/jobs/queue.d.ts"],
+      "jobs/queue": ["dist/jobs/queue.d.ts"]
+    }
+  },
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -14,9 +21,22 @@
     "dev": "tsx watch src/index.ts"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./jobs": "./dist/jobs/index.js",
-    "./jobs/queue": "./dist/jobs/queue.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jobs": {
+      "types": "./dist/jobs/index.d.ts",
+      "import": "./dist/jobs/index.js"
+    },
+    "./jobs/queue.js": {
+      "types": "./dist/jobs/queue.d.ts",
+      "import": "./dist/jobs/queue.js"
+    },
+    "./jobs/queue": {
+      "types": "./dist/jobs/queue.d.ts",
+      "import": "./dist/jobs/queue.js"
+    }
   },
   "dependencies": {
     "@modulewarden/shared": "workspace:*",

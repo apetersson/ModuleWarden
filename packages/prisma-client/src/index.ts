@@ -26,6 +26,7 @@ export async function disconnectPrisma(): Promise<void> {
 
 // Re-export Prisma types for convenience
 export type {
+  Prisma,
   Project,
   LockfileImport,
   PackageSubscription,

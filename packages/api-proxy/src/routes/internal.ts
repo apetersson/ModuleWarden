@@ -10,7 +10,6 @@
 import type { FastifyInstance } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { logger } from '@modulewarden/shared/services/logger';
-import { JOB_TYPES } from '@modulewarden/shared/types';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { shouldEscalateVerdict } from '../services/escalation.js';
 import type { PredecessorDiffResponse, WebSearchResponse } from '@modulewarden/shared/services/rpc-tools';
@@ -71,46 +70,6 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
       if (!packageName || !version || !hash) {
         return reply.status(400).send({ error: 'Missing required query params: package, version, hash' });
       }
-
-      const prisma = getPrisma();
-
-      // Semver-aware predecessor: find the highest version < current
-      const allVersions = await prisma.packageVersion.findMany({
-        where: { packageName, registrySource: 'npm' },
-        select: { version: true, tarballHash: true },
-      });
-
-      // Parse any semver string (including pre-release) into comparable parts.
-      // Strips 'v' prefix and pre-release suffix for numeric comparison.
-      function parseSemver(v: string): { major: number; minor: number; patch: number; preRelease: string | null } {
-        const cleaned = v.replace(/^[vV]/, '');
-        const preReleaseMatch = cleaned.match(/-([a-zA-Z0-9.]+)/);
-        const preRelease = preReleaseMatch?.[1] ?? null;
-        const matchIdx = preReleaseMatch?.index;
-        const numeric = preRelease != null && matchIdx != null ? cleaned.slice(0, matchIdx) : cleaned;
-        const parts = numeric.split('.').map(Number);
-        while (parts.length < 3) parts.push(0);
-        return { major: parts[0] ?? 0, minor: parts[1] ?? 0, patch: parts[2] ?? 0, preRelease };
-      }
-
-      function semverLt(a: string, b: string): boolean {
-        const pa = parseSemver(a);
-        const pb = parseSemver(b);
-        if (pa.major !== pb.major) return pa.major < pb.major;
-        if (pa.minor !== pb.minor) return pa.minor < pb.minor;
-        if (pa.patch !== pb.patch) return pa.patch < pb.patch;
-        // Same numeric version — pre-release versions are lower than release
-        // e.g., 1.0.0-rc.1 < 1.0.0 (M-1)
-        if (pa.preRelease && !pb.preRelease) return true;
-        if (!pa.preRelease && pb.preRelease) return false;
-        return false;
-      }
-
-      const predecessors = allVersions
-        .filter((v) => semverLt(v.version, version))
-        .sort((a, b) => semverLt(a.version, b.version) ? 1 : -1);
-
-      const predecessorPv = predecessors[0] ?? null;
 
       // L-1: Predecessor diff computation not yet implemented.
       // Return hasPredecessor=false so PI applies cold-start conservative standards

@@ -3,7 +3,6 @@ import rateLimit from '@fastify/rate-limit';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { JobQueue } from '@modulewarden/worker/jobs/queue.js';
-import { createHash } from 'node:crypto';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
@@ -31,12 +30,7 @@ async function enqueuePackageReviewLight(
 ): Promise<string | null> {
   try {
     const queue = await getQueue();
-    const jobId = await queue.send('package-review', {
-      packageName,
-      packageVersion,
-      tarballHash,
-      auditContext,
-    });
+    const jobId = await queue.enqueuePackageReview(packageName, packageVersion, tarballHash, auditContext);
     return jobId ?? null;
   } catch {
     return null;
