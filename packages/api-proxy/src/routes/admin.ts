@@ -7,7 +7,7 @@ interface OverrideBody {
   version: string;
   tarballHash?: string;
   targetVerdict: 'ALLOW' | 'BLOCK' | 'QUARANTINE';
-  scope: 'SPECIFIC_VERSION' | 'PACKAGE' | 'PROJECT' | 'GLOBAL';
+  scope?: 'SPECIFIC_VERSION' | 'PACKAGE' | 'PROJECT' | 'GLOBAL';
   reason: string;
   supersedesDecisionId?: string;
 }
@@ -50,7 +50,8 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Body: OverrideBody }>, reply: FastifyReply) => {
       if (!checkAdmin(request, reply)) return;
 
-      const { packageName, version, tarballHash, targetVerdict, scope, reason, supersedesDecisionId } = request.body;
+      const { packageName, version, tarballHash, targetVerdict, reason, supersedesDecisionId } = request.body;
+      const scope = request.body.scope ?? 'SPECIFIC_VERSION';
 
       if (!packageName || !version || !targetVerdict || !reason) {
         return reply.status(400).send({
