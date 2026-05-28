@@ -33,7 +33,6 @@ export class JobQueue {
   private started = false;
   private options: Required<Pick<QueueOptions, 'maxRetries' | 'backoffDelayMs' | 'timeoutMs'>>;
   private concurrency: Record<string, number>;
-  private singletonSeconds: Partial<Record<JobType, number>>;
 
   constructor(opts: QueueOptions) {
     this.boss = new PgBoss({
@@ -49,9 +48,6 @@ export class JobQueue {
     };
 
     this.concurrency = opts.concurrency ?? {};
-    this.singletonSeconds = {
-      'package-review': 60 * 60 * 24 * 365,
-    };
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────
@@ -90,9 +86,7 @@ export class JobQueue {
     };
     if (singletonKey) {
       options.singletonKey = singletonKey;
-      options.singletonSeconds = jobType && jobType in this.singletonSeconds
-        ? this.singletonSeconds[jobType as JobType]
-        : policy?.singletonSeconds ?? 300;
+      options.singletonSeconds = policy?.singletonSeconds ?? 300;
     }
     return options;
   }

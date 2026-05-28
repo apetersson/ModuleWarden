@@ -21,6 +21,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
+COPY packages/worker packages/worker
 COPY packages/api-proxy packages/api-proxy
 RUN pnpm --filter @modulewarden/api-proxy build
 EXPOSE 8080
