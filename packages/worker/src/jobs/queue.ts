@@ -293,6 +293,21 @@ export class JobQueue {
     deadLetter: boolean
   ): Promise<void> {
     const status = deadLetter ? 'DEAD_LETTER' : 'FAILED';
+
+    if (deadLetter) {
+      // OBS-03: Log dead-lettered jobs at error level for alerting/monitoring
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          time: new Date().toISOString(),
+          msg: `Job dead-lettered`,
+          reviewJobId,
+          status,
+          failureReason,
+        })
+      );
+    }
+
     await this.updateReviewJobFailureState(reviewJobId, status, failureReason);
   }
 

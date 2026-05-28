@@ -30,7 +30,7 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 
 ### Logic Bugs (5)
 - [x] BUG-01: Fix empty `tarballHash: ''` fallback in admin override route
-- [ ] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
+- [x] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
 - [x] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
 - [ ] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
 - [ ] BUG-06: Add `active` boolean field to `ModelProfile` (migration)
@@ -47,12 +47,12 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [ ] QUAL-01: Replace `as any` with generated Prisma enum types
 - [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) — or defer with rationale
 - [x] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
-- [ ] QUAL-04: Fix silent error swallowing — every catch block must log
+- [x] QUAL-04: Fix silent error swallowing — every catch block must log
 - [x] QUAL-05: Use `JOB_TYPES` constant everywhere instead of magic strings
 - [x] QUAL-06: Add input validation in admin override route
 
 ### Observability (6)
-- [ ] OBS-01: Adopt structured JSON logger (pino)
+- [ ] OBS-01: Adopt structured JSON logger (pino) — adapter created, usage ongoing
 - [ ] OBS-02: Add dependency health checks and Prometheus/OTel metrics
 - [ ] OBS-03: Add alerting for dead-lettered jobs
 - [ ] OBS-04: Propagate `correlationId` across distributed audit pipeline
