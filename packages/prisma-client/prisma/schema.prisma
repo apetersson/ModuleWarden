@@ -247,6 +247,7 @@ model ModelProfile {
   apiKeyHash String?
   temperature Float?
   maxTokens  Int?
+  active     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -265,6 +266,7 @@ model EvidenceArtifact {
   filePath      String?
   sizeBytes     Int?
   status        EvidenceStatus @default(ACTIVE)
+  schemaVersion Int      @default(1)
   supersedesEvidenceArtifactId String?
   createdAt     DateTime @default(now())
 
