@@ -57,13 +57,17 @@ python vast_smoke.py
 |---|---|---|---|---|---|
 | `vast_smoke_38255250.json` | vast.ai | A100 PCIE 1x | 0.13 | $0.33 | smoke_ok=true; loss 5.36 to 0.73 in 20 steps; generation emits valid audit-report-shaped JSON |
 
-The A100 smoke confirms the pinned cohort
+The A100 smoke confirms the requested pin cohort
 (transformers 4.46 + peft 0.13 + trl 0.12 + accelerate 1.0.1 +
-datasets 3.0.2 + bitsandbytes 0.44.1) interoperates cleanly with the
+datasets 3.0.2 + bitsandbytes 0.44.1) imports cleanly and the
 `processing_class=` SFTTrainer kwarg, `target_modules="all-linear"`
 LoRA, and 4-bit base + bf16 compute with gradient_checkpointing(
-`use_reentrant=False`). Same cohort migrates to Leonardo for the
-27B run on Saturday.
+`use_reentrant=False`) interop on a single GPU. The smoke does NOT
+prove FSDP1 multi-GPU sharding, Qwen3.6-27B specifically (we ran
+Qwen2.5-Coder-1.5B-Instruct), the pre-abliterated huihui-ai
+checkpoint specifically, multi-node communication, or that
+`all-linear` finds the Qwen3.6 Gated DeltaNet projections. See
+`leonardo_handover_status.blockers_before_sbatch` in the JSON.
 
 ## Why this directory exists
 
