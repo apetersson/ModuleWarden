@@ -25,11 +25,17 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
     const decision = await prisma.decision.findUnique({
       where: { id: decisionId },
       select: {
+        id: true,
         verdict: true,
-        overrides: {
-          where: { active: true },
-          take: 1,
-          select: { id: true },
+        createdAt: true,
+        packageVersionId: true,
+        packageVersion: {
+          select: {
+            packageName: true,
+            version: true,
+            registrySource: true,
+            tarballHash: true,
+          },
         },
       },
     });
@@ -44,9 +50,42 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
       );
     }
 
-    if (decision.overrides.length > 0) {
+    if (
+      decision.packageVersion.packageName !== packageName ||
+      decision.packageVersion.version !== packageVersion ||
+      decision.packageVersion.registrySource !== 'npm' ||
+      decision.packageVersion.tarballHash !== tarballHash
+    ) {
+      throw new Error(`Promotion payload does not match decision ${decisionId}`);
+    }
+
+    const newerDecision = await prisma.decision.findFirst({
+      where: {
+        packageVersionId: decision.packageVersionId,
+        createdAt: { gt: decision.createdAt },
+      },
+      select: { id: true, verdict: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (newerDecision) {
       throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} has active override — skipping promotion`
+        `Decision ${decisionId} for ${packageName}@${packageVersion} was superseded by ${newerDecision.id} (${newerDecision.verdict})`
+      );
+    }
+
+    const activeOverride = await prisma.override.findFirst({
+      where: {
+        active: true,
+        decision: { packageVersionId: decision.packageVersionId },
+      },
+      select: { id: true, targetVerdict: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (activeOverride && activeOverride.createdAt > decision.createdAt && activeOverride.targetVerdict !== 'ALLOW') {
+      throw new Error(
+        `Decision ${decisionId} for ${packageName}@${packageVersion} has active ${activeOverride.targetVerdict} override ${activeOverride.id}`
       );
     }
 
