@@ -32,3 +32,7 @@ finetune/python/data/benign-packages/extracted/
 
 # Sample-bad-deps test artifacts (built per-run inside Docker)
 finetune/python/data/sample-bad-deps-project/node_modules/
+
+# Overnight expanded scrape output. Nextcloud is canonical.
+finetune/corpus/scraped-cases-overnight.jsonl
+finetune/corpus/scraped-cases-*.jsonl

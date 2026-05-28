@@ -9,9 +9,22 @@ one-line verification after each.
 cd ~/path/to/ModuleWarden
 git pull --ff-only
 ls .env || cp .env.example .env  # then edit secrets
+
+# TypeScript dependencies (recharts is already in lockfile per bd1e085).
+pnpm install --frozen-lockfile
+
+# CRITICAL: Prisma client types are NOT in git. Generate them BEFORE
+# any TypeScript build, otherwise packages/prisma-client and everything
+# downstream fails with "Module '@prisma/client' has no exported
+# member 'ModelProfile'" etc.
+pnpm generate
+
+# Smoke-build the whole monorepo to catch any regressions early.
+pnpm -r build
 ```
 
 Verify: `git log -1 --oneline` should show at least `a6f70c9` or newer.
+`pnpm -r build` should report Done for all 9 workspace packages.
 
 ## Step 1: Pull the scraped corpus from Nextcloud
 
