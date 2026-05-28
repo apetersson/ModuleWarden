@@ -11,3 +11,22 @@ docker-compose.override.yml
 
 # JetBrains IDE
 .idea/
+
+# Finetune corpus enrichments and synthetic injections live in the
+# AI:AT Factory Nextcloud at /ZeroToOne_Data/finetune-data/, not in git.
+# Use `bash finetune/scripts/nextcloud-sync.sh pull <name>` to fetch.
+finetune/corpus/scraped-cases.npm-enriched.jsonl
+finetune/corpus/scraped-cases-v*.jsonl
+finetune/corpus/sft-records.jsonl
+finetune/corpus/sft-records.test.jsonl
+finetune/corpus/sft-records.val.jsonl
+finetune/corpus/synthetic-injected-*.tar.gz
+finetune/corpus/benign-packages-seed.tar.gz
+finetune/corpus/walker-manifest.json
+
+# Benign-baseline extracted package trees - seeded by seed.sh, uploaded
+# to Nextcloud rather than committed (large, can be regenerated).
+finetune/python/data/benign-packages/extracted/
+
+# Sample-bad-deps test artifacts (built per-run inside Docker)
+finetune/python/data/sample-bad-deps-project/node_modules/
