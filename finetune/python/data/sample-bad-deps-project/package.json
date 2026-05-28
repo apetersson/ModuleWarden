@@ -1,0 +1,22 @@
+{
+  "name": "modulewarden-sample-bad-deps",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test surface for the ModuleWarden gate. Mixes 5 known-bad + 5 known-clean npm versions and asserts the gate produces the expected verdict for each.",
+  "license": "MIT",
+  "scripts": {
+    "test": "bash test-gate.sh"
+  },
+  "dependencies": {
+    "postmark-mcp": "1.0.16",
+    "event-stream": "3.3.6",
+    "ua-parser-js": "0.7.29",
+    "coa": "2.0.3",
+    "rc": "1.2.9",
+    "lodash": "4.17.21",
+    "chalk": "5.3.0",
+    "commander": "12.1.0",
+    "express": "4.21.1",
+    "react": "18.3.1"
+  }
+}

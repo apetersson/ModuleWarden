@@ -1,0 +1,85 @@
+{
+  "schema_version": "modulewarden.sample_bad_deps_expected.v1",
+  "entries": [
+    {
+      "package": "postmark-mcp",
+      "version": "1.0.16",
+      "expected_verdict": "block",
+      "rationale": "maintainer takeover, BCC credential exfiltration via lifecycle script",
+      "advisory_ids": ["GHSA-postmark-mcp-1016-class-a"],
+      "incident_date": "2025-09"
+    },
+    {
+      "package": "event-stream",
+      "version": "3.3.6",
+      "expected_verdict": "block",
+      "rationale": "transitive malware via flatmap-stream credential exfil",
+      "advisory_ids": ["CVE-2018-1000620"],
+      "incident_date": "2018-11"
+    },
+    {
+      "package": "ua-parser-js",
+      "version": "0.7.29",
+      "expected_verdict": "block",
+      "rationale": "cryptominer + credential exfil via postinstall",
+      "advisory_ids": ["GHSA-pjwm-rvh2-c87w"],
+      "incident_date": "2021-10"
+    },
+    {
+      "package": "coa",
+      "version": "2.0.3",
+      "expected_verdict": "block",
+      "rationale": "maintainer takeover, credential exfiltration",
+      "advisory_ids": ["GHSA-73qr-pfmq-6rp8"],
+      "incident_date": "2021-11"
+    },
+    {
+      "package": "rc",
+      "version": "1.2.9",
+      "expected_verdict": "block",
+      "rationale": "maintainer takeover, malicious payload",
+      "advisory_ids": ["GHSA-g2q5-5433-rhrf"],
+      "incident_date": "2021-11"
+    },
+    {
+      "package": "lodash",
+      "version": "4.17.21",
+      "expected_verdict": "allow",
+      "rationale": "stable LTS, source-match 99 percent",
+      "advisory_ids": [],
+      "incident_date": null
+    },
+    {
+      "package": "chalk",
+      "version": "5.3.0",
+      "expected_verdict": "allow",
+      "rationale": "stable LTS",
+      "advisory_ids": [],
+      "incident_date": null
+    },
+    {
+      "package": "commander",
+      "version": "12.1.0",
+      "expected_verdict": "allow",
+      "rationale": "stable LTS",
+      "advisory_ids": [],
+      "incident_date": null
+    },
+    {
+      "package": "express",
+      "version": "4.21.1",
+      "expected_verdict": "allow",
+      "rationale": "stable LTS",
+      "advisory_ids": [],
+      "incident_date": null
+    },
+    {
+      "package": "react",
+      "version": "18.3.1",
+      "expected_verdict": "allow",
+      "rationale": "stable LTS",
+      "advisory_ids": [],
+      "incident_date": null
+    }
+  ]
+}

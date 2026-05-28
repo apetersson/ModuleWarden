@@ -1,0 +1,25 @@
+services:
+  tester:
+    build: .
+    image: modulewarden-sample-bad-deps:test
+    container_name: mw-sample-bad-deps-tester
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=64m,mode=1777
+      - /work/node_modules:rw,size=128m,mode=1777
+    networks:
+      - mw-gate-net
+    environment:
+      MW_GATE_BASE_URL: http://mw-gate:8080
+      MW_GATE_STATUS_PATH: /admin/status
+      MW_TEST_FAIL_ON_SCRIPT_EXECUTION: "true"
+    # The container has no internet egress by default; it can only reach
+    # mw-gate on the bridge network. The network's external_links field
+    # joins the existing mw-network from the production stack so this
+    # tester can reach api-proxy at the alias mw-gate without exposing
+    # any host ports.
+
+networks:
+  mw-gate-net:
+    name: modulewarden_default
+    external: true
