@@ -3,6 +3,8 @@ import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
+import { registerAdminRoutes } from './routes/admin.js';
+import { registerStatusRoutes } from './routes/status.js';
 import { JobQueue } from '@modulewarden/worker';
 
 export async function buildServer() {
@@ -43,6 +45,11 @@ export async function buildServer() {
       );
     }
   );
+
+  // ── Admin & status endpoints ─────────────────────────────────
+
+  await registerAdminRoutes(app);
+  await registerStatusRoutes(app);
 
   // ── Health check ──────────────────────────────────────────────
 
