@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --outfile=dist/bundle.js --external:./node_modules/* --external:@modulewarden/shared",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "esbuild": "^0.21.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   }

@@ -104,8 +104,8 @@ services:
   audit-runner:
     image: modulewarden-audit-runner
     build:
-      context: packages/audit-runner
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/audit-runner/Dockerfile
     # No ports needed; this is an image build target.
     # The worker references this image by name.
     # Run: docker compose build audit-runner

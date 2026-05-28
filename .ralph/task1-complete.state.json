@@ -1,7 +1,7 @@
 {
   "name": "task1-complete",
   "taskFile": ".ralph/task1-complete.md",
-  "iteration": 1,
+  "iteration": 2,
   "maxIterations": 50,
   "itemsPerIteration": 2,
   "reflectEvery": 0,

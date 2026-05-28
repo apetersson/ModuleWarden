@@ -15,7 +15,8 @@ import type {
 const RPC_TOKEN = process.env.MW_RPC_TOKEN ?? '';
 
 function checkAuth(token: string | undefined): boolean {
-  if (!RPC_TOKEN) return true;
+  // Fail closed: if no token is configured, reject all internal requests
+  if (!RPC_TOKEN) return false;
   return token === RPC_TOKEN;
 }
 
@@ -60,11 +61,40 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       } satisfies PredecessorDiffResponse);
     }
 
-    const predecessorPv = await prisma.packageVersion.findFirst({
-      where: { packageName, registrySource: 'npm', version: { lt: version } },
-      orderBy: { version: 'desc' },
-      select: { id: true, version: true, tarballHash: true },
+    // Find predecessor using numeric version comparison to avoid
+    // lexicographic ordering issues (e.g., 1.9.0 > 1.10.0 as strings).
+    const allVersions = await prisma.packageVersion.findMany({
+      where: { packageName, registrySource: 'npm' },
+      select: { version: true, tarballHash: true },
     });
+
+    // Semver-aware predecessor: find the highest version < current
+    const currentParts = version.split('.').map(Number);
+    const predecessors = allVersions
+      .filter((v) => {
+        const vParts = v.version.split('.').map(Number);
+        if (vParts.some(isNaN)) return false; // skip non-numeric versions
+        // Compare part by part
+        for (let i = 0; i < Math.max(currentParts.length, vParts.length); i++) {
+          const cp = currentParts[i] ?? 0;
+          const vp = vParts[i] ?? 0;
+          if (vp < cp) return true;
+          if (vp > cp) return false;
+        }
+        return false; // equal — not a predecessor
+      })
+      .sort((a, b) => {
+        const aParts = a.version.split('.').map(Number);
+        const bParts = b.version.split('.').map(Number);
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const ap = aParts[i] ?? 0;
+          const bp = bParts[i] ?? 0;
+          if (bp !== ap) return bp - ap;
+        }
+        return 0;
+      });
+
+    const predecessorPv = predecessors[0] ?? null;
 
     if (!predecessorPv) {
       return reply.send({

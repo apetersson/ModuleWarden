@@ -1,8 +1,18 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
+import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
 import { randomBytes } from 'node:crypto';
+import { writeFileSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
+
+function hashContent(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}
 
 /**
  * Register the audit container execution handler.
@@ -54,15 +64,79 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       },
     });
 
-    // 3. Build container inputs
+    // 3. Fetch and prepare package artifacts
+    const tarballDir = mkdtempSync(join(tmpdir(), 'mw-tarball-'));
+    let packageTarballPath: string | undefined;
+    let baselineTarballPath: string | undefined;
+
+    // Try to fetch the package tarball from upstream
+    try {
+      const packument = await fetchUpstreamPackument(packageName);
+      if (packument?.versions?.[packageVersion]?.dist?.tarball) {
+        const url = packument.versions[packageVersion].dist.tarball;
+        const tarball = await fetchUpstreamTarball(url);
+        if (tarball) {
+          const streamPath = join(tarballDir, 'package.tgz');
+          const reader = tarball.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+          const buf = new Uint8Array(totalLen);
+          let offset = 0;
+          for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
+          writeFileSync(streamPath, buf);
+          packageTarballPath = streamPath;
+        }
+      }
+    } catch { /* tarball fetch is best-effort */ }
+
+    // Try to fetch predecessor tarball
+    if (predecessorHash) {
+      try {
+        const predPackument = await fetchUpstreamPackument(packageName);
+        if (predPackument) {
+          // Find the predecessor version
+          const predVersion = Object.entries(predPackument.versions ?? {})
+            .find(([, v]) => v.dist?.integrity === predecessorHash || v.dist?.shasum === predecessorHash);
+          if (predVersion && predVersion[1]?.dist?.tarball) {
+            const url = predVersion[1].dist.tarball;
+            const tarball = await fetchUpstreamTarball(url);
+            if (tarball) {
+              const streamPath = join(tarballDir, 'baseline.tgz');
+              const reader = tarball.stream.getReader();
+              const chunks: Uint8Array[] = [];
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+              }
+              const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+              const buf = new Uint8Array(totalLen);
+              let offset = 0;
+              for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
+              writeFileSync(streamPath, buf);
+              baselineTarballPath = streamPath;
+            }
+          }
+        }
+      } catch { /* predecessor fetch is best-effort */ }
+    }
+
+    // 4. Build container inputs with all available artifacts
     const inputs: ContainerInputs = {
       rpcToken,
       rpcPort: config.piOrchestration.rpcPort,
       packageName,
       packageVersion,
+      packageTarballPath,
+      baselineTarballPath,
     };
 
-    // 4. Run the container
+    // 5. Run the container
     const result = await runner.run(inputs);
 
     // 5. Process results
@@ -70,15 +144,22 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
     const evidenceArtifactIds: string[] = [];
 
     // Capture evidence artifacts from the container output
+    // Read file content into the DB before the workspace is cleaned up
     for (const artifactPath of result.evidenceArtifacts) {
       try {
+        let content: Prisma.InputJsonValue = { path: artifactPath };
+        if (existsSync(artifactPath)) {
+          const fileContent = readFileSync(artifactPath, 'utf-8');
+          content = { path: artifactPath, content: fileContent.slice(0, 10_000), size: fileContent.length };
+        }
+
         const artifact = await prisma.evidenceArtifact.create({
           data: {
             auditRunId: auditRun.id,
             artifactType: 'OTHER',
             name: artifactPath.split('/').pop() ?? 'artifact',
-            content: { path: artifactPath },
-            contentHash: artifactPath, // In production, hash the content
+            content,
+            contentHash: hashContent(typeof content === 'string' ? content : JSON.stringify(content)),
             filePath: artifactPath,
           },
         });

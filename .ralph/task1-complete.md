@@ -34,3 +34,7 @@ Complete all remaining sub-tasks of TASK-1 in dependency order. Commit frequentl
 - `pnpm install` clean
 - Full test suite passes
 - Typecheck clean across all packages
+
+## Ad hoc review note (2026-05-28)
+- Completed requested code/architecture review and wrote findings to `docs/review/gpt-1.md`.
+- Verification observed: `pnpm -r typecheck` fails in `@modulewarden/web-ui` due missing React type packages; `pnpm -r test` fails in `@modulewarden/prisma-client` because `postgres:5432` is unavailable.

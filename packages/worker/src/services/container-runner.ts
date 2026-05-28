@@ -132,6 +132,9 @@ export class ContainerRunner {
       `MW_WORKSPACE=/workspace`,
       `MW_PACKAGE_NAME=${inputs.packageName}`,
       `MW_PACKAGE_VERSION=${inputs.packageVersion}`,
+      // Pass through ModuleWarden API URL and model endpoint from worker env
+      ...(process.env.MW_API_BASE ? [`MW_API_BASE=${process.env.MW_API_BASE}`] : []),
+      ...(process.env.MW_MODEL_ENDPOINT_BASE_URL ? [`MW_MODEL_ENDPOINT_BASE_URL=${process.env.MW_MODEL_ENDPOINT_BASE_URL}`] : []),
     ];
 
     const volumeMounts = [
