@@ -23,10 +23,7 @@
     "readme_summary": "README documents lodash utility functions; no install-time behavior described.",
     "changelog_summary": "Changelog entry for 4.17.21 reads: 'security fix: CVE-2021-23337 (command injection via _.template) plus a small ReDoS fix in toNumber/trim/trimEnd'.",
     "repository_url": "https://github.com/lodash/lodash",
-    "source_tarball_mismatch": false,
-    "published_by_login": "jdalton",
-    "maintainer_count": 6,
-    "allowlisted": true
+    "source_tarball_mismatch": false
   },
   "diff_summary": {
     "files_added": 0,
@@ -58,9 +55,27 @@
     "network_trace_refs": []
   },
   "evidence_index": [
-    {"id": "ev.file.001", "kind": "file_diff", "path": "template.js", "summary": "escape lookup extended", "raw_excerpt_available": true},
-    {"id": "ev.file.002", "kind": "file_diff", "path": "toNumber.js", "summary": "ReDoS regex tightening", "raw_excerpt_available": true},
-    {"id": "ev.file.003", "kind": "file_diff", "path": "package.json", "summary": "version bump only", "raw_excerpt_available": true}
+    {
+      "id": "ev.file.001",
+      "kind": "file_diff",
+      "path": "template.js",
+      "summary": "escape lookup extended",
+      "raw_excerpt_available": true
+    },
+    {
+      "id": "ev.file.002",
+      "kind": "file_diff",
+      "path": "toNumber.js",
+      "summary": "ReDoS regex tightening",
+      "raw_excerpt_available": true
+    },
+    {
+      "id": "ev.file.003",
+      "kind": "file_diff",
+      "path": "package.json",
+      "summary": "version bump only",
+      "raw_excerpt_available": true
+    }
   ],
   "policy_context": {
     "cold_start": false,

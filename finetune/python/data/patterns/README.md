@@ -24,13 +24,20 @@ to build SFT records.
 
 ## Pattern families covered
 
-| Family | Count | Examples (illustrative ids) |
+Counts and ids read directly from `attack-catalog.yaml`. 26 patterns total across 10 families.
+
+| Family | Count | Sample ids |
 |---|---|---|
-| lifecycle_hijack | ~8 | `install-exfil-01`, `postinstall-c2-02`, `prepublish-droplet-03` |
-| code_obfuscation | ~5 | `obfuscation-base64-01`, `string-array-rotation-02` |
-| persistence | ~3 | `crontab-write-01`, `rc-file-mutation-02` |
-| data_exfil | ~6 | `npm-token-harvester-01`, `aws-creds-scan-02`, `ssh-key-read-03` |
-| multi-ecosystem | ~4 | `pypi_install_exfil-01`, `composer_postinstall-01` |
+| code_execution | 3 | `eval_base64_payload`, `function_constructor_abuse`, `dynamic_require_abuse` |
+| composer_lifecycle | 2 | `composer_post_install_cmd`, `composer_typosquat` |
+| filesystem | 4 | `ssh_key_theft`, `shell_rc_backdoor`, `npmrc_credential_theft` |
+| lifecycle_hijack | 3 | `postinstall_env_exfil`, `preinstall_shell_payload`, `prepare_script_hijack` |
+| mcp_specific | 2 | `mcp_hidden_tool_exfil`, `mcp_config_injection` |
+| network | 4 | `dns_exfil`, `discord_webhook_exfil`, `telegram_bot_exfil` |
+| obfuscation | 2 | `identifier_mangling`, `string_concat_url_hiding` |
+| persistence | 2 | `cryptominer_dropper`, `reverse_shell` |
+| pypi_lifecycle | 2 | `pypi_setup_py_exfil`, `pypi_dependency_confusion` |
+| supply_chain_manipulation | 2 | `dependency_confusion`, `subdep_injection` |
 
 ## Citations are real
 

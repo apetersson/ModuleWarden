@@ -11,9 +11,7 @@
   "developer_safe_summary": "ModuleWarden allowed postmark-mcp@1.0.12. The release is a benign retry-logic patch with no install-time or behavioral changes.",
   "security_admin_summary": "ALLOW postmark-mcp@1.0.12. No supply-chain risk indicators present. Maintains 1.0.11 capability profile. This is the last-known-clean release before the September 2025 compromise that landed in 1.0.16.",
   "output_integrity": {
-    "signature_scheme": "ed25519",
-    "evidence_index_resolved": true,
-    "generated_by": "modulewarden-demo-runner v1",
-    "generated_at": "2026-05-28T12:50:00Z"
+    "all_claims_have_evidence_refs": true,
+    "invented_evidence_refs": []
   }
 }

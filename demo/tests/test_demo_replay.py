@@ -15,6 +15,12 @@ from pathlib import Path
 
 import pytest
 
+try:
+    import jsonschema
+    _JSONSCHEMA_AVAILABLE = True
+except ImportError:  # pragma: no cover - jsonschema is a soft dep
+    _JSONSCHEMA_AVAILABLE = False
+
 DEMO_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = DEMO_ROOT.parent
 INCIDENTS_DIR = DEMO_ROOT / "incidents"
@@ -84,6 +90,57 @@ def test_every_report_declares_required_top_level_keys():
             f"{incident_id} report missing keys: {missing}"
         )
         assert report["schema_version"] == "modulewarden.audit_report.v1"
+
+
+@pytest.mark.skipif(not _JSONSCHEMA_AVAILABLE, reason="jsonschema not installed")
+@pytest.mark.parametrize("incident_id", list(EXPECTED.keys()))
+def test_every_dossier_validates_against_canonical_schema(incident_id):
+    """Each demo dossier must validate cleanly against audit-dossier.schema.json.
+
+    The lighter required-keys test above catches missing top-level fields but
+    misses additionalProperties false enum mismatches, and structural mismatches
+    inside sub-objects. This is the strict check.
+    """
+    dossier, _ = _load_paired_fixture(incident_id)
+    schema = json.loads(
+        (CONTRACTS_DIR / "audit-dossier.schema.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(dossier, schema)
+
+
+@pytest.mark.skipif(not _JSONSCHEMA_AVAILABLE, reason="jsonschema not installed")
+@pytest.mark.parametrize("incident_id", list(EXPECTED.keys()))
+def test_every_report_validates_against_canonical_schema(incident_id):
+    """Each demo report must validate cleanly against audit-report.schema.json.
+
+    Catches finding.category enum drift, agent_check shape mismatch,
+    output_integrity field drift, and other additionalProperties false rejects
+    that the lighter required-keys test misses.
+    """
+    _, report = _load_paired_fixture(incident_id)
+    schema = json.loads(
+        (CONTRACTS_DIR / "audit-report.schema.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(report, schema)
+
+
+@pytest.mark.skipif(not _JSONSCHEMA_AVAILABLE, reason="jsonschema not installed")
+@pytest.mark.parametrize("incident_id", list(EXPECTED.keys()))
+def test_report_evidence_refs_resolve_into_dossier_evidence_index(incident_id):
+    """Every evidence_ref a report's finding cites must exist in the paired dossier's evidence_index.
+
+    Catches drift where a report names ev.cap.999 but the dossier never declared
+    it. The pitch claims 'evidence_citation_accuracy' as a tracked metric; the
+    demo fixtures themselves should not violate it.
+    """
+    dossier, report = _load_paired_fixture(incident_id)
+    declared = {e.get("id") for e in (dossier.get("evidence_index") or [])}
+    for finding in report.get("primary_findings") or []:
+        for ref in finding.get("evidence_refs") or []:
+            assert ref in declared, (
+                f"{incident_id} report finding {finding.get('finding_id')!r} "
+                f"cites evidence_ref {ref!r} which is not declared in the dossier"
+            )
 
 
 @pytest.mark.parametrize("incident_id, expected", list(EXPECTED.items()))

@@ -23,10 +23,7 @@
     "readme_summary": "README documents three MCP tool surfaces: sendEmail, sendBatchEmails, listTemplates. No install-time behaviour described.",
     "changelog_summary": "Changelog entry for 1.0.12 reads: 'fix retry logic on rate-limited responses; update test fixtures'.",
     "repository_url": "https://github.com/postmarkapp/postmark-mcp",
-    "source_tarball_mismatch": false,
-    "published_by_login": "postmarkapp",
-    "maintainer_count": 3,
-    "allowlisted": true
+    "source_tarball_mismatch": false
   },
   "diff_summary": {
     "files_added": 0,
@@ -53,8 +50,20 @@
     "network_trace_refs": []
   },
   "evidence_index": [
-    {"id": "ev.file.001", "kind": "file_diff", "path": "src/transport/http.ts", "summary": "retry backoff fix", "raw_excerpt_available": true},
-    {"id": "ev.file.002", "kind": "file_diff", "path": "tests/fixtures/templates.json", "summary": "test fixture refresh", "raw_excerpt_available": true}
+    {
+      "id": "ev.file.001",
+      "kind": "file_diff",
+      "path": "src/transport/http.ts",
+      "summary": "retry backoff fix",
+      "raw_excerpt_available": true
+    },
+    {
+      "id": "ev.file.002",
+      "kind": "file_diff",
+      "path": "tests/fixtures/templates.json",
+      "summary": "test fixture refresh",
+      "raw_excerpt_available": true
+    }
   ],
   "policy_context": {
     "cold_start": false,

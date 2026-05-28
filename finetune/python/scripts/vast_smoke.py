@@ -49,7 +49,10 @@ def _load_key() -> str:
     )
 
 
-KEY = _load_key()
+# NOTE: deliberately do NOT call _load_key() at module import time. The
+# previous version did, which made `import vast_smoke` (from tests, docs,
+# or any tooling) crash on machines without a key. _load_key() is now
+# called inside main() right before the API session is built.
 
 # Blacklists carried forward from the Obsidian-referenced
 # provision_inf_80b.py at C:/Projects/Claude_Code/Job_Orchestrator/scripts/
@@ -409,7 +412,8 @@ async def destroy(session, headers, inst_id):
 
 
 async def main():
-    headers = {"Authorization": f"Bearer {KEY}", "Accept": "application/json"}
+    key = _load_key()
+    headers = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
     timeout = aiohttp.ClientTimeout(total=120)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         await cleanup_existing(session, headers)

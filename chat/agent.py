@@ -83,6 +83,9 @@ _VERBS_GATE = ("gate", "policy", "rules", "deterministic", "five rules")
 _VERBS_INCIDENT = ("postmark", "shai-hulud", "shai hulud", "event-stream", "event stream", "lodash")
 _HELP_VERBS = ("help", "what can you do", "what do you do")
 
+# Catches `1.0.16`, `v1.0.16`, `1.0.0-rc.1`, `1.0.0+build.7`.
+_VERSION_HINT = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?(?:[+-][\w.+-]*)?)\b")
+
 
 def _detect_intent(message: str) -> tuple[str, dict[str, Any]]:
     msg = message.strip().lower()
@@ -90,6 +93,15 @@ def _detect_intent(message: str) -> tuple[str, dict[str, Any]]:
 
     if any(v in msg for v in _HELP_VERBS) and len(msg) < 60:
         return "help", facts
+
+    # Bare incident id (e.g. the Streamlit sidebar button pastes `look up
+    # lodash-4.17.21` which previously got mis-parsed into a fake
+    # `lodash-4.17.21@4.17.21`). Accept the id verbatim when it matches a
+    # known incident exactly.
+    for ev in _list_incidents():
+        if ev in message:
+            facts["incident_id"] = ev
+            return "lookup", facts
 
     m = _PKG_AT_VER.search(message)
     if m:
@@ -109,17 +121,61 @@ def _detect_intent(message: str) -> tuple[str, dict[str, Any]]:
         return "list", facts
 
     if any(v in msg for v in _VERBS_INCIDENT):
-        # Find which incident the user is asking about.
+        # Collect every incident the message could plausibly be about by
+        # name. Then prefer the one whose version actually appears in the
+        # message; if the user did not name a specific version, disambiguate
+        # rather than silently picking the lex-first match.
+        candidates: list[str] = []
         for ev in _list_incidents():
             if any(part.lower() in msg for part in ev.split("-")):
-                facts["incident_id"] = ev
+                candidates.append(ev)
+        if candidates:
+            for ver in _VERSION_HINT.findall(message):
+                for ev in candidates:
+                    if ev.endswith(f"-{ver}"):
+                        facts["incident_id"] = ev
+                        return "lookup", facts
+            if len(candidates) == 1:
+                facts["incident_id"] = candidates[0]
                 return "lookup", facts
+            facts["candidates"] = candidates
+            return "disambiguate", facts
         return "incident_overview", facts
 
     if any(v in msg for v in _VERBS_EXPLAIN):
         return "explain", facts
 
     return "freeform", facts
+
+
+def lookup_by_incident_id(incident_id: str) -> ChatTurn:
+    """Direct UI shortcut: turn a known incident id into a ChatTurn.
+
+    The Streamlit sidebar buttons call this so we never need to reconstruct
+    a `package@version` string and re-run the regex parser on it. The
+    previous version of the sidebar did `f'{x.split("-")[0]}-{x.split("-")[1]}@{x.rsplit("-",1)[1]}'`
+    which produced `lodash-4.17.21@4.17.21` for any one-token package name --
+    that string did not match any incident and fell through to
+    ``lookup_unknown``. Direct id lookup avoids the entire round trip.
+    """
+    pair = _load_pair(incident_id)
+    if pair is None:
+        return ChatTurn(
+            response_md=f"No fixture for incident `{incident_id}`.",
+            evidence={"intent": "lookup_unknown", "incident_id": incident_id},
+        )
+    dossier, report = pair
+    return ChatTurn(
+        response_md=_render_lookup(incident_id, dossier, report),
+        evidence={
+            "intent": "lookup",
+            "incident_id": incident_id,
+            "verdict": report.get("verdict"),
+            "risk_level": report.get("risk_level"),
+            "confidence": report.get("confidence"),
+            "primary_findings_count": len(report.get("primary_findings") or []),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +393,19 @@ def handle_query(message: str, history: list[dict[str, str]] | None = None) -> C
             + ", ".join(f"`{i}`" for i in _list_incidents())
             + ".",
             evidence={"intent": "incident_overview"},
+        )
+
+    if intent == "disambiguate":
+        candidates = facts.get("candidates") or []
+        listing = "\n".join(f"- `{c}`" for c in candidates)
+        return ChatTurn(
+            response_md=(
+                "There are multiple incidents matching that name. Which "
+                "version do you mean?\n\n"
+                f"{listing}\n\n"
+                "You can ask `look up <id>` or `look up <name>@<version>`."
+            ),
+            evidence={"intent": "disambiguate", "candidates": candidates},
         )
 
     if intent == "explain":
