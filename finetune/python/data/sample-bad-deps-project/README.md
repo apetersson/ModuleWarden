@@ -40,13 +40,25 @@ sample-bad-deps-project/
 ## Running the test
 
 ```bash
-# From the MW repo root, with the production stack already up:
+# REQUIRED: pin the project name so the network gets the predictable name
+# `modulewarden_default` regardless of the repo directory name.
+export COMPOSE_PROJECT_NAME=modulewarden
+
+# From the MW repo root, bring up the production stack first:
 docker compose up -d            # postgres + verdaccio + api-proxy + worker
+
+# Verify the network exists with the right name:
+docker network ls | grep modulewarden_default
 
 # Then run the test project against the live gate:
 cd finetune/python/data/sample-bad-deps-project
 docker compose up --abort-on-container-exit --exit-code-from tester
 ```
+
+If the network is named differently (e.g. `_mw-clone_default`), the test
+exits 2 with `network modulewarden_default declared as external, but
+could not be found`. Set `COMPOSE_PROJECT_NAME=modulewarden` and bring
+the stack back up.
 
 Expected output (last line):
 

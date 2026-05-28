@@ -24,6 +24,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="$SCRIPT_DIR/extracted"
 
+# Pre-flight: required tooling on PATH.
+for tool in npm curl tar; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "FAIL: $tool not found on PATH" >&2
+    if [ "$tool" = "npm" ]; then
+      echo "  Hint: source ~/.nvm/nvm.sh or ensure your Node version manager is active" >&2
+    fi
+    exit 1
+  fi
+done
+
 mkdir -p "$OUT_DIR"
 
 # 20 top-downloaded benign npm packages. Picked for diversity:
@@ -70,11 +81,24 @@ for spec in "${PACKAGES[@]}"; do
     continue
   fi
 
-  tmpfile="$(mktemp --suffix=.tgz)"
-  curl -sfL "$tarball_url" -o "$tmpfile"
+  tmpfile="$OUT_DIR/.${safe_name}-${ver}.tgz"
+  if ! curl -sfL "$tarball_url" -o "$tmpfile"; then
+    echo "  warn: curl failed for $spec, skipping"
+    rm -f "$tmpfile"
+    continue
+  fi
+  if [ ! -s "$tmpfile" ]; then
+    echo "  warn: empty tarball for $spec, skipping"
+    rm -f "$tmpfile"
+    continue
+  fi
 
   mkdir -p "$target"
-  tar -xzf "$tmpfile" -C "$target" --strip-components=1
+  if ! tar -xzf "$tmpfile" -C "$target" --strip-components=1 2>/dev/null; then
+    echo "  warn: tar extract failed for $spec, cleaning up"
+    rm -rf "$target" "$tmpfile"
+    continue
+  fi
   rm -f "$tmpfile"
   echo "  done: $target"
 done

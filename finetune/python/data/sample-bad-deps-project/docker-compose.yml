@@ -10,14 +10,17 @@ services:
     networks:
       - mw-gate-net
     environment:
-      MW_GATE_BASE_URL: http://mw-gate:8080
+      # api-proxy is the production service name; the test reaches it via the
+      # shared network from docker-compose.yml at the repo root.
+      MW_GATE_BASE_URL: http://api-proxy:8080
       MW_GATE_STATUS_PATH: /admin/status
       MW_TEST_FAIL_ON_SCRIPT_EXECUTION: "true"
-    # The container has no internet egress by default; it can only reach
-    # mw-gate on the bridge network. The network's external_links field
-    # joins the existing mw-network from the production stack so this
-    # tester can reach api-proxy at the alias mw-gate without exposing
-    # any host ports.
+    # The container has no public internet egress; it joins the production
+    # stack's bridge network and talks only to api-proxy on it. To run this
+    # test, the production stack MUST be up first:
+    #     COMPOSE_PROJECT_NAME=modulewarden docker compose up -d
+    # The COMPOSE_PROJECT_NAME pin makes the network deterministically
+    # `modulewarden_default` regardless of the repo directory name.
 
 networks:
   mw-gate-net:

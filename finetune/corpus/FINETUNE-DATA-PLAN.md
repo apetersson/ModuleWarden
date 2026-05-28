@@ -125,12 +125,23 @@ bash finetune/scripts/nextcloud-sync.sh push \
 
 ## End-to-end gate verification (sample-bad-deps)
 
+This is the LIVE-STACK test. It is NOT the offline demo. The offline
+demo at `python -m demo.run_incident_replay` needs no Docker; this gate
+verification needs the full production stack with a deterministic
+network name.
+
 The Docker-isolated test project at
 `finetune/python/data/sample-bad-deps-project/` declares 5 known-bad +
 5 known-clean dependencies. After the production stack is up, run:
 
 ```bash
+# COMPOSE_PROJECT_NAME pins the network to `modulewarden_default` so
+# the external network lookup from sample-bad-deps resolves.
+export COMPOSE_PROJECT_NAME=modulewarden
+
 docker compose up -d  # production stack
+docker network ls | grep modulewarden_default  # confirm name matches
+
 cd finetune/python/data/sample-bad-deps-project
 docker compose up --abort-on-container-exit --exit-code-from tester
 ```
