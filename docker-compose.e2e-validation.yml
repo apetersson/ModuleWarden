@@ -63,9 +63,12 @@ services:
       pnpm --filter @modulewarden/worker dev"
     environment:
       MW_AUDIT_WORKSPACE_ROOT: ${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}
+      MW_PRESERVE_AUDIT_SESSIONS: ${MW_PRESERVE_AUDIT_SESSIONS:-true}
+      MW_AUDIT_SESSION_ARCHIVE_ROOT: ${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST:?MW_E2E_AUDIT_SESSION_ARCHIVE_HOST must be set}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}:${MW_E2E_AUDIT_WORKSPACE_HOST:?MW_E2E_AUDIT_WORKSPACE_HOST must be set}
+      - ${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST:?MW_E2E_AUDIT_SESSION_ARCHIVE_HOST must be set}:${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST:?MW_E2E_AUDIT_SESSION_ARCHIVE_HOST must be set}
       - ./packages/worker:/app/packages/worker
       - ./packages/shared:/app/packages/shared
       - ./packages/prisma-client:/app/packages/prisma-client

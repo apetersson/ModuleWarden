@@ -1,5 +1,5 @@
 import { execSync, exec as execCb } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
@@ -306,6 +306,22 @@ export class ContainerRunner {
   }
 
   /**
+   * Preserve a completed audit workspace for post-run inspection.
+   *
+   * The archived copy intentionally redacts the run-scoped RPC token from
+   * run-config.json. The live workspace is left untouched for evidence capture.
+   */
+  archiveWorkspace(workspacePath: string, archiveRoot: string, archiveName: string): string {
+    const safeName = archiveName.replace(/[^a-zA-Z0-9_.-]/g, '-');
+    const archivePath = join(archiveRoot, safeName);
+    mkdirSync(archiveRoot, { recursive: true });
+    rmSync(archivePath, { recursive: true, force: true });
+    cpSync(workspacePath, archivePath, { recursive: true, force: true });
+    this.redactArchivedRunConfig(archivePath);
+    return archivePath;
+  }
+
+  /**
    * Clean up a workspace directory.
    */
   cleanupWorkspace(workspacePath: string): void {
@@ -313,6 +329,21 @@ export class ContainerRunner {
       rmSync(workspacePath, { recursive: true, force: true });
     } catch {
       // Best-effort cleanup
+    }
+  }
+
+  private redactArchivedRunConfig(archivePath: string): void {
+    const configPath = join(archivePath, 'run-config.json');
+    if (!existsSync(configPath)) return;
+
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+      if ('rpcToken' in config) {
+        config.rpcToken = '[redacted-after-run]';
+      }
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+    } catch {
+      // Preserve the session even if redaction cannot parse the config.
     }
   }
 }

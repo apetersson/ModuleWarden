@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { ContainerRunner } from '../services/container-runner.js';
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const TEST_IMAGE = 'modulewarden-audit-runner';
 
@@ -154,5 +155,35 @@ describe('ContainerRunner', () => {
     runner.cleanupWorkspace(ws2);
     expect(existsSync(ws1)).toBe(false);
     expect(existsSync(ws2)).toBe(false);
+  });
+
+  it('7. archives workspaces with redacted run config', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'mw-archive-test-'));
+    const workspacePath = join(tempRoot, 'workspace');
+    const archiveRoot = join(tempRoot, 'archives');
+
+    try {
+      mkdirSync(join(workspacePath, 'output'), { recursive: true });
+      writeFileSync(join(workspacePath, 'run-config.json'), JSON.stringify({
+        rpcPort: 9090,
+        packageName: 'archive-test',
+        packageVersion: '1.0.0',
+        rpcToken: 'secret-token',
+      }, null, 2));
+      writeFileSync(join(workspacePath, 'output', 'verdict.json'), '{"verdict":"ALLOW"}');
+
+      const archivePath = runner.archiveWorkspace(workspacePath, archiveRoot, 'run/archive-test@1.0.0');
+
+      expect(archivePath).toBe(join(archiveRoot, 'run-archive-test-1.0.0'));
+      expect(existsSync(join(archivePath, 'output', 'verdict.json'))).toBe(true);
+
+      const archivedConfig = JSON.parse(readFileSync(join(archivePath, 'run-config.json'), 'utf-8'));
+      expect(archivedConfig.rpcToken).toBe('[redacted-after-run]');
+
+      const liveConfig = JSON.parse(readFileSync(join(workspacePath, 'run-config.json'), 'utf-8'));
+      expect(liveConfig.rpcToken).toBe('secret-token');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -6,6 +6,7 @@ PROJECT_NAME="${MW_E2E_PROJECT_NAME:-e2e-validation-scenario}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 export MW_E2E_AUDIT_WORKSPACE_HOST="${MW_E2E_AUDIT_WORKSPACE_HOST:-$ROOT_DIR/.e2e/audit-workspaces}"
+export MW_E2E_AUDIT_SESSION_ARCHIVE_HOST="${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST:-$ROOT_DIR/.e2e/audit-sessions}"
 export MW_E2E_RESULTS_HOST="${MW_E2E_RESULTS_HOST:-$ROOT_DIR/.e2e/results}"
 export MW_E2E_API_PORT="${MW_E2E_API_PORT:-8080}"
 export MW_E2E_WEB_UI_PORT="${MW_E2E_WEB_UI_PORT:-13000}"
@@ -16,11 +17,12 @@ export MW_E2E_BROWSER_API_BASE_URL="${MW_E2E_BROWSER_API_BASE_URL:-$MW_E2E_HOST_
 export MW_MODEL_ENDPOINT_BASE_URL="${MW_MODEL_ENDPOINT_BASE_URL:-https://api.deepseek.com/v1}"
 export MW_MODEL_ENDPOINT_API_KEY="${MW_MODEL_ENDPOINT_API_KEY:-${DEEPSEEK_API_KEY:-sk-change-me}}"
 export MW_MODEL_ENDPOINT_MODEL="${MW_MODEL_ENDPOINT_MODEL:-deepseek-flash-4}"
+export MW_PRESERVE_AUDIT_SESSIONS="${MW_PRESERVE_AUDIT_SESSIONS:-true}"
 export MW_AUTH_ADMIN_TOKENS="${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}"
 export MW_AUTH_DEV_TOKENS="${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}"
 
 RESULTS_DIR="$MW_E2E_RESULTS_HOST/$RUN_ID"
-mkdir -p "$MW_E2E_AUDIT_WORKSPACE_HOST" "$RESULTS_DIR"
+mkdir -p "$MW_E2E_AUDIT_WORKSPACE_HOST" "$MW_E2E_AUDIT_SESSION_ARCHIVE_HOST" "$RESULTS_DIR"
 
 compose() {
   docker compose \
@@ -198,6 +200,7 @@ capture_results() {
   compose logs --tail=500 api-proxy > "$RESULTS_DIR/api-proxy.log" || true
   compose logs --tail=800 worker > "$RESULTS_DIR/worker.log" || true
   compose logs --tail=300 web-ui > "$RESULTS_DIR/web-ui.log" || true
+  find "$MW_E2E_AUDIT_SESSION_ARCHIVE_HOST" -maxdepth 3 -print > "$RESULTS_DIR/audit-sessions.txt" 2>/dev/null || true
 
   compose exec -T postgres psql -U modulewarden -d modulewarden <<'SQL' > "$RESULTS_DIR/db-snapshot.txt" || true
 select pv."packageName", pv.version, pv."tarballHash", pv."createdAt"
@@ -279,6 +282,7 @@ Project: ${PROJECT_NAME}
 API: ${MW_E2E_HOST_API_BASE_URL}
 Web UI: ${MW_E2E_HOST_WEB_URL}
 Results: ${RESULTS_DIR}
+Audit sessions: ${MW_E2E_AUDIT_SESSION_ARCHIVE_HOST}
 
 First pnpm install state: ${first_state}
 Second pnpm install state: ${second_state}

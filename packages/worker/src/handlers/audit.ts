@@ -138,6 +138,21 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
 
     // 5. Run the container
     const result = await runner.run(inputs);
+    let preservedSessionPath: string | null = null;
+    if (config.auditRunner.preserveSessions && config.auditRunner.sessionArchiveRoot) {
+      const archiveName = `${auditRun.id}-${packageName}-${packageVersion}`;
+      try {
+        preservedSessionPath = runner.archiveWorkspace(
+          result.workspacePath,
+          config.auditRunner.sessionArchiveRoot,
+          archiveName
+        );
+        console.log(`[audit] Preserved audit session for ${packageName}@${packageVersion} at ${preservedSessionPath}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[audit] Failed to preserve audit session for ${packageName}@${packageVersion}: ${message}`);
+      }
+    }
 
     // 5. Process results
     const completedAt = new Date();
@@ -166,6 +181,29 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
         evidenceArtifactIds.push(artifact.id);
       } catch {
         // Skip artifacts that fail to register
+      }
+    }
+
+    if (preservedSessionPath) {
+      try {
+        const content: Prisma.InputJsonValue = {
+          path: preservedSessionPath,
+          preservedWorkspace: true,
+          note: 'Full audit workspace archived after container exit. Runtime RPC token is redacted in run-config.json.',
+        };
+        const artifact = await prisma.evidenceArtifact.create({
+          data: {
+            auditRunId: auditRun.id,
+            artifactType: 'OTHER',
+            name: 'session-archive',
+            content,
+            contentHash: hashContent(JSON.stringify(content)),
+            filePath: preservedSessionPath,
+          },
+        });
+        evidenceArtifactIds.push(artifact.id);
+      } catch {
+        // Session archive exists on disk even if DB registration fails.
       }
     }
 
