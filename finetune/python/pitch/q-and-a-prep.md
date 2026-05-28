@@ -405,27 +405,6 @@ right behavior for the rest.
 
 ---
 
-## Q21. Have you seen Decepticon (PurpleAILAB)? Are they competing with you?
-
-Adjacent, not competing. Decepticon is the offensive side: red-team
-agents that find and exploit. ModuleWarden is the defensive side: a
-gate that stops compromised npm tarballs before they install. Both
-isolate per task in disposable Docker containers, which we read as
-validation that the per-job container pattern is the right shape for
-agentic security work at either end.
-
-Their 98.08 percent on XBOW is a search-and-exploit benchmark, not a
-classification benchmark. Ours is the audit_report.v1 verdict on
-real version diffs. Different rows in the same enterprise security
-stack, not the same row.
-
-If a buyer ran both, Decepticon would tell them what an attacker can
-do to their stack; ModuleWarden would tell them which npm install
-requests to allow today. We would expect both to ship in a mature
-SOC; we would expect neither to displace the other.
-
----
-
 ## Q&A escalation matrix
 
 When a judge asks something we cannot answer cleanly, do not bluff.
