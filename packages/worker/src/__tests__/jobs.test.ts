@@ -537,6 +537,92 @@ beforeAll(async () => {
   
   });
 
+  it('2x. deterministic singleton keys cover all singleton-backed job wrappers', async () => {
+    const singletonQueue = new JobQueue({
+      connectionString: TEST_DSN,
+      schema: `pgboss_singleton_${RUN_ID}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_'),
+      maxRetries: 1,
+      backoffDelayMs: 1000,
+      timeoutMs: 30_000,
+      concurrency: {},
+    });
+
+    await singletonQueue.start();
+
+    const base = `singleton-suite-${RUN_ID}-${Date.now()}`;
+    const packageName = `singleton-${base}`;
+    const packageVersion = '2.1.0';
+    const tarballHash = `sha-singleton-${base}`;
+    const context = `manual:${packageName}@${packageVersion}`;
+    const firstPackageReview = await singletonQueue.enqueuePackageReview(
+      packageName,
+      packageVersion,
+      tarballHash,
+      context
+    );
+    expect(firstPackageReview).toBeTruthy();
+    expect(await singletonQueue.enqueuePackageReview(
+      packageName,
+      packageVersion,
+      tarballHash,
+      context
+    )).toBeNull();
+
+    const upstreamPackage = `upstream-singleton-${base}`;
+    expect(await singletonQueue.enqueueUpstreamPoll(upstreamPackage)).toBeTruthy();
+    expect(await singletonQueue.enqueueUpstreamPoll(upstreamPackage)).toBeNull();
+
+    const reviewJobId = `review-singleton-${base}`;
+    expect(await singletonQueue.enqueueAuditContainerExec(
+      reviewJobId,
+      packageName,
+      packageVersion,
+      tarballHash,
+      `sha-prev-${base}`,
+      context
+    )).toBeTruthy();
+    expect(await singletonQueue.enqueueAuditContainerExec(
+      reviewJobId,
+      packageName,
+      packageVersion,
+      tarballHash,
+      `sha-prev-${base}`,
+      context
+    )).toBeNull();
+
+    const evidenceBundleId = `evidence-singleton-${base}`;
+    expect(await singletonQueue.enqueueModelEscalation(reviewJobId, evidenceBundleId)).toBeTruthy();
+    expect(await singletonQueue.enqueueModelEscalation(reviewJobId, evidenceBundleId)).toBeNull();
+
+    const decisionId = `decision-singleton-${base}`;
+    expect(await singletonQueue.enqueueVerdaccioPromotion(
+      decisionId,
+      packageName,
+      packageVersion,
+      tarballHash
+    )).toBeTruthy();
+    expect(await singletonQueue.enqueueVerdaccioPromotion(
+      decisionId,
+      packageName,
+      packageVersion,
+      tarballHash
+    )).toBeNull();
+
+    const projectId = `project-singleton-${base}`;
+    expect(await singletonQueue.enqueueProjectReady(projectId, `reason-${base}`)).toBeTruthy();
+    expect(await singletonQueue.enqueueProjectReady(projectId, `reason-${base}`)).toBeNull();
+
+    const auditRunId = `audit-run-singleton-${base}`;
+    expect(await singletonQueue.enqueueEvidencePostProcess(auditRunId, evidenceBundleId)).toBeTruthy();
+    expect(await singletonQueue.enqueueEvidencePostProcess(auditRunId, evidenceBundleId)).toBeNull();
+
+    const campaignId = `campaign-singleton-${base}`;
+    expect(await singletonQueue.enqueueReAuditCampaign(campaignId, `reason-${base}`)).toBeTruthy();
+    expect(await singletonQueue.enqueueReAuditCampaign(campaignId, `reason-${base}`)).toBeNull();
+
+    await singletonQueue.stop();
+  });
+
   it('16. persists failure context for review jobs that crash in workers', async () => {
     if (!hasFailureReasonColumn) {
       return;
