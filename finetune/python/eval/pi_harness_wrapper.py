@@ -62,17 +62,24 @@ def run_pi_audit(
 
         {
           "status": "ok" | "error" | "unavailable",
+          "mode": "pi" | "tool-only" | "n/a",
           "elapsed_s": float,
           "tool_calls": int | None,
           "raw_output": str,
           "verdict": dict | None,
           "stderr": str,
         }
+
+    ``mode="tool-only"`` flags a degraded orchestrator path where PI was
+    unavailable (no MW_MODEL_ENDPOINT_BASE_URL set or RPC bridge down) and
+    the orchestrator fell back to file-only inspection. The matrix runner
+    uses this flag to annotate arms 3 and 4 distinctly from a real PI run.
     """
     t0 = time.monotonic()
     if not is_available(repo_root):
         return {
             "status": "unavailable",
+            "mode": "n/a",
             "elapsed_s": round(time.monotonic() - t0, 3),
             "tool_calls": None,
             "raw_output": "",
@@ -84,6 +91,7 @@ def run_pi_audit(
     if orch.suffix == ".ts":
         return {
             "status": "unavailable",
+            "mode": "n/a",
             "elapsed_s": round(time.monotonic() - t0, 3),
             "tool_calls": None,
             "raw_output": "",
@@ -102,6 +110,15 @@ def run_pi_audit(
             "MW_WORKSPACE": str(workspace_dir),
         }
     )
+    # Forward optional orchestrator gates from the parent env when set. The
+    # orchestrator (packages/audit-runner/src/orchestrator.ts after e981833)
+    # checks MW_MODEL_ENDPOINT_BASE_URL, MW_RPC_PORT, MW_RPC_TOKEN and
+    # silently falls back to the file-only "tool-only" audit path if any are
+    # absent. We do not invent defaults here, but pass them through so the
+    # operator can opt into the full PI path by exporting them.
+    for k in ("MW_MODEL_ENDPOINT_BASE_URL", "MW_RPC_PORT", "MW_RPC_TOKEN", "MW_AUDIT_TIMEOUT_MS"):
+        if k in os.environ:
+            env[k] = os.environ[k]
     if extra_env:
         env.update(extra_env)
     workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -122,6 +139,7 @@ def run_pi_audit(
     except subprocess.TimeoutExpired as exc:
         return {
             "status": "error",
+            "mode": "n/a",
             "elapsed_s": round(time.monotonic() - t0, 3),
             "tool_calls": None,
             "raw_output": exc.stdout or "",
@@ -152,8 +170,21 @@ def run_pi_audit(
         if isinstance(tc, int):
             tool_calls = tc
 
+    # Detect the orchestrator tool-only fallback path. If
+    # MW_MODEL_ENDPOINT_BASE_URL was missing or the RPC bridge failed,
+    # orchestrator.ts runs runToolOnlyAudit() and writes a verdict whose
+    # riskSummary string carries "tool-only" or "File-only inspection".
+    # Matrix-runner downstream uses this flag to distinguish a genuine PI
+    # arm-3/4 result from a degraded inspection-only fallback.
+    mode = "pi"
+    if isinstance(verdict, dict):
+        risk_summary = str(verdict.get("riskSummary") or verdict.get("risk_summary") or "").lower()
+        if "tool-only" in risk_summary or "file-only inspection" in risk_summary:
+            mode = "tool-only"
+
     return {
         "status": "ok" if proc.returncode == 0 else "error",
+        "mode": mode,
         "elapsed_s": elapsed,
         "tool_calls": tool_calls,
         "raw_output": stdout,

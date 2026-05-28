@@ -271,6 +271,7 @@ def _run_arm_agentic(
         )
         row["arm"] = arm
         row["pi_status"] = result.get("status")
+        row["pi_mode"] = result.get("mode")
         rows.append(row)
     return rows
 
