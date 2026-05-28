@@ -45,28 +45,7 @@ if [ -f inputs/package.tgz ]; then
     echo "Warning: Could not extract tarball" >&2
 fi
 
-# ── Step 2: Start the RPC bridge server (background) ──────
-RPC_BRIDGE="/app/rpc-bridge/index.js"
-if [ -f "${RPC_BRIDGE}" ]; then
-  echo "[entrypoint] Starting RPC bridge server..."
-  node "${RPC_BRIDGE}" &
-  RPC_PID=$!
-  echo "[entrypoint] RPC bridge PID: ${RPC_PID}"
-
-  # Wait for bridge to be ready
-  for i in $(seq 1 10); do
-    if nc -z 127.0.0.1 "${RPC_PORT}" 2>/dev/null; then
-      echo "[entrypoint] RPC bridge is ready on port ${RPC_PORT}"
-      break
-    fi
-    sleep 0.5
-  done
-else
-  echo "[entrypoint] Warning: RPC bridge not found at ${RPC_BRIDGE}"
-  RPC_PID=""
-fi
-
-# ── Step 3: Run PI audit orchestrator ──────────────────────
+# ── Step 2: Run PI audit orchestrator ──────────────────────
 ORCHESTRATOR="/app/orchestrator/index.js"
 if [ -f "${ORCHESTRATOR}" ]; then
   echo "[entrypoint] Starting PI audit orchestrator..."
@@ -77,7 +56,6 @@ else
   echo "[entrypoint] Orchestrator not found at ${ORCHESTRATOR}"
   echo "[entrypoint] Running fallback inspection..."
 
-  # Run basic inspection as evidence
   if [ -f inputs/package.json ]; then
     cp inputs/package.json "${OUTPUT_DIR}/inspection/package.json" 2>/dev/null || true
   fi
@@ -86,13 +64,6 @@ else
   ls -laR inputs/ > "${OUTPUT_DIR}/inspection/inputs-tree.txt" 2>/dev/null || true
 
   ORCH_EXIT=0
-fi
-
-# ── Step 4: Cleanup ─────────────────────────────────────────
-if [ -n "${RPC_PID}" ]; then
-  echo "[entrypoint] Stopping RPC bridge..."
-  kill "${RPC_PID}" 2>/dev/null || true
-  wait "${RPC_PID}" 2>/dev/null || true
 fi
 
 # Capture final workspace state

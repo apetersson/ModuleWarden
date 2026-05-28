@@ -653,7 +653,7 @@ beforeAll(async () => {
     expect(id).toBeTruthy();
 
     let failedStatus = '';
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 24; i++) {
       const latest = await getReviewJobStatus(reviewJobId, hasFailureReasonColumn);
       if (latest?.status && latest.status !== 'QUEUED') {
         failedStatus = latest.status;

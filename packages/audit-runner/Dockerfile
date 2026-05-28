@@ -36,10 +36,6 @@ RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence &&
 
 WORKDIR /workspace
 
-# ── Copy the RPC bridge server ────────────────────────────────
-# Built from packages/audit-rpc-server
-COPY packages/audit-rpc-server/dist/ /app/rpc-bridge/
-
 # ── Copy the PI audit orchestrator ────────────────────────────
 # Built from packages/audit-runner/src/orchestrator.ts
 COPY packages/audit-runner/dist/orchestrator.js /app/orchestrator/index.js

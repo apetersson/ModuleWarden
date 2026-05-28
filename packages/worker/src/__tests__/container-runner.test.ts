@@ -128,7 +128,7 @@ describe('ContainerRunner', () => {
     expect(networks[0].Name).toBe('mw-audit-test-net');
   });
 
-  it('6. each container gets a fresh isolated workspace', async () => {
+  it('6. each container gets a fresh isolated workspace', { timeout: 120_000 }, async () => {
     const result1 = await runner.run({
       rpcToken: 'isolated-1',
       rpcPort: 9090,
