@@ -234,6 +234,25 @@ test case.
 
 ---
 
+## Q10a. Have you seen Decepticon by PurpleAILAB? Sounds adjacent.
+
+Yes. They are the offense to our defense. Decepticon is an autonomous
+red-team agent: 16 specialist agents organized by kill-chain phase,
+LangGraph plus LiteLLM plus Postgres plus a Kali sandbox plus a Neo4j
+knowledge graph, with 98 percent on the XBOW validation benchmark.
+Their architectural pattern is the disposable Docker-socket-driven
+agent inside a two-network management-versus-sandbox split. That is
+exactly the shape ModuleWarden's per-job audit container already uses,
+just at a smaller scale and pointed at a different problem. Decepticon
+operates pre-compromise; ModuleWarden operates at the npm install
+boundary, post-publish, pre-execution. Both projects share Apache 2.0
+licensing and disposable Docker-isolation patterns, but the threat
+surfaces and the metrics do not overlap. If UNIQA wanted to run
+red-team plus defense in series, Decepticon plus ModuleWarden is a
+natural pairing, but we do not pitch that on stage today.
+
+---
+
 ## Q11a. How do you defend against the developer who asks Copilot to install a package and Copilot suggests something malicious?
 
 Same gate, same evidence. ModuleWarden does not care who triggered the
