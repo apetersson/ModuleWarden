@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:46'
+updated_date: '2026-05-28 11:48'
 labels:
   - prompts
   - models
@@ -37,7 +37,7 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 - [ ] #1 Core prompt contents are not exposed through CLI, web UI, package-manager errors, API responses for normal users, or audit artifacts shown to developers.
 - [ ] #2 Security/admin users can add custom prompts that run alongside the core suite without replacing hidden core prompts.
 - [x] #3 Every audit records exact prompt-pack versions, custom prompt versions, model profile, and escalation path.
-- [ ] #4 Escalation runs when the first pass finds suspicious evidence, uncertainty that would quarantine, or high-risk capability deltas.
+- [x] #4 Escalation runs when the first pass finds suspicious evidence, uncertainty that would quarantine, or high-risk capability deltas.
 - [x] #5 Changing prompts, models, or known-pattern libraries schedules re-audits for currently allowed versions in the active used graph.
 - [ ] #6 Model endpoint profiles record provider, trust boundary, logging posture, and whether prompt secrecy guarantees are degraded.
 - [x] #7 Prompt, model, or pattern changes enqueue re-audits that include versions with active admin overrides and may supersede those overrides with new effective decisions.
@@ -54,6 +54,8 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 
 <!-- SECTION:NOTES:BEGIN -->
 Created prompt pack and model profile repositories. Created prompt-pack.ts service (assembleAuditInstructions, buildContainerInstructionFile, shouldEscalate). Created prompt-reaudit.ts service (triggerPromptChangeReAudit, onPromptPackCreated). All tests pass.
+
+Escalation path wired: shouldEscalateVerdict() in api-proxy/service/escalation.ts detects quarantine/high-risk verdicts. Internal verdict endpoint stores escalation_recommended label. Jobs test for escalation previously existed in model-escalation handler.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done
