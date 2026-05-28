@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
+import { UnderwriterPage } from './underwriter/UnderwriterPage';
 
 // API_BASE resolution order: Vite build arg > window global > empty string (same-origin)
 const viteBase = typeof import.meta !== 'undefined' ? (import.meta as Record<string, any>).env?.VITE_MW_API_BASE_URL : undefined;
@@ -1198,7 +1199,7 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
 }
 
 function App() {
-  const [page, setPage] = useState<'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation'>('dashboard');
+  const [page, setPage] = useState<'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'underwriter'>('dashboard');
   const [detailRunId, setDetailRunId] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [adminToken, setAdminToken] = useState('');
@@ -1223,6 +1224,7 @@ function App() {
     { key: 'prompts', label: 'Prompts' },
     { key: 'campaigns', label: 'Campaigns' },
     { key: 'evaluation', label: 'Evaluation' },
+    { key: 'underwriter', label: 'Underwriter' },
   ];
 
   function renderPage() {
@@ -1232,6 +1234,7 @@ function App() {
       case 'prompts': return <PromptsPage adminToken={adminToken} />;
       case 'campaigns': return <CampaignsPage adminToken={adminToken} />;
       case 'evaluation': return <EvaluationPage adminToken={adminToken} />;
+      case 'underwriter': return <UnderwriterPage adminToken={adminToken} />;
     }
   }
 

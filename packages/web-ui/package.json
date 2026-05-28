@@ -14,7 +14,8 @@
   "dependencies": {
     "@modulewarden/shared": "workspace:*",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^2.13.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
