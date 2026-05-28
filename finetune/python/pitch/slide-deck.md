@@ -29,7 +29,14 @@ shipped to fifteen hundred organizations before anyone noticed.
 event-stream in 2018, ua-parser-js in 2021, the eslint-scope
 compromise, the Lottiefiles incident. The pattern is the same: trusted
 maintainer, one bad version, thousands of installs in the window
-between push and patch."
+between push and patch. And most of the time, the install request
+comes from inside the firewall: a developer asked Copilot for a CSV
+parser and Copilot suggested three packages, none of which have been
+audited. Verizon DBIR puts 74 percent of breaches on the human
+element. AI-assisted coding amplifies the insider vector. UNIQA's
+underwriting questionnaire has eleven sections. None ask whether the
+policyholder gates npm installs. ModuleWarden is the twelfth
+section."
 
 **Visual:** Timeline. X-axis: 2018 to 2026. Each named incident as a
 labeled dot, sized by estimated affected installs. postmark-mcp on the
@@ -42,6 +49,11 @@ right with a red ring around it.
 - The window between push and patch is the attack surface
 - Sonatype: 512K malicious packages logged in 2024, 98.5 percent
   concentrated in npm
+- 74 percent of breaches involve human element (Verizon DBIR 2024);
+  AI-assisted coding (Copilot, Cursor, Claude Code) amplifies the
+  insider vector
+- UNIQA's underwriting questionnaire has 11 sections and none ask about
+  the install layer; ModuleWarden is the twelfth section
 
 **Judges' question this answers:** "Why does this problem matter right now?"
 
@@ -76,32 +88,42 @@ start" with a question-mark icon. Below each: the default verdict
 
 ## Slide 3 - Architecture
 
-**Speaker note:** "Four components. The registry proxy speaks the npm
-registry API and sits between the developer and the public registry.
-Every tarball serve goes through the policy engine, which evaluates
-deterministic rules first: release age, lifecycle script triage, SRI
-checksum verification, quarantine database lookup. The audit pipeline
-then builds an `AuditDossier` from prepared evidence and asks the
-fine-tuned model for an `AuditReport`. For dossiers the one-shot model
-cannot resolve confidently, the PI agentic harness runs inside the
-audit container with custom RPC tools and produces a richer verdict
-that can refine or overturn the one-shot brief. Self-hosted,
-on-premise, no SaaS round trip."
+**Speaker note:** "Three layers, one architecture. Top layer: the
+deterministic 5-rule gate handles roughly 80 percent of decisions with
+zero LLM involvement. Release age, lifecycle script triage, SRI
+checksum, source-match, allowlist. Free and fast. Middle layer: our
+fine-tuned Qwen3.6-27B auditor runs the remaining 20 percent inside a
+per-job Docker container with run-scoped RPC tokens and prompt secrecy
+guaranteed. The audit container never sees DB credentials, Verdaccio
+credentials, or the audit prompts; the client never sees the prompts
+either. Bottom layer: DeepSeek V3 hosted is consulted as a second
+opinion on QUARANTINE-band decisions only, about 5 percent of total.
+When the two models disagree, the supersedes pointer captures the
+escalation and routes to admin override. This is the reinsurance
+pattern: primary writes the policy, secondary provides the second
+opinion on borderline cases. Self-hosted, on-premise, no SaaS round
+trip on the primary path."
 
-**Visual:** Five boxes left to right with arrows: Developer / CI then
-Registry Proxy then Policy Engine then `AuditDossier` then `AuditReport`
-verdict. Below the dossier: two parallel paths, "one-shot auditor"
-(Qwen3.6-27B) and "PI agentic harness" (`packages/audit-runner`).
+**Visual:** Three stacked horizontal bands. Top band (80 percent of
+decisions): deterministic 5-rule gate. Middle band (20 percent): MW
+fine-tuned Qwen3.6-27B in per-job Docker container with prompt-secrecy
+boundary marked. Bottom band (5 percent of total, QUARANTINE only):
+DeepSeek V3 second opinion, with supersedes-pointer arrow to admin
+override workflow. Verdaccio promote-only backing on the right.
+Postgres lineage on the left.
 
 **Bullets:**
-- Registry proxy (`packages/api-proxy`): speaks npm API, caches tarballs,
-  logs every request
-- Policy engine: deterministic rules first, model second
+- Layer 1: deterministic 5-rule gate, ~80 percent of decisions, no LLM
+- Layer 2: MW fine-tuned Qwen3.6-27B in `packages/audit-runner` Docker
+  container, prompt secrecy guaranteed, primary verdict for the
+  remaining 20 percent
+- Layer 3: DeepSeek V3 hosted, QUARANTINE-band only (~5 percent of
+  total), captured in supersedes pointer if disagreement
 - `AuditDossier`-`AuditReport` contract: stable evidence references,
   cited findings, no invented refs
-- One-shot Qwen3.6-27B auditor for fast triage
-- PI agentic harness (`packages/audit-runner`) for tool-use audits
-- Self-hosted; no developer or CI data leaves the perimeter
+- Self-hosted primary path; no developer or CI data leaves the perimeter
+- Reinsurance pattern: primary writes, secondary provides borderline
+  second opinion
 
 **Judges' question this answers:** "How does this fit into a developer's
 workflow?"
@@ -355,23 +377,32 @@ are not overfit?"
 
 ## Slide 12 - Ask
 
-**Speaker note:** "Three asks. First, a pilot with a sponsor or one of
-the underwriters in the room. We supply the gate and the evidence
-schema; you keep the data and the actuarial conclusions. Second,
-continued H100 access through the end of June so we can finish the PyPI
-proxy and the federated audit feedback loop. Third, a thirty-minute
-conversation with UNIQA's cyber product team to validate the
-control-class framing. The math on Slide 6 is anchored to public
-industry data, but it gets sharper with one real account profile in
-front of it."
+**Speaker note:** "Three asks, calibrated to the seriousness of an
+enterprise insurance buying cycle. First, a structured 6-to-8 week
+pilot with UNIQA cyber underwriting on a defined cohort of
+software-reliant insureds, with explicit KPIs: block precision,
+override burden, evidence usefulness for underwriting review, and
+feasibility of attaching control language to the renewal
+questionnaire. Ideally paid if scoped against measurable underwriting
+outcomes. Second, a product-design partnership with three named roles:
+one underwriting lead, one cyber product owner, one claims or risk
+engineering stakeholder. This is the cross-functional validation
+insurer adoption requires. Third, outcome-based pilot funding or
+compute support tied to calibrating pricing credits and renewal
+questionnaire updates. None of this is generic. Each ask is what we
+need to turn ModuleWarden from a hackathon prototype into the twelfth
+section of UNIQA's underwriting questionnaire."
 
-**Visual:** Three icons with one-line asks underneath. Handshake, GPU,
-briefcase.
+**Visual:** Three icons with one-line asks underneath. Handshake (pilot),
+clipboard (product partnership), gears (outcome funding).
 
 **Bullets:**
-- Pilot with a sponsor company. We supply the gate, they keep the data.
-- Compute access through June for PyPI proxy and federated audit
-- 30-minute conversation with UNIQA's cyber product team
+- Structured 6-8 week pilot with cyber underwriting; explicit KPIs;
+  paid if scoped against measurable outcomes
+- Product-design partnership: one underwriting lead, one cyber product
+  owner, one claims/risk engineering stakeholder
+- Outcome-based pilot funding or compute support, tied to calibrating
+  pricing credits and renewal-questionnaire updates
 
 **Judges' question this answers:** "What do you want from us?"
 
