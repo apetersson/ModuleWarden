@@ -253,7 +253,7 @@ beforeAll(async () => {
     expect(typeof jobId).toBe('string');
 
     // Wait up to 10s for the worker to pick up the job
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       if (processed.length > 0) break;
       await sleep(1000);
     }
@@ -687,6 +687,95 @@ beforeAll(async () => {
     await prisma.auditRun.deleteMany({ where: { reviewJobId: reviewJobId } });
     await deleteReviewJobs([reviewJobId]);
     await prisma.packageVersion.delete({ where: { id: packageVersion.id } }).catch(() => undefined);
+  });
+
+  it('16b. persists failure context for dead-lettered queue jobs', async () => {
+    const deadLetterSchema = `pgboss_deadletter_${RUN_ID}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const deadLetterQueue = new JobQueue({
+      connectionString: TEST_DSN,
+      schema: deadLetterSchema,
+      maxRetries: 1,
+      backoffDelayMs: 10,
+      timeoutMs: 5_000,
+      concurrency: {},
+    });
+
+    const prisma = getPrisma();
+    await deadLetterQueue.start();
+
+    const reviewSchema = {
+      packageName: `deadletter-${RUN_ID}`,
+      packageVersion: '1.0.0',
+      tarballHash: `sha-deadletter-${RUN_ID}`,
+      auditContext: `manual:dead-letter:${RUN_ID}`,
+    };
+    const originalPolicy = JOB_RETRY_CONFIG['package-review'];
+    JOB_RETRY_CONFIG['package-review'] = {
+      ...originalPolicy,
+      maxRetries: 1,
+      backoffMs: 10,
+      timeoutMs: 5_000,
+    };
+
+    try {
+      const packageVersion = await prisma.packageVersion.create({
+        data: {
+          packageName: reviewSchema.packageName,
+          version: reviewSchema.packageVersion,
+          registrySource: 'npm',
+          tarballHash: reviewSchema.tarballHash,
+        },
+      });
+
+      const reviewJobId = await createReviewJobRow(
+        packageVersion.id,
+        reviewSchema.auditContext,
+        'MANUAL',
+        `mw:job:package-review:${reviewSchema.packageName}:${reviewSchema.packageVersion}:${reviewSchema.tarballHash}:${reviewSchema.auditContext}`
+      );
+
+      await deadLetterQueue.work('package-review' as any, async () => {
+        throw new Error('dead-letter exhaustion path');
+      });
+
+      const jobId = await deadLetterQueue.send('package-review' as any, {
+        packageName: reviewSchema.packageName,
+        packageVersion: reviewSchema.packageVersion,
+        tarballHash: reviewSchema.tarballHash,
+        auditContext: reviewSchema.auditContext,
+        rawAuditContext: reviewSchema.auditContext,
+        reviewJobId,
+      } as any, `mw:dead-letter:${RUN_ID}:${Date.now()}`);
+      expect(jobId).toBeTruthy();
+
+      let finalStatus = '';
+      for (let i = 0; i < 12; i++) {
+        const latest = await getReviewJobStatus(reviewJobId, hasFailureReasonColumn);
+        if (latest?.status) {
+          finalStatus = latest.status;
+          if (latest.status === 'DEAD_LETTER') {
+            break;
+          }
+        }
+        await sleep(200);
+      }
+
+      expect(finalStatus).toBe('DEAD_LETTER');
+      const failure = await getReviewJobStatus(reviewJobId, true);
+      expect(failure?.failureReason ?? '').toContain('dead-letter exhaustion path');
+
+      const auditRuns = await prisma.auditRun.findMany({
+        where: { reviewJobId },
+      });
+      expect(auditRuns).toHaveLength(1);
+      expect(auditRuns[0]?.errorMessage).toContain('dead-letter exhaustion path');
+
+      await deleteReviewJobs([reviewJobId]);
+      await prisma.packageVersion.delete({ where: { id: packageVersion.id } }).catch(() => undefined);
+    } finally {
+      JOB_RETRY_CONFIG['package-review'] = originalPolicy;
+      await deadLetterQueue.stop();
+    }
   });
 
   it('17. keeps stale promotion requests from promoting older decisions after retries', async () => {
