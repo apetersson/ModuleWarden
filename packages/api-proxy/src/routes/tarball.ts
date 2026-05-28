@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { logger } from '@modulewarden/shared/services/logger';
 import { getEffectiveVerdictByHash } from '../services/decisions.js';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
@@ -210,8 +211,12 @@ export async function registerTarballRoute(
             idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
           });
           enqueued = Boolean(jobId);
-        } catch {
-          // Queueing failure shouldn't crash the proxy
+        } catch (err) {
+          logger.warn('Failed to enqueue review job for tarball', {
+            packageName,
+            version,
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 

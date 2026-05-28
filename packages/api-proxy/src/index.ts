@@ -106,7 +106,7 @@ export async function buildServer() {
 
   // ── Internal RPC endpoints (audit bridge) ───────────────────
 
-  await registerInternalRoutes(app);
+  await registerInternalRoutes(app, _queue ?? undefined);
 
   // ── Dashboard admin endpoints ────────────────────────────────
 
