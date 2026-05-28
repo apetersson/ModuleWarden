@@ -54,6 +54,7 @@ export interface JobPayloads {
     packageVersion: string;
     tarballHash: string;
     auditContext: string;
+    rawAuditContext?: string;
     idempotencyKey: string;
   };
   'upstream-subscription-poll': {

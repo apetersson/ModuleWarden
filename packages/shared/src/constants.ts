@@ -16,6 +16,30 @@ export function buildIdempotencyKey(
   return `${JOB_IDEMPOTENCY_KEY_PREFIX}${jobType}:${packageName}:${packageVersion}:${tarballHash}:${auditContext}`;
 }
 
+/**
+ * Normalize audit contexts that should dedupe to a shared review lane.
+ *
+ * Preflight tarball misses, lockfile imports, and subscription polling are
+ * all discovery-driven review requests for the same package hash and should
+ * collapse to one active package-review job. Re-audit requests stay distinct
+ * per campaign to preserve explicit re-evaluation runs.
+ */
+export function canonicalReviewAuditContext(auditContext: string): string {
+  if (auditContext.startsWith('re-audit:')) {
+    return auditContext;
+  }
+
+  if (
+    auditContext.startsWith('preflight:') ||
+    auditContext.startsWith('subscription:') ||
+    auditContext.startsWith('lockfile-import:')
+  ) {
+    return 'shared-review:discovery';
+  }
+
+  return auditContext;
+}
+
 export function buildPackageIdentityKey(
   name: string,
   version: string,

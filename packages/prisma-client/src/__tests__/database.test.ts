@@ -340,4 +340,147 @@ describe('Prisma Schema & Repositories', () => {
     await prisma.packageVersion.delete({ where: { id: overridePkg.id } });
     await prisma.project.delete({ where: { id: overrideProject.id } });
   });
+
+  it('12. invokes createDecision hooks for post-write side effects', async () => {
+    const prisma = getPrisma();
+    const project = await prisma.project.create({
+      data: {
+        name: `decision-hook-${Date.now()}`,
+        graphState: 'AUDITING',
+      },
+    });
+
+    const packageEntry = await prisma.packageVersion.create({
+      data: {
+        packageName: `hook-${Date.now()}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-hook-${Date.now()}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.create({
+      data: {
+        projectId: project.id,
+        packageVersionId: packageEntry.id,
+      },
+    });
+
+    const reviewJob = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: packageEntry.id,
+        auditContext: `preflight:hook:${packageEntry.packageName}`,
+        trigger: 'PREFLIGHT',
+        status: 'COMPLETED',
+        idempotencyKey: `hook-${Date.now()}`,
+      },
+    });
+
+    const decisions: string[] = [];
+    const createdDecision = await createDecision({
+      reviewJobId: reviewJob.id,
+      packageVersionId: packageEntry.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Decision hook test path',
+      actorType: 'AGENT',
+      onCreated: async (decision) => {
+        decisions.push(decision.id);
+      },
+    });
+
+    expect(decisions).toEqual([createdDecision.id]);
+
+    await prisma.decision.delete({ where: { id: createdDecision.id } });
+    await prisma.reviewJob.delete({ where: { id: reviewJob.id } });
+    await prisma.importedPackageVersion.delete({
+      where: {
+        projectId_packageVersionId: {
+          projectId: project.id,
+          packageVersionId: packageEntry.id,
+        },
+      },
+    });
+    await prisma.packageVersion.delete({ where: { id: packageEntry.id } });
+    await prisma.project.delete({ where: { id: project.id } });
+  });
+
+  it('13. stores re-audit lineage by linking superseded decisions', async () => {
+    const prisma = getPrisma();
+    const project = await prisma.project.create({
+      data: {
+        name: `reaudit-lineage-${Date.now()}`,
+        graphState: 'READY',
+        registryEnabled: true,
+      },
+    });
+
+    const packageEntry = await prisma.packageVersion.create({
+      data: {
+        packageName: `lineage-${Date.now()}`,
+        version: '2.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-lineage-${Date.now()}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.create({
+      data: {
+        projectId: project.id,
+        packageVersionId: packageEntry.id,
+      },
+    });
+
+    const baseReviewJob = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: packageEntry.id,
+        auditContext: `preflight:${packageEntry.packageName}:2.0.0`,
+        trigger: 'MANUAL',
+        status: 'COMPLETED',
+        idempotencyKey: `lineage-base-${Date.now()}`,
+      },
+    });
+
+    const baseDecision = await createDecision({
+      reviewJobId: baseReviewJob.id,
+      packageVersionId: packageEntry.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Original allow for lineage baseline',
+      actorType: 'AGENT',
+    });
+
+    const reAuditReviewJob = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: packageEntry.id,
+        auditContext: `re-audit:campaign-${Date.now()}:${baseDecision.id}`,
+        trigger: 'RE_AUDIT',
+        status: 'PENDING',
+        idempotencyKey: `lineage-reaudit-${Date.now()}`,
+      },
+    });
+
+    const reAuditDecision = await createDecision({
+      reviewJobId: reAuditReviewJob.id,
+      packageVersionId: packageEntry.id,
+      verdict: 'BLOCK',
+      reasonSummary: 'Re-audit supersedes baseline decision',
+      actorType: 'AGENT',
+    });
+
+    expect(reAuditDecision.supersedesDecisionId).toBe(baseDecision.id);
+
+    await prisma.decision.delete({ where: { id: reAuditDecision.id } });
+    await prisma.decision.delete({ where: { id: baseDecision.id } });
+    await prisma.reviewJob.delete({ where: { id: reAuditReviewJob.id } });
+    await prisma.reviewJob.delete({ where: { id: baseReviewJob.id } });
+    await prisma.importedPackageVersion.delete({
+      where: {
+        projectId_packageVersionId: {
+          projectId: project.id,
+          packageVersionId: packageEntry.id,
+        },
+      },
+    });
+    await prisma.packageVersion.delete({ where: { id: packageEntry.id } });
+    await prisma.project.delete({ where: { id: project.id } });
+  });
 });

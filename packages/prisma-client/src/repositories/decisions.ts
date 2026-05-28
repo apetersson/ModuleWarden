@@ -23,6 +23,8 @@ export interface DecisionInput {
     weight?: number;
     category?: string;
   }>;
+  supersedesDecisionId?: string;
+  onCreated?: (decision: Decision) => Promise<void> | void;
 }
 
 export async function createDecision(input: DecisionInput): Promise<Decision> {
@@ -31,15 +33,21 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
     evidenceArtifactIds,
     scoreEntries,
     promptVersion,
+    onCreated,
     ...decisionData
   } = input;
+
+  const prisma = getPrisma();
+  const parsedSupersedesDecisionId = decisionData.supersedesDecisionId
+    || (await inferSupersededDecisionId(prisma, input.reviewJobId));
   const normalizedPromptVersion = Array.isArray(promptVersion)
     ? JSON.stringify(promptVersion)
     : promptVersion;
 
-  return getPrisma().decision.create({
+  const decision = await prisma.decision.create({
     data: {
       ...decisionData,
+      supersedesDecisionId: parsedSupersedesDecisionId,
       promptVersion: normalizedPromptVersion,
       scores: scores ?? undefined,
       scoresData:
@@ -65,6 +73,29 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
       evidenceArtifacts: true,
     },
   });
+
+  await Promise.resolve(onCreated?.(decision));
+
+  return decision;
+}
+
+const RE_AUDIT_CONTEXT = /^re-audit:[^:]+:(.+)$/;
+
+async function inferSupersededDecisionId(
+  prisma: ReturnType<typeof getPrisma>,
+  reviewJobId: string
+): Promise<string | null> {
+  const reviewJob = await prisma.reviewJob.findUnique({
+    where: { id: reviewJobId },
+    select: { auditContext: true },
+  });
+
+  if (!reviewJob?.auditContext) {
+    return null;
+  }
+
+  const match = RE_AUDIT_CONTEXT.exec(reviewJob.auditContext);
+  return match?.[1] ?? null;
 }
 
 export async function getDecision(id: string): Promise<Decision | null> {

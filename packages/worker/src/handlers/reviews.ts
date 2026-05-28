@@ -5,14 +5,21 @@ import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 
 export async function registerPackageReviewHandler(queue: JobQueue): Promise<void> {
   await queue.work('package-review', async (job) => {
-    const { packageName, packageVersion, tarballHash, auditContext } = job.data;
+    const {
+      packageName,
+      packageVersion,
+      tarballHash,
+      auditContext,
+      rawAuditContext,
+    } = job.data;
+    const sourceContext = rawAuditContext ?? auditContext;
     const prisma = getPrisma();
 
-    const trigger = auditContext.startsWith('subscription:')
+    const trigger = sourceContext.startsWith('subscription:')
       ? 'SUBSCRIPTION'
-      : auditContext.startsWith('re-audit:')
+      : sourceContext.startsWith('re-audit:')
         ? 'RE_AUDIT'
-        : auditContext.startsWith('manual:')
+        : sourceContext.startsWith('manual:')
           ? 'MANUAL'
           : 'PREFLIGHT';
 

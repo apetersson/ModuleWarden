@@ -1,6 +1,6 @@
 import PgBoss from 'pg-boss';
 import { getPrisma } from '@modulewarden/prisma-client';
-import { buildIdempotencyKey } from '@modulewarden/shared/constants';
+import { buildIdempotencyKey, canonicalReviewAuditContext } from '@modulewarden/shared/constants';
 import type { JobType, JobPayloads } from '@modulewarden/shared/types';
 import { JOB_RETRY_CONFIG, shouldDeadLetter } from './definitions.js';
 
@@ -129,18 +129,20 @@ export class JobQueue {
     tarballHash: string,
     auditContext: string
   ): Promise<string | null> {
+    const normalizedAuditContext = canonicalReviewAuditContext(auditContext);
     const idempotencyKey = buildIdempotencyKey(
       'package-review',
       packageName,
       packageVersion,
       tarballHash,
-      auditContext
+      normalizedAuditContext
     );
     return this.send('package-review', {
       packageName,
       packageVersion,
       tarballHash,
-      auditContext,
+      auditContext: normalizedAuditContext,
+      rawAuditContext: auditContext,
       idempotencyKey,
     }, idempotencyKey);
   }

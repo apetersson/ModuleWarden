@@ -485,31 +485,38 @@ beforeAll(async () => {
   it('15. collapses racing duplicate package-review requests across tarball/preflight/subscription paths', async () => {
     const packageName = `race-multi-${RUN_ID}`;
     const tarballHash = `sha-race-multi-${RUN_ID}`;
-    const auditContext = `shared:${packageName}:1.0.0`;
-    const singletonKey = buildIdempotencyKey('package-review', packageName, '1.0.0', tarballHash, auditContext);
+    const preflightContext = `preflight:tarball:${packageName}:1.0.0`;
+    const subscriptionContext = `subscription:tarball:${packageName}:1.0.0`;
+    const lockfileContext = `lockfile-import:${packageName}.json`;
 
-    const payloadTemplate = {
-      packageName,
-      packageVersion: '1.0.0',
-      tarballHash,
-      auditContext,
-      idempotencyKey: singletonKey,
-    } as any;
-
-    const outcomes = await Promise.all([
-      queue.send('package-review' as any, { ...payloadTemplate, source: 'tarball-fetch' } as any, singletonKey),
-      queue.send('package-review' as any, { ...payloadTemplate, source: 'cli-preflight' } as any, singletonKey),
-      queue.send('package-review' as any, { ...payloadTemplate, source: 'subscription-poll' } as any, singletonKey),
-      queue.send('package-review' as any, { ...payloadTemplate, source: 'cli-preflight' } as any, singletonKey),
-      queue.send('package-review' as any, { ...payloadTemplate, source: 'tarball-fetch' } as any, singletonKey),
+    const [tarballId, preflightId, subscriptionId, lockfileId] = await Promise.all([
+      queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, preflightContext),
+      queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, preflightContext),
+      queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, subscriptionContext),
+      queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, lockfileContext),
     ]);
+
+    const outcomes = [tarballId, preflightId, subscriptionId, lockfileId];
 
     const accepted = outcomes.filter((id) => id !== null);
     const rejected = outcomes.filter((id) => id === null);
 
     expect(accepted).toHaveLength(1);
-    expect(rejected).toHaveLength(4);
-    expect(auditContext).toBe('shared:race-multi-' + RUN_ID + ':1.0.0');
+    expect(rejected).toHaveLength(3);
+    
+    const manualContext = `manual:operator:${packageName}`;
+    const reAuditContext = `re-audit:campaign-${RUN_ID}:${RUN_ID}`;
+
+    const reAuditTarballId = await queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, reAuditContext);
+    const reAuditManualId = await queue.enqueuePackageReview(packageName, '1.0.0', tarballHash, manualContext);
+
+    expect(reAuditTarballId).toBeTruthy();
+    expect(reAuditManualId).toBeTruthy();
+    if (!reAuditTarballId || !reAuditManualId) {
+      return;
+    }
+    expect(reAuditTarballId).not.toBe(reAuditManualId);
+  
   });
 
   it('16. persists failure context for review jobs that crash in workers', async () => {

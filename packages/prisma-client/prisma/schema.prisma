@@ -308,6 +308,9 @@ model Decision {
   reviewJob        ReviewJob  @relation(fields: [reviewJobId], references: [id])
   packageVersionId String
   packageVersion   PackageVersion @relation("PredecessorDecision", fields: [packageVersionId], references: [id])
+  supersedesDecisionId String?
+  supersedesDecision Decision? @relation("DecisionSupersession", fields: [supersedesDecisionId], references: [id])
+  supersededDecisions Decision[] @relation("DecisionSupersession")
   verdict          Verdict
   reasonSummary    String
   predecessorVersion String?
@@ -334,6 +337,7 @@ model Decision {
   @@index([reviewJobId])
   @@index([promptPackId])
   @@index([modelProfileId])
+  @@index([supersedesDecisionId])
 }
 
 enum Verdict {
