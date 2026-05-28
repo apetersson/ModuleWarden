@@ -261,14 +261,14 @@ describe('Prisma Schema & Repositories', () => {
       name: 'diff-summary-v2.json',
       content: { added: ['src/newer.ts'], removed: [], changed: 4 },
       contentHash: 'sha256-of-content-v2',
-      status: 'SUPERSEDED',
+      status: 'ACTIVE',
     });
 
     const evidenceSet = await listEvidenceByAuditRun(auditRunId);
     const original = evidenceSet.find((artifact) => artifact.id === evidenceId);
     expect(superseding.supersedesEvidenceArtifactId).toBe(evidenceId);
-    expect(superseding.status).toBe('SUPERSEDED');
-    expect(original?.status).toBe('ACTIVE');
+    expect(superseding.status).toBe('ACTIVE');
+    expect(original?.status).toBe('SUPERSEDED');
 
     const lineage = await createDecision({
       reviewJobId,

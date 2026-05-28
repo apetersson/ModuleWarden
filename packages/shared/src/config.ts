@@ -75,6 +75,8 @@ function readRequiredString(name: string): string {
       MW_POSTGRES_DB: 'PostgreSQL database name',
       MW_POSTGRES_USER: 'PostgreSQL user',
       MW_POSTGRES_PASSWORD: 'PostgreSQL password',
+      MW_AUTH_ADMIN_TOKENS: 'Comma-separated admin tokens for the API and worker',
+      MW_AUTH_DEV_TOKENS: 'Comma-separated developer tokens for the API and worker',
     };
     const hint = hints[name] ? ` — ${hints[name]}` : '';
     throw new Error(
@@ -85,9 +87,22 @@ function readRequiredString(name: string): string {
   return value.trim();
 }
 
+/**
+ * Read a required comma-separated list env var. At least one value required.
+ */
+function readRequiredList(name: string): string[] {
+  const raw = readRequiredString(name);
+  const values = raw.split(',').map((v) => v.trim()).filter(Boolean);
+  if (values.length === 0) {
+    throw new Error(
+      `${name} is set but contains no valid comma-separated values. ` +
+      `Provide at least one token.`
+    );
+  }
+  return values;
+}
+
 export function defaultConfig(): ModuleWardenConfig {
-  const readList = (name: string, fallback: string[]) =>
-    process.env[name]?.split(',').map((value) => value.trim()).filter(Boolean) ?? fallback;
   const readInt = (name: string, fallback: number) => {
     const value = process.env[name];
     return value ? Number.parseInt(value, 10) : fallback;
@@ -114,8 +129,8 @@ export function defaultConfig(): ModuleWardenConfig {
     },
     auth: {
       tokenType: 'static',
-      adminTokens: readList('MW_AUTH_ADMIN_TOKENS', ['mw-admin-token-change-me']),
-      developerTokens: readList('MW_AUTH_DEV_TOKENS', ['mw-dev-token-change-me']),
+      adminTokens: readRequiredList('MW_AUTH_ADMIN_TOKENS'),
+      developerTokens: readRequiredList('MW_AUTH_DEV_TOKENS'),
     },
     modelEndpoint: {
       baseUrl: readRequiredString('MW_MODEL_ENDPOINT_BASE_URL'),
