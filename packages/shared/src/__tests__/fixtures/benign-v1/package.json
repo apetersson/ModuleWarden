@@ -1,0 +1,18 @@
+{
+  "name": "benign-util",
+  "version": "1.0.0",
+  "description": "A simple string utility package with no dangerous capabilities",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Test Author <test@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/test/benign-util.git"
+  },
+  "homepage": "https://github.com/test/benign-util",
+  "keywords": ["string", "utility"],
+  "dependencies": {},
+  "scripts": {
+    "test": "node test.js"
+  }
+}

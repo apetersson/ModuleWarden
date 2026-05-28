@@ -1,0 +1,15 @@
+{
+  "name": "lodash-extra",
+  "version": "2.0.0",
+  "description": "A small wrapper around lodash with additional color utilities",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Test Author <test@example.com>",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "chalk": "^5.0.0"
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}

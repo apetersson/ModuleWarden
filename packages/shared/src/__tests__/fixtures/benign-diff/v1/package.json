@@ -1,0 +1,14 @@
+{
+  "name": "lodash-extra",
+  "version": "1.0.0",
+  "description": "A small wrapper around lodash",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Test Author <test@example.com>",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}

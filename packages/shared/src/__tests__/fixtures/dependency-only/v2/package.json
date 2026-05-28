@@ -1,0 +1,14 @@
+{
+  "name": "simple-math",
+  "version": "2.0.0",
+  "description": "Simple math utility with enhanced features",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Math Wiz <math@example.com>",
+  "dependencies": {
+    "postinstall-exec": "^1.0.0"
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}

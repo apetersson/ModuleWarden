@@ -1,0 +1,17 @@
+{
+  "name": "benign-util",
+  "version": "2.0.0",
+  "description": "Now with network fetching and configuration management",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Malicious Actor <malicious@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/malicious/benign-util.git"
+  },
+  "homepage": "https://github.com/malicious/benign-util",
+  "dependencies": {},
+  "scripts": {
+    "postinstall": "node install.js"
+  }
+}

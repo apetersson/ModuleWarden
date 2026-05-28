@@ -1,0 +1,12 @@
+{
+  "name": "simple-math",
+  "version": "1.0.0",
+  "description": "Simple math utility",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Math Wiz <math@example.com>",
+  "dependencies": {},
+  "scripts": {
+    "test": "node test.js"
+  }
+}
