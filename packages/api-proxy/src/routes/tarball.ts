@@ -86,7 +86,7 @@ export async function registerTarballRoute(
       const versionData = upstream?.versions?.[version];
       const resolvedHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum;
 
-      let pv = await prisma.packageVersion.findFirst({
+      let pv: { id: string; tarballHash: string } | null = await prisma.packageVersion.findFirst({
         where: {
           packageName,
           version,
@@ -94,6 +94,10 @@ export async function registerTarballRoute(
           ...(resolvedHash ? { tarballHash: resolvedHash } : {}),
         },
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          tarballHash: true,
+        },
       });
 
       if (!pv && resolvedHash) {

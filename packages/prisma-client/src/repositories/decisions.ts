@@ -1,6 +1,6 @@
 import { getPrisma } from '../index.js';
 import { getBestActiveOverrideForPackageVersion } from './overrides.js';
-import type { Decision } from '@prisma/client';
+import type { Decision, Verdict } from '@prisma/client';
 
 export interface DecisionInput {
   reviewJobId: string;
@@ -26,7 +26,7 @@ export interface DecisionInput {
 }
 
 export async function createDecision(input: DecisionInput): Promise<Decision> {
-  const { scores, evidenceArtifactIds, scoreEntries, ...decisionData } = input as any;
+  const { scores, evidenceArtifactIds, scoreEntries, ...decisionData } = input;
 
   return getPrisma().decision.create({
     data: {
@@ -34,7 +34,7 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
       scores: scores ?? undefined,
       scoresData:
         scoreEntries?.length
-          ? {
+        ? {
             create: scoreEntries.map((score) => ({
               name: score.name,
               value: score.value,
@@ -45,9 +45,9 @@ export async function createDecision(input: DecisionInput): Promise<Decision> {
           : undefined,
       evidenceArtifacts:
         evidenceArtifactIds && evidenceArtifactIds.length > 0
-          ? {
+          ? ({
             connect: evidenceArtifactIds.map((id) => ({ id })),
-          }
+          } as { connect: { id: string }[] })
           : undefined,
     },
     include: {
@@ -116,7 +116,9 @@ export async function listAllowedVersionsForReAudit(
     if (!latestDecision) continue;
 
     const override = await getBestActiveOverrideForPackageVersion(entry.packageVersion.id);
-    const effectiveVerdict = override?.targetVerdict ?? latestDecision.verdict;
+    const effectiveVerdict = override
+      ? (override.targetVerdict as Verdict)
+      : latestDecision.verdict;
     if (effectiveVerdict === 'ALLOW') {
       allowed.push({
         packageVersionId: entry.packageVersion.id,

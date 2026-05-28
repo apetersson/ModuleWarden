@@ -19,6 +19,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@modulewarden/shared": "workspace:*",
     "@prisma/client": "^6.0.0"
   },
   "devDependencies": {

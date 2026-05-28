@@ -2,6 +2,7 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { getBestActiveOverrideForPackageVersion } from '@modulewarden/prisma-client';
 import type { JobQueue } from '../jobs/queue.js';
+import type { Prisma } from '@prisma/client';
 
 /**
  * Register the upstream subscription poll handler.
@@ -147,7 +148,7 @@ export async function registerSubscriptionPollHandler(queue: JobQueue): Promise<
             distTags: packument['dist-tags'],
             newVersions: newVersions.length,
             fetchedAt: new Date().toISOString(),
-          },
+          } as unknown as Prisma.InputJsonValue,
         },
       }).catch(() => {
         // Snapshot is best-effort
