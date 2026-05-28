@@ -32,6 +32,13 @@ eval = [
     "torch>=2.3",
     "transformers>=4.45",
 ]
+inference = [
+    # outlines provides JSON-schema constrained decoding at inference time.
+    # See decision-3 in the backlog for why this is preferred over either
+    # the Unsloth swap or a MiniOneRec port.
+    "outlines>=0.0.46",
+    "pydantic>=2.0",
+]
 test = [
     "pytest>=8",
     "pytest-asyncio>=0.23",
