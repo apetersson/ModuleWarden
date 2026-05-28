@@ -56,7 +56,7 @@ export interface JobPayloads {
     idempotencyKey: string;
   };
   'upstream-subscription-poll': {
-    packageName: string;
+    packageName?: string;
   };
   'audit-container-exec': {
     reviewJobId: string;
@@ -71,12 +71,13 @@ export interface JobPayloads {
     evidenceBundleId: string;
   };
   're-audit-campaign': {
-    campaignId: string;
+    campaignId?: string;
     reason: string;
   };
   'evidence-post-process': {
     auditRunId: string;
     evidenceBundleId: string;
+    decisionId?: string;
   };
   'verdaccio-promotion': {
     decisionId: string;
