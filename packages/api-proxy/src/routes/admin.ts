@@ -137,14 +137,19 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       const tokenPrefix = authHeader?.startsWith('Bearer ')
         ? authHeader.slice(7, 15) + '…'
         : 'unknown';
+      const clientIp = request.ip;
+      const userAgent = request.headers['user-agent'] ?? 'unknown';
 
-      // Create the override record
+      // Augment reason with metadata for audit trail (O-3)
+      const auditReason = `${reason} [admin:${tokenPrefix}, ip:${clientIp}, ua:${(userAgent as string).slice(0, 80)}]`;
+
+      // Create the override record with audit trail metadata
       const override = await createOverride({
         decisionId: decision.id,
         adminIdentity: tokenPrefix,
         scope,
         targetVerdict,
-        reason,
+        reason: auditReason,
         ...((supersedesDecisionId ?? latestDecision?.id)
           ? { supersedesDecisionId: supersedesDecisionId ?? latestDecision!.id }
           : {}),

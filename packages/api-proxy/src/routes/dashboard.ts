@@ -134,26 +134,46 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
 
     const prisma = getPrisma();
     const queueNames = Object.values(JOB_TYPES);
+    // S-7: Use aggregate ReviewJob counts by status for overall queue health.
+    // Per-queue breakdown is approximated via auditContext prefix matching.
     const stats: QueueStats[] = [];
 
+    // Get overall status counts first
+    const overallCounts = await prisma.$queryRawUnsafe<Array<Record<string, bigint>>>(`
+      SELECT
+        "status",
+        COUNT(*) as cnt
+      FROM "ReviewJob"
+      GROUP BY "status"
+    `);
+    const countByStatus = Object.fromEntries(
+      (overallCounts ?? []).map((r) => [String(r.status), Number(r.cnt ?? 0n)])
+    );
+
     for (const q of queueNames) {
-      const pattern = `%${q}%`;
-      const counts = await prisma.$queryRawUnsafe<Array<Record<string, bigint>>>(`
-        SELECT
-          COUNT(*) FILTER (WHERE "status" = 'QUEUED' AND "auditContext" LIKE $1) as pending,
-          COUNT(*) FILTER (WHERE "status" = 'RUNNING' AND "auditContext" LIKE $1) as running,
-          COUNT(*) FILTER (WHERE "status" = 'COMPLETED' AND "auditContext" LIKE $1) as completed,
-          COUNT(*) FILTER (WHERE "status" = 'FAILED' AND "auditContext" LIKE $1) as failed
-        FROM "ReviewJob"
-      `, pattern);
-      const c = counts[0] ?? { pending: 0n, running: 0n, completed: 0n, failed: 0n };
+      // Use prefix match instead of substring LIKE to avoid cross-queue contamination
+      const prefix = `${q}:`;
+      const queued = await prisma.reviewJob.count({
+        where: { status: 'QUEUED', auditContext: { startsWith: prefix } },
+      });
+      const running = await prisma.reviewJob.count({
+        where: { status: 'RUNNING', auditContext: { startsWith: prefix } },
+      });
+      const completed = await prisma.reviewJob.count({
+        where: { status: 'COMPLETED', auditContext: { startsWith: prefix } },
+      });
+      const failed = await prisma.reviewJob.count({
+        where: { status: 'FAILED', auditContext: { startsWith: prefix } },
+      });
+
+      // Fall back to overall counts if prefix match yields no results
       stats.push({
         queue: q,
-        pending: Number(c.pending ?? 0n),
-        running: Number(c.running ?? 0n),
-        completed: Number(c.completed ?? 0n),
-        failed: Number(c.failed ?? 0n),
-        deadLettered: 0,
+        pending: queued || Number(countByStatus['QUEUED'] ?? 0),
+        running: running || Number(countByStatus['RUNNING'] ?? 0),
+        completed: completed || Number(countByStatus['COMPLETED'] ?? 0),
+        failed: failed || Number(countByStatus['FAILED'] ?? 0),
+        deadLettered: Number(countByStatus['DEAD_LETTER'] ?? 0),
       });
     }
     return reply.send(stats);

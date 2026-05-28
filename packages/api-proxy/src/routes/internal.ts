@@ -297,8 +297,17 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
               labeledBy: 'system',
             },
           });
+
+          // L-5: Enqueue actual model-escalation job for second-pass review
+          if (queue && reviewJob.packageVersion) {
+            await queue.send('model-escalation', {
+              reviewJobId: reviewJob.id,
+              evidenceBundleId: auditRunId, // Use auditRunId as evidence bundle identifier
+            });
+            logger.info('Model escalation enqueued', { reviewJobId: reviewJob.id });
+          }
         } catch (err) {
-            logger.warn('Evaluation label creation failed (best-effort)', {
+            logger.warn('Failed to process escalation', {
               decisionId: decision.id,
               error: err instanceof Error ? err.message : String(err),
             });

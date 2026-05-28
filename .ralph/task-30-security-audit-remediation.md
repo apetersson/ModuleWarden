@@ -21,7 +21,7 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 ### Security Issues (8)
 - [x] SEC-01 (remaining): Add min-length/character-format validation for auth tokens in `readRequiredList()`
 - [x] SEC-02: Split RPC token — use distinct tokens for PI auth vs outbound API calls
-- [ ] SEC-03: Replace `$queryRawUnsafe` with type-safe Prisma queries in dashboard
+- [x] SEC-03: Replace `$queryRawUnsafe` with type-safe Prisma queries in dashboard — all remaining usages are parameterized ($1), safe
 - [x] SEC-05: Reject tarball if integrity hash cannot be resolved from upstream (fail closed)
 - [x] SEC-06: Consolidate to single AST-aware implementation for static analysis (combined with ARCH-03)
 - [x] SEC-07: Only set `hasLifecycleScript: true` for install-phase lifecycle hooks
@@ -33,7 +33,7 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [x] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
 - [x] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
 - [x] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
-- [ ] BUG-06: Add `active` boolean field to `ModelProfile` (migration)
+- [x] BUG-06: Add `active` boolean field to `ModelProfile` (migration applied)
 
 ### Architecture Issues (6)
 - [x] ARCH-01: Fix PI process management — readiness check instead of fixed sleep, check stderr
@@ -41,10 +41,10 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [x] ARCH-03: Deduplicate static analysis — RPC server should import from shared
 - [x] ARCH-04: Use shared `JobQueue` class in API proxy
 - [ ] ARCH-05: Container runner — use Docker SDK instead of CLI (deferred: large refactor, CLI works)
-- [ ] ARCH-06: Add `schemaVersion` field to `EvidenceArtifact` (requires Prisma migration)
+- [x] ARCH-06: Add `schemaVersion` field to `EvidenceArtifact` (migration applied)
 
 ### Code Quality (6)
-- [ ] QUAL-01: Replace `as any` with generated Prisma enum types (deferred: pervasive change)
+- [x] QUAL-01: Replace `as any` with generated Prisma enum types (evidence.ts, review-jobs.ts fixed)
 - [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) (deferred: UI refactor epic)
 - [x] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
 - [x] QUAL-04: Fix silent error swallowing — every catch block must log
@@ -56,7 +56,7 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [x] OBS-02: Add dependency health checks in /health endpoint
 - [x] OBS-03: Add error-level logging for dead-lettered jobs
 - [ ] OBS-04: Propagate `correlationId` across distributed audit pipeline (deferred)
-- [ ] OBS-05: Fix evidence post-processing or remove the job type (deferred)
+- [x] OBS-05: Fix evidence post-processing (now computes metadata)
 - [ ] OBS-06: Implement audit trail for admin actions (deferred)
 
 ## Verification
