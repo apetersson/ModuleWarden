@@ -48,8 +48,8 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) — or defer with rationale
 - [x] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
 - [ ] QUAL-04: Fix silent error swallowing — every catch block must log
-- [ ] QUAL-05: Use `JOB_TYPES` constant everywhere instead of magic strings
-- [ ] QUAL-06: Add input validation in admin override route
+- [x] QUAL-05: Use `JOB_TYPES` constant everywhere instead of magic strings
+- [x] QUAL-06: Add input validation in admin override route
 
 ### Observability (6)
 - [ ] OBS-01: Adopt structured JSON logger (pino)

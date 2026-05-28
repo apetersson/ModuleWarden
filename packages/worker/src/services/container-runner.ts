@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
+import { logger } from '@modulewarden/shared/services/logger';
 
 const execAsync = promisify(execCb);
 
@@ -238,7 +239,9 @@ export class ContainerRunner {
       if (exitCode === null) {
         try {
           await execAsync(`docker kill ${containerId}`);
-        } catch { /* ignore kill errors */ }
+        } catch (err) {
+          logger.warn('Container kill failed (best-effort)', { containerId, error: err instanceof Error ? err.message : String(err) });
+        }
         // Get final state after kill
         try {
           const { stdout } = await execAsync(
@@ -247,7 +250,9 @@ export class ContainerRunner {
           const finalState = JSON.parse(stdout);
           exitCode = finalState.ExitCode;
           signal = finalState.Signal;
-        } catch { /* container may have crashed */ }
+        } catch (err) {
+          logger.warn('Container inspect failed (may have crashed)', { containerId, error: err instanceof Error ? err.message : String(err) });
+        }
       }
 
       try {
@@ -257,7 +262,9 @@ export class ContainerRunner {
           stdio: 'pipe',
         });
         writeFileSync(join(outputDir, 'container.log'), logs);
-      } catch { /* preserve audit result even if log capture fails */ }
+      } catch (err) {
+        logger.warn('Container log capture failed (preserving audit result)', { containerId, error: err instanceof Error ? err.message : String(err) });
+      }
 
       // 7. Capture evidence artifacts from workspace/output
       const evidenceArtifacts: string[] = [];
@@ -273,7 +280,9 @@ export class ContainerRunner {
           try {
             execSync(`cp "${file}" "${destPath}"`, { stdio: 'pipe' });
             evidenceArtifacts.push(destPath);
-          } catch { /* skip if file disappeared */ }
+          } catch (err) {
+            logger.warn('Failed to copy artifact from container (file may have disappeared)', { containerId, path, error: err instanceof Error ? err.message : String(err) });
+          }
         }
       }
 

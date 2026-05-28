@@ -9,6 +9,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { logger } from '@modulewarden/shared/services/logger';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { shouldEscalateVerdict } from '../services/escalation.js';
 import type { PredecessorDiffResponse, WebSearchResponse } from '@modulewarden/shared/services/rpc-tools';
@@ -147,7 +148,9 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
                 source: 'npm',
               });
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            logger.warn('Web search upstream fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
         }
 
         if (!sources || sources.includes('advisories')) {
@@ -166,7 +169,9 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
                 });
               }
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            logger.warn('Web search advisory fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
         }
 
         return reply.send({ results } satisfies WebSearchResponse);
@@ -271,7 +276,12 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
               labeledBy: 'system',
             },
           });
-        } catch { /* best-effort */ }
+        } catch (err) {
+            logger.warn('Evaluation label creation failed (best-effort)', {
+              decisionId: decision.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
       }
 
       return reply.status(201).send({ decisionId: decision.id, success: true, needsEscalation });

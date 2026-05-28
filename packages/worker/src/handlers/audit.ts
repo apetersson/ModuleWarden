@@ -1,5 +1,6 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
+import { logger } from '@modulewarden/shared/services/logger';
 import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
@@ -92,7 +93,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
           packageTarballPath = streamPath;
         }
       }
-    } catch { /* tarball fetch is best-effort */ }
+    } catch (err) {
+      logger.warn('Tarball fetch failed (best-effort)', { packageName, packageVersion, error: err instanceof Error ? err.message : String(err) });
+    }
 
     // Try to fetch predecessor tarball
     if (predecessorHash) {
@@ -123,7 +126,9 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
             }
           }
         }
-      } catch { /* predecessor fetch is best-effort */ }
+      } catch (err) {
+        logger.warn('Predecessor fetch failed (best-effort)', { error: err instanceof Error ? err.message : String(err) });
+      }
     }
 
     // 4. Build container inputs with all available artifacts
