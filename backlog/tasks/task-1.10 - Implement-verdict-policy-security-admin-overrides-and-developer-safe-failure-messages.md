@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 06:59'
+updated_date: '2026-05-28 07:06'
 labels:
   - policy
   - auth
@@ -56,6 +56,8 @@ Developer-facing messages must be useful but must not leak private prompts, inte
 
 <!-- SECTION:NOTES:BEGIN -->
 - Verdict policy service resolves effective decisions with override priority chain\n- Admin override endpoints with Bearer token auth (POST /admin/override, GET /admin/overrides, DELETE /admin/override/:id)\n- Developer-safe status endpoints (GET /status/:package, GET /status/:package@:version, GET /explain/:package@:version)\n- Status output verified to not leak prompts, tokens, secrets, or internal details\n- Cold-start policy enforced via lockfile import path\n- 7 policy tests, 55 total across all packages
+
+Iteration 1: Wired up admin/status routes in Fastify, added 11 comprehensive policy tests, fixed route parsing (@ → / separator), added @modulewarden/ prefix guard. Reviewer (deepseek/deepseek-v4-pro) found and fixed route parsing bug and test isolation issue. 37/37 tests pass.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

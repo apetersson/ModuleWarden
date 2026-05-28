@@ -56,15 +56,19 @@ export async function registerStatusRoutes(app: FastifyInstance): Promise<void> 
   );
 
   /**
-   * GET /status/:package@:version — Get detailed status for a specific version.
+   * GET /status/:package/:version — Get detailed status for a specific version.
    */
   app.get<{ Params: ExplainParams }>(
-    '/status/:package@:version',
+    '/status/:package/:version',
     async (request: FastifyRequest<{ Params: ExplainParams }>, reply: FastifyReply) => {
       const { package: packageName, version } = request.params;
 
       if (!packageName || !version) {
         return reply.status(400).send({ error: 'Package name and version required' });
+      }
+
+      if (packageName.startsWith('@modulewarden/')) {
+        return reply.status(404).send({ error: 'Not found' });
       }
 
       const info = await getStatusInfo(packageName, version);
@@ -73,15 +77,19 @@ export async function registerStatusRoutes(app: FastifyInstance): Promise<void> 
   );
 
   /**
-   * GET /explain/:package@:version — Alias for /status/:package@:version
+   * GET /explain/:package/:version — Alias for /status/:package/:version
    */
   app.get<{ Params: ExplainParams }>(
-    '/explain/:package@:version',
+    '/explain/:package/:version',
     async (request: FastifyRequest<{ Params: ExplainParams }>, reply: FastifyReply) => {
       const { package: packageName, version } = request.params;
 
       if (!packageName || !version) {
         return reply.status(400).send({ error: 'Package name and version required' });
+      }
+
+      if (packageName.startsWith('@modulewarden/')) {
+        return reply.status(404).send({ error: 'Not found' });
       }
 
       const info = await getStatusInfo(packageName, version);

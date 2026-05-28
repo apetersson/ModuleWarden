@@ -3,10 +3,11 @@ id: TASK-1.9
 title: >-
   Implement capability-delta extraction and evidence preparation for version
   diffs
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-28 07:00'
 labels:
   - analysis
   - diff
@@ -42,12 +43,10 @@ The risk lens includes all three categories selected in planning: exploit discov
 - [ ] #8 Golden fixtures include ModuleWarden dogfood dependencies as cold-start examples in addition to malicious and benign version-diff fixtures.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-Implement package unpacking, predecessor comparison, file classification, lifecycle-script inspection, dependency diffing, changelog/readme/source metadata collection, static capability extraction, obfuscation indicators, sandbox install/import traces, and evidence bundle assembly for PI.
+1. Create package diff service (tarball unpack, file listing, diff)\n2. Create capability extraction service (static analysis)\n3. Create dependency diff service\n4. Create lifecycle script detector\n5. Create evidence bundle assembler\n6. Create intent evidence collector (changelog, README, repo)\n7. Write tests with golden fixtures\n8. Commit and push
 <!-- SECTION:PLAN:END -->
 
 ## Definition of Done

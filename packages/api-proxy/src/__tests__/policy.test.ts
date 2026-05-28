@@ -6,6 +6,8 @@ import {
   type StatusInfo,
 } from '../services/policy.js';
 
+const RUN_ID = `run-${Date.now()}`;
+
 describe('Policy service — effective decision resolution', () => {
   beforeAll(async () => {
     const prisma = getPrisma();
@@ -220,6 +222,26 @@ describe('Policy service — developer-safe status info', () => {
   });
 
   afterAll(async () => {
+    const prisma = getPrisma();
+    // Clean up in FK order: scores -> overrides -> decisions -> review jobs -> versions
+    await prisma.score.deleteMany({
+      where: { decision: { reviewJob: { packageVersion: { packageName: { startsWith: 'status-test-' } } } } },
+    });
+    await prisma.override.deleteMany({
+      where: { decision: { reviewJob: { packageVersion: { packageName: { startsWith: 'status-test-' } } } } },
+    });
+    await prisma.evaluationLabel.deleteMany({
+      where: { decision: { reviewJob: { packageVersion: { packageName: { startsWith: 'status-test-' } } } } },
+    });
+    await prisma.decision.deleteMany({
+      where: { reviewJob: { packageVersion: { packageName: { startsWith: 'status-test-' } } } },
+    });
+    await prisma.reviewJob.deleteMany({
+      where: { packageVersion: { packageName: { startsWith: 'status-test-' } } },
+    });
+    await prisma.packageVersion.deleteMany({
+      where: { packageName: { startsWith: 'status-test-' } },
+    });
     await disconnectPrisma();
   });
 
@@ -238,10 +260,10 @@ describe('Policy service — developer-safe status info', () => {
     const prisma = getPrisma();
     const pv = await prisma.packageVersion.create({
       data: {
-        packageName: 'status-test-allow',
+        packageName: `status-test-allow-${RUN_ID}`,
         version: '1.0.0',
         registrySource: 'npm',
-        tarballHash: 'sha512-status-test-allow',
+        tarballHash: `sha512-status-test-allow-${RUN_ID}`,
       },
     });
     const job = await prisma.reviewJob.create({
@@ -262,7 +284,7 @@ describe('Policy service — developer-safe status info', () => {
       },
     });
 
-    const info = await getStatusInfo('status-test-allow', '1.0.0');
+    const info = await getStatusInfo(`status-test-allow-${RUN_ID}`, '1.0.0');
     expect(info.effectiveVerdict).toBe('ALLOW');
     expect(info.source).toBe('agent');
     // Must not leak internal details
@@ -283,10 +305,10 @@ describe('Policy service — developer-safe status info', () => {
     const prisma = getPrisma();
     const pv = await prisma.packageVersion.create({
       data: {
-        packageName: 'status-test-block',
+        packageName: `status-test-block-${RUN_ID}`,
         version: '1.0.0',
         registrySource: 'npm',
-        tarballHash: 'sha512-status-test-block',
+        tarballHash: `sha512-status-test-block-${RUN_ID}`,
       },
     });
     const job = await prisma.reviewJob.create({
@@ -307,7 +329,7 @@ describe('Policy service — developer-safe status info', () => {
       },
     });
 
-    const info = await getStatusInfo('status-test-block', '1.0.0');
+    const info = await getStatusInfo(`status-test-block-${RUN_ID}`, '1.0.0');
     expect(info.effectiveVerdict).toBe('BLOCK');
     expect(info.explanation).toContain('blocked');
     // Next action should guide the developer
@@ -318,14 +340,14 @@ describe('Policy service — developer-safe status info', () => {
     const prisma = getPrisma();
     const pv = await prisma.packageVersion.create({
       data: {
-        packageName: 'status-test-unreviewed',
+        packageName: `status-test-unreviewed-${RUN_ID}`,
         version: '1.0.0',
         registrySource: 'npm',
-        tarballHash: 'sha512-status-test-unreviewed',
+        tarballHash: `sha512-status-test-unreviewed-${RUN_ID}`,
       },
     });
 
-    const info = await getStatusInfo('status-test-unreviewed', '1.0.0');
+    const info = await getStatusInfo(`status-test-unreviewed-${RUN_ID}`, '1.0.0');
     expect(info.effectiveVerdict).toBe('UNREVIEWED');
     expect(info.explanation).toContain('not been reviewed');
     expect(info.nextAction).toContain('modulewarden preflight');

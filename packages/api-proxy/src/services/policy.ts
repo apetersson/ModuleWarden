@@ -76,7 +76,7 @@ export async function getEffectiveDecision(
       source: 'admin-override',
       overridden: true,
       reasonSummary: activeOverride.reason,
-      statusUrl: `/status/${encodeURIComponent(pv.packageName)}@${pv.version}`,
+      statusUrl: `/status/${encodeURIComponent(pv.packageName)}/${pv.version}`,
       cliCommand: 'modulewarden status',
     };
   }
@@ -91,7 +91,7 @@ export async function getEffectiveDecision(
       source: 'agent',
       overridden: false,
       reasonSummary: baseDecision.reasonSummary,
-      statusUrl: `/status/${encodeURIComponent(pv.packageName)}@${pv.version}`,
+      statusUrl: `/status/${encodeURIComponent(pv.packageName)}/${pv.version}`,
       cliCommand: 'modulewarden status',
     };
   }
