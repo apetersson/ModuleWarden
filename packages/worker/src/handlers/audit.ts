@@ -241,16 +241,16 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       throw new Error(result.error ?? `Audit container failed with status ${finalStatus}`);
     }
 
-    // Prevent regression: only transition to RUNNING if still QUEUED/PENDING
-    // (the /internal/verdict endpoint may have already set COMPLETED) (A-1)
+    // L-2: Proper state machine transition — transition from RUNNING to finalStatus
+    // unless the verdict endpoint already set COMPLETED/FAILED.
     const currentJob = await prisma.reviewJob.findUnique({
       where: { id: reviewJobId },
       select: { status: true },
     });
-    if (currentJob?.status === 'QUEUED' || currentJob?.status === 'PENDING') {
+    if (currentJob?.status === 'RUNNING') {
       await prisma.reviewJob.update({
         where: { id: reviewJobId },
-        data: { status: 'RUNNING' },
+        data: { status: finalStatus },
       });
     }
 

@@ -110,18 +110,12 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
 
       const predecessorPv = predecessors[0] ?? null;
 
-      if (!predecessorPv) {
-        return reply.send({
-          hasPredecessor: false,
-          fileDiff: { added: [], removed: [], changed: [], totalAddedBytes: 0, totalRemovedBytes: 0 },
-          dependencyDiff: { added: {}, removed: {}, changed: {} },
-          lifecycleScriptDiff: { added: [], removed: [], changed: [] },
-          capabilityDelta: [],
-        } satisfies PredecessorDiffResponse);
-      }
-
+      // L-1: Predecessor diff computation not yet implemented.
+      // Return hasPredecessor=false so PI applies cold-start conservative standards
+      // instead of believing it has predecessor context.
+      // Once actual tarball diff computation is implemented, remove this override.
       return reply.send({
-        hasPredecessor: true,
+        hasPredecessor: false,
         fileDiff: { added: [], removed: [], changed: [], totalAddedBytes: 0, totalRemovedBytes: 0 },
         dependencyDiff: { added: {}, removed: {}, changed: {} },
         lifecycleScriptDiff: { added: [], removed: [], changed: [] },

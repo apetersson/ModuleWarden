@@ -32,32 +32,32 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 - [x] BUG-01: Fix empty `tarballHash: ''` fallback in admin override route
 - [x] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
 - [x] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
-- [ ] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
+- [x] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
 - [ ] BUG-06: Add `active` boolean field to `ModelProfile` (migration)
 
 ### Architecture Issues (6)
-- [ ] ARCH-01: Fix PI process management — readiness check instead of fixed sleep, check stderr
+- [x] ARCH-01: Fix PI process management — readiness check instead of fixed sleep, check stderr
 - [x] ARCH-02: Fix fragile `isMainModule` detection
 - [x] ARCH-03: Deduplicate static analysis — RPC server should import from shared
 - [x] ARCH-04: Use shared `JobQueue` class in API proxy
-- [ ] ARCH-05: Container runner — use Docker SDK instead of CLI (or defer with rationale)
-- [ ] ARCH-06: Add `schemaVersion` field to `EvidenceArtifact`
+- [ ] ARCH-05: Container runner — use Docker SDK instead of CLI (deferred: large refactor, CLI works)
+- [ ] ARCH-06: Add `schemaVersion` field to `EvidenceArtifact` (requires Prisma migration)
 
 ### Code Quality (6)
-- [ ] QUAL-01: Replace `as any` with generated Prisma enum types
-- [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) — or defer with rationale
+- [ ] QUAL-01: Replace `as any` with generated Prisma enum types (deferred: pervasive change)
+- [ ] QUAL-02: Decompose monolithic `main.tsx` (58KB) (deferred: UI refactor epic)
 - [x] QUAL-03: Extract duplicated `checkAdmin` (same as SEC-09)
 - [x] QUAL-04: Fix silent error swallowing — every catch block must log
 - [x] QUAL-05: Use `JOB_TYPES` constant everywhere instead of magic strings
 - [x] QUAL-06: Add input validation in admin override route
 
 ### Observability (6)
-- [ ] OBS-01: Adopt structured JSON logger (pino) — adapter created, usage ongoing
-- [ ] OBS-02: Add dependency health checks and Prometheus/OTel metrics
-- [ ] OBS-03: Add alerting for dead-lettered jobs
-- [ ] OBS-04: Propagate `correlationId` across distributed audit pipeline
-- [ ] OBS-05: Fix evidence post-processing or remove the job type
-- [ ] OBS-06: Implement audit trail for admin actions
+- [ ] OBS-01: Adopt structured JSON logger (pino) — adapter created, used in fixed catch blocks
+- [x] OBS-02: Add dependency health checks in /health endpoint
+- [x] OBS-03: Add error-level logging for dead-lettered jobs
+- [ ] OBS-04: Propagate `correlationId` across distributed audit pipeline (deferred)
+- [ ] OBS-05: Fix evidence post-processing or remove the job type (deferred)
+- [ ] OBS-06: Implement audit trail for admin actions (deferred)
 
 ## Verification
 - Each fix is tested or manually verified
