@@ -12,7 +12,8 @@
     "dph_total_usd": 1.396,
     "image": "pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime"
   },
-  "pinned_versions": {
+  "pinned_versions_requested": {
+    "_note": "These are the strict-pin (==) versions that the onstart pip install command requested. The training run completed successfully so the constraints were satisfied. The script also emits a `python -c 'import transformers; print(transformers.__version__)'` print right before training, but the log we captured starts at the training loss lines so we do not have a direct stdout transcript of the installed versions. Strict-pin + successful train implies the versions installed match the requested list, but treat this as 'requested' not 'verified-by-print'.",
     "transformers": "4.46.0",
     "peft": "0.13.0",
     "trl": "0.12.0",
@@ -55,28 +56,56 @@
       {"epoch": 8.0, "loss": 0.7295, "grad_norm": 4.0933, "lr": 0.0}
     ],
     "final_train_loss_avg": 2.4360,
-    "loss_descent_total": 5.3597,
-    "loss_descent_endpoints": "5.3597 -> 0.7295 (descent confirms gradient flow + LoRA + 4-bit cohort works end-to-end)"
+    "loss_descent_endpoints": "5.3597 -> 0.7295 over 8 epochs / 20 steps on a 5-pair dataset. Descent confirms gradient flow + LoRA wiring + 4-bit cohort interop on the single-GPU subset of the pipeline; it does NOT prove generalization (overfitting on 5 pairs is plausible) or multi-GPU correctness."
   },
   "generation_smoke": {
     "prompt_user": "Verdict for react 18.2.0 (no install scripts, popular)?",
     "decoded_assistant_tail": "{\"verdict\": \"allow\", \"confidence\": \"high\"}",
-    "matches_expected_pattern": true,
-    "comment": "After 20 SFT steps on 5 synthetic dossier-verdict pairs the model emits a syntactically valid audit-report-shaped JSON verdict for a held-out package. Validates the chat-template + LoRA + 4-bit forward + decode path."
+    "matches_expected_shape": true,
+    "held_out_against_training": true,
+    "comment": "react@18.2.0 was not in the 5 training pairs. The model emitted a syntactically valid audit-report-shaped JSON verdict. This validates the chat-template + LoRA + 4-bit forward + decode path. With only 5 training examples (4 ALLOW + 1 BLOCK + ...), 'allow' is the dominant mode label and the output may be mode-collapse rather than learned reasoning. Useful as a stack-correctness signal, not a quality signal."
   },
   "spend": {
     "currency": "USD",
-    "credit_before": 9.32,
-    "credit_after": 8.71,
-    "total_used": 0.61,
-    "breakdown_estimate": "0.28 burnt on first run (transformers/peft version skew), 0.33 on the successful run"
+    "credit_before": 9.322,
+    "credit_after": 8.713,
+    "total_used": 0.609,
+    "breakdown_estimate": "Roughly 0.28 on the first run that hit a transformers/peft GenerationMixin import skew (pip --quiet hid resolver state). Roughly 0.33 on the successful run. Exact per-run split was not separately captured by the API."
   },
   "lessons_learned": [
-    "Single-GPU H100 inventory on vast.ai was paper-thin at this hour; widened filter to H100/H200/A100 single-GPU. Smoke does not require H100 specifically (1.5B model fits trivially on any 40GB+ card).",
-    "Vast.ai shows stale asks in /bundles/ that fail at /asks/<id>/ create with no_such_ask 404. Retry-across-offers needed.",
-    "pip --quiet hides resolver decisions. Explicit pinned versions catch the transformers/peft GenerationMixin import break before training starts.",
-    "PyTorch 2.4 + transformers 4.46 + peft 0.13 + trl 0.12 + accelerate 1.0.1 + bitsandbytes 0.44.1 is a known-good cohort for the Qwen2.5-Coder SFT-LoRA path on A100/H100."
+    "Single-GPU H100 inventory on vast.ai was paper-thin at this hour; widened filter to H100/H200/A100 single-GPU. The smoke does not need H100 specifically: a 1.5B QLoRA fits trivially on any 40GB+ card.",
+    "Vast.ai shows stale asks in /bundles/ that fail at /asks/<id>/ create with no_such_ask 404. Retry-across-offers loop is required.",
+    "pip --quiet hides resolver decisions. The first attempt installed peft 0.13 against the image's bundled transformers 4.30 and crashed at GenerationMixin import. Strict-pin (==) on the cohort catches this before training starts.",
+    "The pinned cohort `transformers==4.46.0 + peft==0.13.0 + trl==0.12.0 + accelerate==1.0.1 + datasets==3.0.2 + bitsandbytes==0.44.1` produced a successful 20-step run on this A100. The same cohort is what gets exported for the Saturday Leonardo run; the Qwen3.6-27B + FSDP1 multi-node path is a separate validation surface."
   ],
-  "ready_for_leonardo": true,
-  "ready_for_leonardo_notes": "Saturday's Leonardo allocation on the 64x H100 nodes runs the same SFT-LoRA path that produced this 5.36 -> 0.73 loss descent on a single A100. Pipeline mechanics confirmed: bf16 + 4-bit base + LoRA r=16 alpha=32 + gradient_checkpointing(use_reentrant=False) all interoperate with the trl 0.12 SFTTrainer + processing_class= kwarg."
+  "what_this_smoke_validates": [
+    "The pinned package cohort imports cleanly and resolves transitive deps without re-pulling an older transformers.",
+    "HF model + tokenizer load over hf_transfer on a fresh container.",
+    "QLoRA 4-bit nf4 quantization + bf16 compute interop with the LoRA forward path.",
+    "LoRA r=16 alpha=32 with target_modules='all-linear' produces a trainable parameter set on Qwen2.5 architecture and gradients flow through 20 SFT steps.",
+    "gradient_checkpointing with use_reentrant=False does not break LoRA backward.",
+    "trl 0.12 SFTTrainer accepts the `processing_class=` kwarg (replaces the older `tokenizer=` kwarg).",
+    "Chat-template application followed by generate() produces decode output that respects the template structure."
+  ],
+  "what_this_smoke_does_NOT_validate": [
+    "Multi-GPU FSDP1 sharding (this is a single-GPU run; no FSDP wrap was exercised).",
+    "Qwen3.6-27B specifically. We ran Qwen2.5-Coder-1.5B-Instruct. Qwen3.6 has the hybrid Gated DeltaNet + Gated Attention layers; the all-linear target_modules choice still has to be re-verified against DeltaNet projection naming.",
+    "Multi-node communication paths (NCCL collectives, InfiniBand, NCCL+IB tuning).",
+    "The pre-abliterated `huihui-ai/Huihui-Qwen3.6-27B-abliterated` checkpoint specifically. Architecture differs from Qwen2.5.",
+    "Generalization. With 5 training pairs, the gen output for an out-of-set package is likely mode-collapsed to the dominant label rather than learned reasoning. A real eval against the held-out `demo/incidents/` fixtures still owes."
+  ],
+  "leonardo_handover_status": {
+    "ready_to_run_sbatch_on_leonardo": false,
+    "blockers_before_sbatch": [
+      "Confirm Qwen3.6-27B revision SHA pin (HACKATHON_NOTES.md flag).",
+      "Verify FSDP1 wrap discovers Qwen3DecoderLayer (axolotl #3056 is the known break for FSDP2).",
+      "Verify target_modules='all-linear' actually returns the DeltaNet projections on the 27B (smoke ran Qwen2.5 which has only standard attention).",
+      "Confirm packages/audit-runner is built before arms 3+4 of matrix_runner.py can be exercised."
+    ],
+    "ready_pieces": [
+      "Pinned package cohort works against the bundled pytorch:2.4.0-cuda12.4 image.",
+      "SFT-LoRA training mechanics validated on real GPU hardware at a cost of $0.33.",
+      "Chat-template-aware decode path produces schema-shaped output."
+    ]
+  }
 }
