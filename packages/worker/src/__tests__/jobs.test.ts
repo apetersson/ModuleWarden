@@ -991,6 +991,17 @@ beforeAll(async () => {
     expect(shouldDeadLetter('audit-container-exec', 3)).toBe(true);
   });
 
+  it('19b. validates timeout budgets are configured per job type', () => {
+    expect(JOB_RETRY_CONFIG['package-review'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['upstream-subscription-poll'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['audit-container-exec'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['model-escalation'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['re-audit-campaign'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['evidence-post-process'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['verdaccio-promotion'].timeoutMs).toBeGreaterThan(0);
+    expect(JOB_RETRY_CONFIG['project-ready'].timeoutMs).toBeGreaterThan(0);
+  });
+
   it('20. validates per-job retry and concurrency policy configuration', () => {
     expect(DEFAULT_WORKER_CONFIG.concurrency['package-review']).toBe(4);
     expect(DEFAULT_WORKER_CONFIG.concurrency['upstream-subscription-poll']).toBe(2);
