@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 11:52'
+updated_date: '2026-05-28 11:53'
 labels:
   - cli
   - dx
@@ -32,9 +32,9 @@ The recommended command surface is intentionally small: status, explain, request
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `modulewarden preflight` imports/checks the current project lockfile, reports missing/blocked/quarantined versions, and enqueues reviews when appropriate.
-- [ ] #2 `modulewarden status` shows pending reviews and effective dependency gate state for the current project or requested package.
-- [ ] #3 `modulewarden explain <pkg@version>` shows verdict, reason summary, evidence references, prompt/model versions as allowed by role, and alternatives.
+- [x] #1 `modulewarden preflight` imports/checks the current project lockfile, reports missing/blocked/quarantined versions, and enqueues reviews when appropriate.
+- [x] #2 `modulewarden status` shows pending reviews and effective dependency gate state for the current project or requested package.
+- [x] #3 `modulewarden explain <pkg@version>` shows verdict, reason summary, evidence references, prompt/model versions as allowed by role, and alternatives.
 - [ ] #4 `modulewarden request <pkg@version>` explicitly requests an upstream version audit and returns the job/status URL.
 - [ ] #5 `modulewarden doctor` checks registry config, auth token, lockfile detection, API reachability, and CI readiness.
 - [ ] #6 The CLI is pnpm-first for v1 and detects pnpm workspace lockfiles for dogfood import, while preserving npm and yarn compatibility paths where available.
@@ -47,6 +47,12 @@ The recommended command surface is intentionally small: status, explain, request
 <!-- SECTION:PLAN:BEGIN -->
 Implement a Node CLI package that authenticates with a static developer token, reads local npm/pnpm/yarn config and lockfiles, calls ModuleWarden APIs, and prints concise actionable output. CLI-triggered reviews should call API endpoints that enqueue pg-boss jobs; the CLI must not talk directly to pg-boss or Postgres.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLI implemented with preflight, status, explain, admin commands. 3 test cases. Communicates with ModuleWarden API via MW_API_BASE.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
