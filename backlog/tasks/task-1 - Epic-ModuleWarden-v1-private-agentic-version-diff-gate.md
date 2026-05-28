@@ -1,10 +1,10 @@
 ---
 id: TASK-1
 title: 'Epic: ModuleWarden v1 private agentic version-diff gate'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-27 18:15'
+updated_date: '2026-05-28 06:58'
 labels:
   - epic
   - v1
