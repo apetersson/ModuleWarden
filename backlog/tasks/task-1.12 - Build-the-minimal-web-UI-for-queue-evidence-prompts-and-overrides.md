@@ -1,10 +1,10 @@
 ---
 id: TASK-1.12
 title: 'Build the minimal web UI for queue, evidence, prompts, and overrides'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-27 18:09'
+updated_date: '2026-05-28 11:56'
 labels:
   - web-ui
   - security-review
@@ -42,13 +42,17 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 - [ ] #9 Admin prompt/model/pattern changes show the resulting re-audit campaign, including whether active overrides are being revalidated.
 <!-- AC:END -->
 
-
-
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
 Implement React/Vite UI pages backed by typed API endpoints: dashboard/queue, package version detail, evidence viewer, decision history, override form, prompt/pattern management, and re-audit campaign status.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Enhanced web UI with StatusPage (package verdicts with color-coded badges, filter/search, auto-refresh) and QueuePage (pending/running/completed/failed per queue). Navigation between views. 2 tests pass.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
