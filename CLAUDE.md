@@ -145,8 +145,12 @@ pnpm -r test
 
 ```bash
 # 1. Generate SFT records (45 min, no GPU)
-python finetune/python/pipeline/corpus_walker.py \
-  --scraped-cases finetune/corpus/scraped-cases.jsonl \
+# IMPORTANT: input is the overnight scrape if it exists, else fall back to
+# the enriched corpus pulled from Nextcloud. Confirm the file is 8000+ lines
+# before running. If it is 2305 or missing, the overnight scraper died.
+# MUST run as a module (-m) because corpus_walker.py uses relative imports.
+python -m finetune.python.pipeline.corpus_walker \
+  --scraped-cases finetune/corpus/scraped-cases-overnight.jsonl \
   --output finetune/corpus/sft-records.jsonl \
   --manifest finetune/corpus/walker-manifest.json \
   --concurrency 4 --max-cases 600 --verbose

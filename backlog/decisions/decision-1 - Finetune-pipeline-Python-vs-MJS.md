@@ -61,7 +61,7 @@ unambiguous after five sources.
 1. Pull `scraped-cases.npm-enriched.jsonl` from Nextcloud
 2. Run `node finetune/scripts/select-golden-cases.mjs --target 150 --max-per-cwe 8`
 3. Seed benign packages: `bash finetune/python/data/benign-packages/seed.sh`
-4. Run corpus walker: `python finetune/python/pipeline/corpus_walker.py
+4. Run corpus walker as module: `python -m finetune.python.pipeline.corpus_walker
    --scraped-cases finetune/corpus/scraped-cases-overnight.jsonl
    --output finetune/corpus/sft-records.jsonl
    --concurrency 4 --max-cases 600 --verbose` (about 45 min)
