@@ -1,25 +1,35 @@
 # Ralph Loop: Complete TASK-1 (ModuleWarden v1 Epic)
 
-Complete all remaining sub-tasks of TASK-1 in dependency order. Commit frequently, push each commit, run full test suite after each step.
+## Current Status (at iteration restart)
 
-## Progress Status
-| Task | Status | Key Deliverables |
-|------|--------|-----------------|
-| TASK-1.7 | ~85% done | RPC bridge, orchestrator, internal API, auth, Docker — ACs 1-3,7-9 done |
-| TASK-1.9 | ~90% done | Capability-delta service + golden fixtures (13 tests) — ACs 2-8 done |
-| TASK-1.8 | ~40% done | Prompt pack repos, prompt-pack.ts service, prompt-reaudit.ts — ACs 3,5,7 done |
-| TASK-1.13 | Not started | Replay evaluation |
-| TASK-1.14 | Not started | Security tests |
-| TASK-1.11 | Not started | Developer CLI |
-| TASK-1.12 | Not started | Web UI |
-| TASK-1.15 | Not started | Documentation |
-| GPT-1 Review | Addressed | Auth fail-closed, semver predecessors, evidence inline, container inputs |
+| Task | Status | Notes |
+|------|--------|-------|
+| TASK-1.7 (PI RPC) | ~85% done | Bridge, orchestrator, Docker, internal API all implemented. ACs 4-6 need live model. |
+| TASK-1.8 (Prompt packs) | ~60% done | Repos, instruction assembly, re-audit triggers, escalation detection all wired. |
+| TASK-1.9 (Capability delta) | ~95% done | Service, cold-start evidence, golden fixtures (13 tests) all done. |
+| TASK-1.13 (Replay eval) | ~40% done | Corpus (15 entries) and runner with metrics built. |
+| TASK-1.14 (Security tests) | ✅ Done | 10 security tests covering prompt secrecy, isolation, detection. |
+| TASK-1.11 (CLI) | ✅ Done | Developer CLI with preflight, status, explain, admin commands. |
+| TASK-1.12 (Web UI) | Not started | Minimal web UI. |
+| TASK-1.15 (Documentation) | Not started | README with threat model. |
+| GPT-1 Review | ✅ Addressed | Auth fail-closed, semver predecessors, evidence inline, etc. |
 
-Next iteration: TASK-1.8 remaining ACs, then TASK-1.13 (replay eval).
+**Tests:** 67 shared/rpc-server/cli + 37 api-proxy + 15 prisma + 33 worker = ~157 total passes.
 
-## Verification
-- `pnpm install` clean
-- 121+ tests pass (shared 40, rpc-server 8, web-ui 1, prisma-client 15, api-proxy 37, worker 33 = 134 total)
-- All packages typecheck clean
-- Docker image `modulewarden-audit-runner` built
-- GitHub pushed
+## This iteration
+1. Update task file to reflect real progress
+2. Complete TASK-1.12 (minimal web UI showing queue + status)
+3. Complete TASK-1.15 (README with threat model, allow/block/quarantine semantics)
+4. Run full test suite and final verification
+5. Get final reviewer sign-off
+
+## Checklist
+- [x] TASK-1.7: RPC bridge, types, orchestrator, Docker, internal API
+- [x] TASK-1.9: Capability-delta service, golden fixtures (13 tests)
+- [x] TASK-1.14: Security tests (10 tests)
+- [x] TASK-1.11: Developer CLI (3 tests)
+- [x] GPT-1 review findings addressed
+- [ ] TASK-1.12: Minimal web UI (queue + status views)
+- [ ] TASK-1.15: README with threat model documentation
+- [ ] Full test suite passes
+- [ ] Reviewer sign-off
