@@ -1,10 +1,10 @@
 ---
 id: TASK-1
 title: 'Epic: ModuleWarden v1 private agentic version-diff gate'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:47'
+updated_date: '2026-05-28 11:57'
 labels:
   - epic
   - v1
@@ -54,6 +54,12 @@ Treat external H100 capacity as a pluggable OpenAI-compatible inference endpoint
 <!-- SECTION:NOTES:BEGIN -->
 TASK-1.7 infra complete. TASK-1.9 golden fixtures done. TASK-1.8 prompt packs + re-audit triggers started. GPT-1 review findings all addressed. 134 tests passing.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All 17 sub-tasks complete. ModuleWarden v1 implements: npm proxy with approved-only metadata (1.4), lockfile import + subscription polling (1.5), Docker audit runner with recorded-open egress (1.6), PI RPC audit harness with tool bridge (1.7), prompt pack system with escalation (1.8), capability-delta extraction with golden fixtures (1.9), verdict policy with admin overrides (1.10), developer CLI (1.11), web UI dashboard (1.12), replay evaluation harness (1.13), security tests (1.14), README with threat model (1.15), pg-boss job orchestration (1.16). Total: 69+ tests across 7 packages.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
