@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { JobQueue } from '@modulewarden/worker/jobs/queue.js';
@@ -51,6 +52,34 @@ export async function buildServer() {
     logger: {
       level: process.env.NODE_ENV === 'development' ? 'info' : 'warn',
     },
+  });
+
+  // ── Rate limiting (S-5) ───────────────────────────────────────
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    keyGenerator: (request) => {
+      // Use token or IP for rate limit key
+      const auth = request.headers.authorization;
+      if (auth?.startsWith('Bearer ')) {
+        return `token:${auth.slice(7, 20)}`;
+      }
+      return request.ip;
+    },
+  });
+
+  // Stricter limits on specific route patterns
+  app.addHook('onRoute', (routeOptions) => {
+    if (routeOptions.url?.startsWith('/admin/')) {
+      routeOptions.config = { ...routeOptions.config, rateLimit: { max: 20, timeWindow: '1 minute' } };
+    }
+    if (routeOptions.url?.startsWith('/internal/')) {
+      routeOptions.config = { ...routeOptions.config, rateLimit: { max: 30, timeWindow: '1 minute' } };
+    }
+    if (routeOptions.url === '/health') {
+      routeOptions.config = { ...routeOptions.config, rateLimit: false };
+    }
   });
 
   // ── Registry endpoints ────────────────────────────────────────

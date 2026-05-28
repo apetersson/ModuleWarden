@@ -223,8 +223,9 @@ async function main(): Promise<void> {
   const piReadyTimeout = 30_000;
   let piReady = false;
   while (Date.now() - piStartTime < piReadyTimeout) {
-    // Check if PI has completed startup by looking for RPC ready event in stdout
-    if (piOutput.includes('RPC')) {
+    // N-2: Check for specific readiness signals — RPC server listening or parsed ready event.
+    // The string 'listening on' is more specific than matching any line with 'RPC'.
+    if (piOutput.includes('listening on') || piOutput.includes('"type":"ready"') || piOutput.includes('RPC server')) {
       piReady = true;
       break;
     }
@@ -241,7 +242,8 @@ async function main(): Promise<void> {
     if (piError) {
       console.error(`[orchestrator] PI stderr during startup: ${piError.slice(0, 1000)}`);
     }
-    console.warn('[orchestrator] PI readiness not confirmed within timeout — proceeding anyway');
+    // N-2: Fail the audit run instead of proceeding blind
+    throw new Error('PI did not become ready within timeout — aborting audit');
   } else {
     console.log(`[orchestrator] PI ready after ${Date.now() - piStartTime}ms`);
   }

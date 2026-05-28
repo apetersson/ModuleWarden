@@ -50,8 +50,14 @@ export interface ModuleWardenConfig {
 }
 
 export function buildPostgresConnectionString(config: ModuleWardenConfig, includeSchema = false): string {
-  const baseUrl = `postgresql://${config.postgres.user}:${config.postgres.password}` +
-    `@${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`;
+  // S-6: Use PGPASSWORD env var if available to avoid embedding the password
+  // in the connection URI (visible via /proc/<pid>/cmdline on Linux).
+  // Prisma and pg-boss both respect PGPASSWORD from the environment.
+  const pgPassword = process.env.PGPASSWORD ?? config.postgres.password;
+  const userInfo = pgPassword === process.env.PGPASSWORD
+    ? config.postgres.user  // PGPASSWORD is set separately, omit from URI
+    : `${config.postgres.user}:${pgPassword}`;
+  const baseUrl = `postgresql://${userInfo}@${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`;
 
   if (!includeSchema) {
     return baseUrl;
