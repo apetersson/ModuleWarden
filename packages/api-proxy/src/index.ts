@@ -5,6 +5,7 @@ import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
+import { registerInternalRoutes } from './routes/internal.js';
 import { JobQueue } from '@modulewarden/worker';
 
 export async function buildServer() {
@@ -50,6 +51,10 @@ export async function buildServer() {
 
   await registerAdminRoutes(app);
   await registerStatusRoutes(app);
+
+  // ── Internal RPC endpoints (audit bridge) ───────────────────
+
+  await registerInternalRoutes(app);
 
   // ── Health check ──────────────────────────────────────────────
 
