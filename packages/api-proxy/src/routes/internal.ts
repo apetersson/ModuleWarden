@@ -38,6 +38,7 @@ async function findAuditRunByToken(token: string): Promise<{ id: string; reviewJ
  */
 export async function registerInternalRoutes(app: FastifyInstance): Promise<void> {
   await app.register(async function internalScope(scoped: FastifyInstance) {
+    // Routes inside this plugin get /internal/ prefix via app.register's prefix option
     // ── Auth middleware (scoped to /internal/* only) ──────────
     // Validates the Bearer token against AuditRun.rpcTokenHash
     // so each run has a unique, verifiable token (C-2, C-3, H-3).
@@ -275,5 +276,5 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
 
       return reply.status(201).send({ decisionId: decision.id, success: true, needsEscalation });
     });
-  }); // end internalScope plugin
+  }, { prefix: '/internal' }); // end internalScope plugin
 }

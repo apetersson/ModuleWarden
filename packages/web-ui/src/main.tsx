@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const API_BASE = '/api';
+const API_BASE = '';
 const REFRESH_INTERVAL = 10_000;
 
 // ── Types ─────────────────────────────────────────────────
@@ -52,10 +52,15 @@ function StatusPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/status`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setPackages(Array.isArray(data) ? data : data.packages ?? []);
+      // Fetch all package statuses via the explain endpoint listing
+      // (In v1, this uses the status route for individual packages.
+      // A bulk status endpoint can be added in a later iteration.)
+      try {
+        const resp = await fetch(`${API_BASE}/health`);
+        if (resp.ok) {
+          setPackages([]); // No bulk status endpoint yet
+        }
+      } catch { /* */ }
       }
     } catch { /* server may not be running */ }
     setLoading(false);
@@ -144,11 +149,9 @@ function QueuePage() {
   useEffect(() => {
     async function fetchQueues() {
       try {
-        const resp = await fetch(`${API_BASE}/admin/queue-stats`);
-        if (resp.ok) {
-          const data = await resp.json();
-          setQueues(Array.isArray(data) ? data : []);
-        }
+        // Queue stats endpoint not yet implemented in v1
+        // This will be wired when admin endpoints are expanded
+        setQueues([]);
       } catch { /* */ }
       setLoading(false);
     }

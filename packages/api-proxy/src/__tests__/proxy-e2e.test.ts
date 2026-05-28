@@ -155,10 +155,8 @@ describe('npm proxy e2e', () => {
     expect(body['dist-tags']).toBeDefined();
     expect(body.versions).toBeDefined();
     // Since we don't have decisions for this upstream package,
-    // ALL versions should be marked as deprecated UNREVIEWED
-    const versions = Object.values(body.versions) as any[];
-    expect(versions.length).toBeGreaterThan(0);
-    expect(versions[0].deprecated).toContain('UNREVIEWED');
+    // NO versions should appear (C-1: only ALLOWED versions shown)
+    expect(Object.keys(body.versions)).toHaveLength(0);
   });
 
   it('3. packument returns empty for internal packages', async () => {

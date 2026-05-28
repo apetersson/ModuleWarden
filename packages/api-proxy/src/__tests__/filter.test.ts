@@ -35,45 +35,33 @@ function addDecision(map: Map<string, VersionDecision>, version: string, verdict
 }
 
 describe('filterToApproved', () => {
-  it('returns only allowed versions as non-deprecated', () => {
+  it('includes only ALLOWED versions and omits unreviewed/blocked/quarantined', () => {
     const packument = makePackument(['1.0.0', '1.1.0', '2.0.0']);
-    const decs = decisions('1.0.0', '2.0.0');
+    const decs = new Map<string, VersionDecision>();
+    decs.set('1.0.0', { version: '1.0.0', verdict: 'ALLOW', tarballHash: 'hash' });
+    decs.set('1.1.0', { version: '1.1.0', verdict: 'BLOCK', tarballHash: 'hash' });
+    decs.set('2.0.0', { version: '2.0.0', verdict: 'QUARANTINE', tarballHash: 'hash' });
 
     const filtered = filterToApproved(packument, decs);
 
+    // Only allowed versions appear
+    expect(filtered.versions['1.0.0']).toBeDefined();
     expect(filtered.versions['1.0.0'].deprecated).toBeUndefined();
-    expect(filtered.versions['2.0.0'].deprecated).toBeUndefined();
-    expect(filtered.versions['1.1.0']).toBeDefined();
+    // Blocked and quarantined are omitted entirely (C-1)
+    expect(filtered.versions['1.1.0']).toBeUndefined();
+    expect(filtered.versions['2.0.0']).toBeUndefined();
+    // Unreviewed versions are also omitted
+    expect(Object.keys(filtered.versions)).toHaveLength(1);
   });
 
-  it('marks blocked versions as deprecated with explanation', () => {
+  it('omits all versions when none are allowed', () => {
     const packument = makePackument(['1.0.0', '1.1.0']);
     const decs = new Map<string, VersionDecision>();
-    addDecision(decs, '1.0.0', 'ALLOW');
-    addDecision(decs, '1.1.0', 'BLOCK');
+    decs.set('1.0.0', { version: '1.0.0', verdict: 'BLOCK', tarballHash: 'hash' });
 
     const filtered = filterToApproved(packument, decs);
 
-    expect(filtered.versions['1.1.0'].deprecated).toContain('BLOCKED');
-  });
-
-  it('marks quarantined versions as deprecated', () => {
-    const packument = makePackument(['1.0.0']);
-    const decs = new Map<string, VersionDecision>();
-    addDecision(decs, '1.0.0', 'QUARANTINE');
-
-    const filtered = filterToApproved(packument, decs);
-
-    expect(filtered.versions['1.0.0'].deprecated).toContain('QUARANTINED');
-  });
-
-  it('marks unreviewed versions as deprecated', () => {
-    const packument = makePackument(['1.0.0']);
-    const decs = new Map<string, VersionDecision>();
-
-    const filtered = filterToApproved(packument, decs);
-
-    expect(filtered.versions['1.0.0'].deprecated).toContain('UNREVIEWED');
+    expect(Object.keys(filtered.versions)).toHaveLength(0);
   });
 
   it('rewrites dist-tags to newest allowed version', () => {

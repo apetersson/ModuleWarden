@@ -7,43 +7,39 @@ export interface VersionDecision {
 }
 
 /**
- * Filter an upstream packument to include only currently allowed versions,
- * while surfacing non-allowed versions as deprecated with a helpful message.
- * Rewrites dist-tags to point to the newest approved version.
+ * Filter an upstream packument to include ONLY currently allowed versions.
+ * Blocked, quarantined, and unreviewed versions are OMITTED entirely so npm
+ * clients cannot resolve them. Dist-tags are rewritten to point to the
+ * newest approved version (C-1).
  *
- * Non-allowed versions are included as deprecated so npm clients can show
- * a meaningful error message rather than a cryptic "not found".
+ * If a blocked/quarantined version is requested by exact tarball URL,
+ * the tarball route handles denial (403). For packument queries, npm
+ * clients see only approved versions.
  */
 export function filterToApproved(
   packument: NpmPackument,
   decisions: Map<string, VersionDecision>
 ): FilteredPackument {
   const allowedVersions: Record<string, NpmPackageVersion> = {};
-  const versions: Record<string, NpmPackageVersion> = {};
 
   for (const [version, versionData] of Object.entries(packument.versions)) {
     const decision = getDecisionForPackumentVersion(version, versionData, decisions);
 
     if (decision?.verdict === 'ALLOW') {
-      allowedVersions[version] = versionData;
-      versions[version] = versionData;
-    } else if (decision?.verdict === 'BLOCK') {
-      // Include blocked versions as deprecated with explanation
-      versions[version] = {
-        ...versionData,
-        deprecated: `[BLOCKED] Package ${packument.name}@${version} is blocked by security policy. Run 'modulewarden status' for details.`,
-      };
-    } else if (decision?.verdict === 'QUARANTINE') {
-      versions[version] = {
-        ...versionData,
-        deprecated: `[QUARANTINED] Package ${packument.name}@${version} is under review. Run 'modulewarden status' for details.`,
-      };
-    } else {
-      // Unreviewed version — include with deprecation message
-      versions[version] = {
-        ...versionData,
-        deprecated: `[UNREVIEWED] Package ${packument.name}@${version} has not been reviewed yet. Run 'modulewarden preflight' to request a review.`,
-      };
+      // Rewrite tarball URL to ModuleWarden-controlled download (C-2)
+      // npm clients receive a URL pointing to ModuleWarden's tarball route
+      // instead of the upstream registry, so they download the promoted artifact
+      // from Verdaccio through ModuleWarden's proxy.
+      const rewritten = { ...versionData };
+      if (rewritten.dist?.tarball) {
+        // The npm client should download from ModuleWarden's own tarball endpoint,
+        // which proxies to Verdaccio for allowed versions.
+        const unscopedName = packument.name.startsWith('@') ? packument.name.split('/')[1] : packument.name;
+        const filename = `${unscopedName}-${version}.tgz`;
+        const localUrl = `/${encodeURIComponent(packument.name)}/-/${encodeURIComponent(filename)}`;
+        rewritten.dist = { ...rewritten.dist, tarball: localUrl };
+      }
+      allowedVersions[version] = rewritten;
     }
   }
 
@@ -70,7 +66,7 @@ export function filterToApproved(
   return {
     name: packument.name,
     'dist-tags': approvedDistTags,
-    versions,
+    versions: allowedVersions,
     description: packument.description,
     license: packument.license,
     homepage: packument.homepage,

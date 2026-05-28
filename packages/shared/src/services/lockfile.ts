@@ -90,7 +90,7 @@ function parseNpmLockfile(filePath: string): LockfileParseResult {
         entries.push({
           packageName,
           version: info.version,
-          integrity: info.integrity ?? `sha1-${packageName}-${info.version}`,
+          integrity: info.integrity ?? '',
           resolved: info.resolved,
           dev: info.dev ?? false,
           optional: info.optional ?? false,
@@ -121,7 +121,7 @@ function flattenNpmDependencies(
       entries.push({
         packageName: resolvedName,
         version: info.version,
-        integrity: info.integrity ?? `sha1-${resolvedName}-${info.version}`,
+        integrity: info.integrity ?? '',
         resolved: info.resolved,
         dev: info.dev ?? false,
         optional: info.optional ?? false,
@@ -162,9 +162,7 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
       // Extract integrity from resolution
       const resolution = info.resolution ?? {};
       let integrity = resolution.integrity ?? '';
-      if (!integrity) {
-        integrity = `sha512-${Buffer.from(`${packageName}@${version}`).toString('base64').slice(0, 44)}`;
-      }
+      // H-2: Leave integrity empty if not in lockfile — do not fabricate
 
       entries.push({
         packageName,
@@ -227,7 +225,7 @@ function parseYarnLockfile(filePath: string): LockfileParseResult {
         entries.push({
           packageName,
           version,
-          integrity: integrity || `sha1-${packageName}-${version}`,
+          integrity: integrity || '',
           resolved: resolved || undefined,
         });
       }
