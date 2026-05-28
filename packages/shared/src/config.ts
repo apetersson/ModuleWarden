@@ -118,6 +118,7 @@ export function defaultConfig(): ModuleWardenConfig {
         'audit-container-exec': readConcurrency('audit-container-exec', 2),
         'model-escalation': readConcurrency('model-escalation', 1),
         're-audit-campaign': readConcurrency('re-audit-campaign', 1),
+        'project-ready': readConcurrency('project-ready', 1),
         'evidence-post-process': readConcurrency('evidence-post-process', 4),
         'verdaccio-promotion': readConcurrency('verdaccio-promotion', 4),
       },
