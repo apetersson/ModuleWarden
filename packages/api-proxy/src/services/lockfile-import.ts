@@ -238,7 +238,14 @@ export async function tryEnableProjectRegistry(
   }
 
   if (onProjectReady) {
-    await onProjectReady(projectId, `Project ${projectId} is now ready for registry enablement`);
+    try {
+      await onProjectReady(projectId, `Project ${projectId} is now ready for registry enablement`);
+    } catch (error) {
+      console.warn(
+        `[lockfile-import] project-ready callback failed for project ${projectId}: ${(error as Error).message}`
+      );
+      return false;
+    }
   }
 
   return true;

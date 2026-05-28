@@ -154,9 +154,15 @@ async function refreshProjectReadinessFromDecision(
     }
 
     if (projectReadyHook) {
-      await Promise.resolve(
-        projectReadyHook(projectId, `Project ${projectId} is now ready for registry enablement`)
-      );
+      try {
+        await Promise.resolve(
+          projectReadyHook(projectId, `Project ${projectId} is now ready for registry enablement`)
+        );
+      } catch (error) {
+        console.warn(
+          `[decisions] project-ready callback failed for project ${projectId}: ${(error as Error).message}`
+        );
+      }
       continue;
     }
 

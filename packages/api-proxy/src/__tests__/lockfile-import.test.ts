@@ -235,6 +235,65 @@ describe('lockfile import', () => {
     await prisma.project.deleteMany({ where: { id: incompleteProjectId } });
   });
 
+  it('6d. refreshProjectReadinessForPackageVersion ignores callback errors and continues', async () => {
+    const prisma = getPrisma();
+    const resilientProject = await prisma.project.create({
+      data: { name: 'lockfile-import-ready-callback-error', graphState: 'IMPORTING' },
+    });
+    const resilientProjectId = resilientProject.id;
+
+    const lockfilePath = writeNpmLockfile({
+      'import-failing-callback': { version: '1.0.0' },
+    });
+
+    await importLockfile(resilientProjectId, lockfilePath);
+
+    const resilientPackages = await prisma.importedPackageVersion.findMany({
+      where: { projectId: resilientProjectId },
+      include: { packageVersion: true },
+    });
+
+    const reviewJob = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: resilientPackages[0].packageVersion.id,
+        auditContext: `preflight:${resilientPackages[0].packageVersion.packageName}`,
+        trigger: 'PREFLIGHT',
+        status: 'COMPLETED',
+        idempotencyKey: `ready-callback-${resilientPackages[0].packageVersion.packageName}`,
+      },
+    });
+
+    await getPrisma().decision.create({
+      data: {
+        reviewJobId: reviewJob.id,
+        packageVersionId: resilientPackages[0].packageVersion.id,
+        verdict: 'ALLOW',
+        reasonSummary: 'Resilience test decision',
+        actorType: 'AGENT',
+      },
+    });
+
+    const callbacks: Array<{ projectId: string; reason: string }> = [];
+    await expect(
+      refreshProjectReadinessForPackageVersion(
+        resilientPackages[0].packageVersionId,
+        async (projectId, reason) => {
+          callbacks.push({ projectId, reason });
+          throw new Error('project-ready transport failed');
+        }
+      )
+    ).resolves.toBeUndefined();
+
+    expect(callbacks).toHaveLength(1);
+
+    await prisma.decision.deleteMany({ where: { packageVersionId: resilientPackages[0].packageVersion.id } });
+    await prisma.reviewJob.delete({ where: { id: reviewJob.id } });
+    await prisma.importedPackageVersion.deleteMany({ where: { projectId: resilientProjectId } });
+    await prisma.lockfileImport.deleteMany({ where: { projectId: resilientProjectId } });
+    await prisma.packageSubscription.deleteMany({ where: { projectId: resilientProjectId } });
+    await prisma.project.deleteMany({ where: { id: resilientProjectId } });
+  });
+
   it('7. tryEnableProjectRegistry fails without complete decisions', async () => {
     const enabled = await tryEnableProjectRegistry(projectId);
     expect(enabled).toBe(false);

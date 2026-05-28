@@ -35,6 +35,7 @@ afterAll(async () => {
   await prisma.packageSubscription.deleteMany();
   await prisma.lockfileImport.deleteMany();
   await prisma.reAuditCampaign.deleteMany();
+  await prisma.importedPackageVersion.deleteMany();
   await prisma.packageVersion.deleteMany();
   await prisma.project.deleteMany();
   await prisma.$disconnect();
@@ -599,5 +600,70 @@ describe('Prisma Schema & Repositories', () => {
         },
       },
     });
+  });
+
+  it('15. ignores project-ready callback failures while still persisting decision records', async () => {
+    const prisma = getPrisma();
+    const ignoreProject = await prisma.project.create({
+      data: { name: `decision-ready-fallback-${Date.now()}`, graphState: 'AUDITING' },
+    });
+
+    const pkg = await prisma.packageVersion.create({
+      data: {
+        packageName: `decision-fallback-${Date.now()}`,
+        version: '1.0.0',
+        registrySource: 'npm',
+        tarballHash: `sha-decision-fallback-${Date.now()}`,
+      },
+    });
+
+    await prisma.importedPackageVersion.create({
+      data: {
+        projectId: ignoreProject.id,
+        packageVersionId: pkg.id,
+      },
+    });
+
+    const reviewJob = await prisma.reviewJob.create({
+      data: {
+        packageVersionId: pkg.id,
+        auditContext: `preflight:${pkg.packageName}`,
+        trigger: 'PREFLIGHT',
+        status: 'COMPLETED',
+        idempotencyKey: `decision-fallback-${Date.now()}`,
+      },
+    });
+
+    await createDecision({
+      reviewJobId: reviewJob.id,
+      packageVersionId: pkg.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Decision with failing callback',
+      actorType: 'AGENT',
+      onProjectReady: async () => {
+        throw new Error('callback transport unavailable');
+      },
+    });
+
+    const created = await getPrisma().decision.findFirst({
+      where: { packageVersionId: pkg.id },
+    });
+    expect(created).toBeDefined();
+    expect(created?.verdict).toBe('ALLOW');
+
+    await prisma.decision.deleteMany({
+      where: { packageVersionId: pkg.id },
+    });
+    await prisma.reviewJob.delete({ where: { id: reviewJob.id } });
+    await prisma.importedPackageVersion.delete({
+      where: {
+        projectId_packageVersionId: {
+          projectId: ignoreProject.id,
+          packageVersionId: pkg.id,
+        },
+      },
+    });
+    await prisma.project.delete({ where: { id: ignoreProject.id } });
+    await prisma.packageVersion.delete({ where: { id: pkg.id } });
   });
 });
