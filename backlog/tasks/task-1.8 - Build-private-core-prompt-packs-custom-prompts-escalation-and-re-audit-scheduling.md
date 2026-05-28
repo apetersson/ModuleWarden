@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:43'
+updated_date: '2026-05-28 11:46'
 labels:
   - prompts
   - models
@@ -36,11 +36,11 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 <!-- AC:BEGIN -->
 - [ ] #1 Core prompt contents are not exposed through CLI, web UI, package-manager errors, API responses for normal users, or audit artifacts shown to developers.
 - [ ] #2 Security/admin users can add custom prompts that run alongside the core suite without replacing hidden core prompts.
-- [ ] #3 Every audit records exact prompt-pack versions, custom prompt versions, model profile, and escalation path.
+- [x] #3 Every audit records exact prompt-pack versions, custom prompt versions, model profile, and escalation path.
 - [ ] #4 Escalation runs when the first pass finds suspicious evidence, uncertainty that would quarantine, or high-risk capability deltas.
-- [ ] #5 Changing prompts, models, or known-pattern libraries schedules re-audits for currently allowed versions in the active used graph.
+- [x] #5 Changing prompts, models, or known-pattern libraries schedules re-audits for currently allowed versions in the active used graph.
 - [ ] #6 Model endpoint profiles record provider, trust boundary, logging posture, and whether prompt secrecy guarantees are degraded.
-- [ ] #7 Prompt, model, or pattern changes enqueue re-audits that include versions with active admin overrides and may supersede those overrides with new effective decisions.
+- [x] #7 Prompt, model, or pattern changes enqueue re-audits that include versions with active admin overrides and may supersede those overrides with new effective decisions.
 - [ ] #8 Audit containers receive run-specific instructions derived from prompt packs, but long-lived core prompt source files and service credentials are not mounted into the container.
 <!-- AC:END -->
 
@@ -49,6 +49,12 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 <!-- SECTION:PLAN:BEGIN -->
 1. Create prompt pack and model profile repositories\n2. Create prompt pack service for run-specific instruction assembly\n3. Wire re-audit campaign triggers on prompt/model changes\n4. Wire escalation path in reviews handler\n5. Add prompt version logging to decision creation\n6. Write tests
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Created prompt pack and model profile repositories. Created prompt-pack.ts service (assembleAuditInstructions, buildContainerInstructionFile, shouldEscalate). Created prompt-reaudit.ts service (triggerPromptChangeReAudit, onPromptPackCreated). All tests pass.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
