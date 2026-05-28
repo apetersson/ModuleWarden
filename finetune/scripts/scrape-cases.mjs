@@ -13,6 +13,12 @@ Options:
   --output <path>       Override JSONL output path.
   --limit <n>           Maximum normalized cases to write.
   --max-pages <n>       Override GitHub pages per type/severity query.
+  --concurrency <n>     Concurrent enrichment requests. Default: 8.
+  --timeout-ms <n>      Per-request timeout. Default: 30000.
+  --github-only         Fetch GitHub advisories without npm or OSV enrichment.
+  --skip-npm            Skip npm packument enrichment.
+  --skip-osv            Skip OSV enrichment.
+  --quiet               Disable progress output.
   --dry-run             Fetch and summarize without writing output.
   --help                Show this help.
 
@@ -27,6 +33,12 @@ function parseArgs(argv) {
     output: null,
     limit: null,
     maxPages: null,
+    concurrency: 8,
+    timeoutMs: 30000,
+    githubOnly: false,
+    skipNpm: false,
+    skipOsv: false,
+    quiet: false,
     dryRun: false
   };
 
@@ -44,6 +56,18 @@ function parseArgs(argv) {
       args.limit = Number(argv[++i]);
     } else if (arg === "--max-pages") {
       args.maxPages = Number(argv[++i]);
+    } else if (arg === "--concurrency") {
+      args.concurrency = Number(argv[++i]);
+    } else if (arg === "--timeout-ms") {
+      args.timeoutMs = Number(argv[++i]);
+    } else if (arg === "--github-only") {
+      args.githubOnly = true;
+    } else if (arg === "--skip-npm") {
+      args.skipNpm = true;
+    } else if (arg === "--skip-osv") {
+      args.skipOsv = true;
+    } else if (arg === "--quiet") {
+      args.quiet = true;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -52,12 +76,31 @@ function parseArgs(argv) {
   return args;
 }
 
+function progress(args, message) {
+  if (!args.quiet) {
+    console.error(`[scrape] ${message}`);
+  }
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const { timeoutMs = 30000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`HTTP ${response.status} for ${url}: ${text.slice(0, 500)}`);
@@ -111,15 +154,22 @@ async function fetchGithubAdvisories(config, args) {
       if (advisoryConfig.updated) url.searchParams.set("updated", advisoryConfig.updated);
 
       for (let page = 0; page < maxPages && url; page += 1) {
-        const { body, headers } = await fetchJson(url, { headers: githubHeaders() });
+        progress(args, `fetching GitHub advisories type=${type} severity=${severity ?? "any"} page=${page + 1}/${maxPages}`);
+        const { body, headers } = await fetchJson(url, {
+          headers: githubHeaders(),
+          timeoutMs: args.timeoutMs
+        });
         results.push(...body);
+        progress(args, `received ${body.length} advisories; total fetched=${results.length}`);
         const next = parseNextLink(headers.get("link"));
         url = next ? new URL(next) : null;
       }
     }
   }
 
-  return dedupeBy(results, (advisory) => advisory.ghsa_id ?? advisory.url);
+  const deduped = dedupeBy(results, (advisory) => advisory.ghsa_id ?? advisory.url);
+  progress(args, `deduped GitHub advisories: ${results.length} -> ${deduped.length}`);
+  return deduped;
 }
 
 function advisoryIds(advisory) {
@@ -155,14 +205,15 @@ function encodeNpmPackageName(packageName) {
   return encodeURIComponent(packageName);
 }
 
-async function fetchPackument(registryUrl, packageName) {
+async function fetchPackument(registryUrl, packageName, args) {
   const url = `${registryUrl.replace(/\/$/, "")}/${encodeNpmPackageName(packageName)}`;
   try {
     const { body } = await fetchJson(url, {
       headers: {
         Accept: "application/json",
         "User-Agent": "ModuleWarden-finetune-scraper"
-      }
+      },
+      timeoutMs: args.timeoutMs
     });
     return body;
   } catch (error) {
@@ -260,8 +311,8 @@ function inferVersions(packument, firstPatchedVersion) {
   };
 }
 
-async function fetchOsvIds(config, packageName, version) {
-  if (!config.osv?.enabled) return [];
+async function fetchOsvIds(config, packageName, version, args) {
+  if (!config.osv?.enabled || args.skipOsv || args.githubOnly) return [];
   const payload = {
     package: {
       ecosystem: config.osv.ecosystem ?? "npm",
@@ -277,6 +328,7 @@ async function fetchOsvIds(config, packageName, version) {
         "Content-Type": "application/json",
         "User-Agent": "ModuleWarden-finetune-scraper"
       },
+      timeoutMs: args.timeoutMs,
       body: JSON.stringify(payload)
     });
     return (body.vulns ?? []).map((vuln) => vuln.id).filter(Boolean);
@@ -302,16 +354,16 @@ function packumentSummary(packument) {
   };
 }
 
-async function normalizeGithubAdvisory(config, advisory, vulnerability, vulnerabilityIndex) {
+async function normalizeGithubAdvisory(config, advisory, vulnerability, vulnerabilityIndex, args) {
   const packageName = vulnerability.package?.name;
   const firstPatchedVersion = vulnerability.first_patched_version ?? null;
-  const packument = config.npm_registry?.enabled
-    ? await fetchPackument(config.npm_registry.registry_url, packageName)
+  const packument = config.npm_registry?.enabled && !args.skipNpm && !args.githubOnly
+    ? await fetchPackument(config.npm_registry.registry_url, packageName, args)
     : null;
   const inferred = inferVersions(packument, firstPatchedVersion);
   const osvVersion = inferred.candidate_versions.find((candidate) => candidate.role === "likely_affected")
     ?.version;
-  const osvIds = await fetchOsvIds(config, packageName, osvVersion);
+  const osvIds = await fetchOsvIds(config, packageName, osvVersion, args);
   const needsEnrichment =
     inferred.candidate_versions.length === 0 || !firstPatchedVersion || Boolean(packument?.error);
 
@@ -338,19 +390,56 @@ async function normalizeGithubAdvisory(config, advisory, vulnerability, vulnerab
   };
 }
 
-async function normalizeGithubAdvisories(config, advisories, limit) {
-  const cases = [];
+async function normalizeGithubAdvisories(config, advisories, args) {
+  const workItems = [];
   for (const advisory of advisories) {
     const vulnerabilities = advisory.vulnerabilities ?? [];
     for (let index = 0; index < vulnerabilities.length; index += 1) {
       const vulnerability = vulnerabilities[index];
       if (vulnerability.package?.ecosystem !== "npm") continue;
       if (!vulnerability.package?.name) continue;
-      cases.push(await normalizeGithubAdvisory(config, advisory, vulnerability, index));
-      if (limit && cases.length >= limit) return cases;
+      workItems.push({ advisory, vulnerability, index });
+      if (args.limit && workItems.length >= args.limit) break;
+    }
+    if (args.limit && workItems.length >= args.limit) break;
+  }
+
+  progress(args, `normalizing ${workItems.length} npm vulnerability records with concurrency=${args.concurrency}`);
+
+  let completed = 0;
+  const cases = await mapLimit(workItems, args.concurrency, async (item) => {
+    const normalized = await normalizeGithubAdvisory(
+      config,
+      item.advisory,
+      item.vulnerability,
+      item.index,
+      args
+    );
+    completed += 1;
+    if (completed === 1 || completed % 25 === 0 || completed === workItems.length) {
+      progress(args, `normalized ${completed}/${workItems.length} cases`);
+    }
+    return normalized;
+  });
+
+  return cases;
+}
+
+async function mapLimit(items, concurrency, mapper) {
+  const safeConcurrency = Math.max(1, Math.min(Number(concurrency) || 1, items.length || 1));
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
     }
   }
-  return cases;
+
+  await Promise.all(Array.from({ length: safeConcurrency }, () => worker()));
+  return results;
 }
 
 function dedupeBy(items, keyFn) {
@@ -382,8 +471,13 @@ async function main() {
   const config = await readJson(configPath);
   const outputPath = resolve(args.output ?? config.output_path);
 
+  if (args.githubOnly) {
+    args.skipNpm = true;
+    args.skipOsv = true;
+  }
+
   const advisories = await fetchGithubAdvisories(config, args);
-  const cases = await normalizeGithubAdvisories(config, advisories, args.limit);
+  const cases = await normalizeGithubAdvisories(config, advisories, args);
 
   const byType = cases.reduce((acc, item) => {
     acc[item.case_type] = (acc[item.case_type] ?? 0) + 1;

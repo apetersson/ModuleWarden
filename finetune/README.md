@@ -58,7 +58,19 @@ Generate normalized candidate cases with:
 pnpm finetune:scrape
 ```
 
-Useful dry run:
+Fast candidate-only run, without npm or OSV enrichment:
+
+```bash
+node finetune/scripts/scrape-cases.mjs --github-only --max-pages 10
+```
+
+Enriched run with progress, request timeouts, and concurrent npm/OSV lookups:
+
+```bash
+node finetune/scripts/scrape-cases.mjs --max-pages 10 --concurrency 16 --timeout-ms 30000
+```
+
+Useful small dry run:
 
 ```bash
 node finetune/scripts/scrape-cases.mjs --dry-run --limit 10 --max-pages 1
