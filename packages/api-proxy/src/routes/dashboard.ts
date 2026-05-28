@@ -217,7 +217,71 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
         }] : [],
       };
 
+      // Fetch evidence artifacts
+      try {
+        const evidenceRows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+          SELECT id, artifact_type, name, content, file_path, created_at
+          FROM evidence_artifacts WHERE audit_run_id = $1 ORDER BY created_at DESC
+        `, [id]);
+        detail.evidenceArtifacts = evidenceRows.map((e) => ({
+          id: String(e.id),
+          type: String(e.artifact_type ?? ''),
+          name: String(e.name ?? ''),
+          description: '',
+          createdAt: String(e.created_at ?? ''),
+          filePath: e.file_path ? String(e.file_path) : undefined,
+          viewable: true,
+        }));
+      } catch { /* evidence fetch is best-effort */ }
+
       return reply.send(detail);
+    }
+  );
+
+  // ── GET /admin/evidence/:id ─────────────────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/admin/evidence/:id',
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const prisma = getPrisma();
+
+      const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        SELECT ea.id, ea.artifact_type, ea.name, ea.content, ea.file_path, ea.created_at,
+               ar.id as audit_run_id
+        FROM evidence_artifacts ea
+        JOIN audit_runs ar ON ar.id = ea.audit_run_id
+        WHERE ea.id = $1
+      `, [id]);
+
+      if (rows.length === 0) {
+        return reply.status(404).send({ error: 'Evidence artifact not found' });
+      }
+
+      const row = rows[0];
+      const content = row.content ? JSON.parse(String(row.content)) : {};
+
+      // Redact hidden content — only show safe fields
+      const redacted: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(content)) {
+        if (!String(key).toLowerCase().includes('prompt') &&
+            !String(key).toLowerCase().includes('secret') &&
+            !String(key).toLowerCase().includes('token') &&
+            !String(key).toLowerCase().includes('api_key')) {
+          redacted[key] = val;
+        }
+      }
+
+      return reply.send({
+        id: String(row.id),
+        auditRunId: String(row.audit_run_id),
+        type: String(row.artifact_type ?? ''),
+        name: String(row.name ?? ''),
+        content: redacted,
+        filePath: row.file_path ? String(row.file_path) : undefined,
+        createdAt: String(row.created_at ?? ''),
+        labels: [],
+      });
     }
   );
 }

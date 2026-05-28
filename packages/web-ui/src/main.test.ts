@@ -9,10 +9,12 @@ describe('web-ui dashboard', () => {
     expect(source).toContain('QueuePage');
   });
 
-  it('fetches from /admin/dashboard and /admin/queue-stats', () => {
+  it('fetches from dashboard and evidence endpoints', () => {
     const source = readFileSync('src/main.tsx', 'utf-8');
     expect(source).toContain('/admin/dashboard');
     expect(source).toContain('/admin/queue-stats');
+    expect(source).toContain('/admin/audit-run/');
+    expect(source).toContain('/admin/evidence/');
   });
 
   it('has error, loading, and empty states', () => {

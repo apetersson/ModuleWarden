@@ -1,25 +1,30 @@
 # Ralph Loop: Complete TASK-1.12 (Admin Dashboard)
 
-Build the full admin visibility dashboard. Current iteration: Dashboard API read models + endpoints.
+Build the full admin visibility dashboard. Current iteration: Evidence viewer + detail views.
 
-## Plan
-1. Define dashboard read model types in shared package
-2. Create dashboard API endpoints (GET /admin/dashboard, GET /admin/audit-runs, GET /admin/audit-run/:id, GET /admin/evidence/:id, GET /admin/queue-stats)
-3. Wire API tests for dashboard read models
-4. Replace stub QueuePage with real API-backed component
-5. Replace stub StatusPage with real API-backed component
-6. Add evidence viewer + admin override UI
-7. Add auth redaction
-8. E2E tests
+## Progress
+- ✅ Dashboard read model types defined
+- ✅ Dashboard API endpoints (dashboard, queue-stats, audit-run/:id)
+- ✅ Kanban board with real Prisma data
+- ✅ Error/loading/empty states
+- ✅ Queue stats from real API
+- ✅ Auto-refresh
+- ACs 1-4, 13-14, 19-20 done (8/20)
+
+## Current Iteration
+1. Add evidence API endpoint GET /admin/evidence/:id
+2. Add detail view component to web UI
+3. Wire evidence viewer with real data
+4. Add admin override form in UI
 
 ## Checklist
-- [ ] Dashboard read model types defined
-- [ ] Dashboard API endpoints implemented
-- [ ] API tests pass
-- [ ] Web UI loads real data from API
-- [ ] Full test suite passes
+- [ ] Evidence API endpoint
+- [ ] Detail view component
+- [ ] Evidence inspection panel
+- [ ] Admin override form
+- [ ] Tests pass
 
 ## Verification
-- All tests pass
-- Typecheck clean
+- All existing tests pass
+- Typecheck clean across all packages
 - Dashboard shows real data
