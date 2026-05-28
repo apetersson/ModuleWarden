@@ -3,7 +3,12 @@ import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
-import { importLockfile, checkProjectReadiness, tryEnableProjectRegistry } from '../services/lockfile-import.js';
+import {
+  importLockfile,
+  checkProjectReadiness,
+  tryEnableProjectRegistry,
+  refreshProjectReadinessForPackageVersion,
+} from '../services/lockfile-import.js';
 
 let projectId: string;
 let lockfileDir: string;
@@ -83,11 +88,11 @@ describe('lockfile import', () => {
 
     const result = await importLockfile(projectId, lockfilePath);
 
-    // pkg-a already exists, so it should be upserted (no new version)
-    // pkg-d should be new
+    // pkg-a already exists, so it is updated and still re-enqueues if still pending
+    // pkg-d should be new and also enqueued
     expect(result.totalEntries).toBe(2);
     expect(result.newVersions).toBe(2); // Both upserted (upsert doesn't distinguish new vs update)
-    expect(result.enqueuedReviews).toBe(1); // Only pkg-d is new, pkg-a already has review
+    expect(result.enqueuedReviews).toBe(2); // Both entries map to review jobs in this queue state
   });
 
   it('3. creates subscriptions for all packages', async () => {
@@ -123,7 +128,7 @@ describe('lockfile import', () => {
     expect(readiness.ready).toBe(false);
   });
 
-  it('6b. tryEnableProjectRegistry enqueues project-ready callback after decisions', async () => {
+  it('6b. refreshProjectReadinessForPackageVersion enqueues project-ready callback after decisions', async () => {
     const prisma = getPrisma();
     const readyProject = await prisma.project.create({
       data: { name: 'lockfile-import-ready-registry', graphState: 'IMPORTING' },
@@ -170,12 +175,15 @@ describe('lockfile import', () => {
     }
 
     const callbacks: Array<{ projectId: string; reason: string }> = [];
-    const callbackResult = await tryEnableProjectRegistry(readyProjectId, async (projectId, reason) => {
-      callbacks.push({ projectId, reason });
-      return `project-ready-${projectId}`;
-    });
+    const callbackResult = await refreshProjectReadinessForPackageVersion(
+      projectPackages[0].packageVersionId,
+      async (projectId, reason) => {
+        callbacks.push({ projectId, reason });
+        return `project-ready-${projectId}`;
+      }
+    );
 
-    expect(callbackResult).toBe(true);
+    expect(callbackResult).toBeUndefined();
     expect(callbacks).toEqual([
       {
         projectId: readyProjectId,
@@ -183,19 +191,48 @@ describe('lockfile import', () => {
       },
     ]);
 
-    const packageVersionIds = projectPackages.map((link) => link.packageVersion.id);
-    await prisma.decision.deleteMany({ where: { packageVersionId: { in: packageVersionIds } } });
-    await prisma.reviewJob.deleteMany({ where: { packageVersionId: { in: packageVersionIds } } });
-    await prisma.importedPackageVersion.deleteMany({
-      where: { projectId: readyProjectId },
-    });
-    await prisma.lockfileImport.deleteMany({
-      where: { projectId: readyProjectId },
-    });
-    await prisma.packageSubscription.deleteMany({
-      where: { projectId: readyProjectId },
-    });
+    await prisma.decision.deleteMany({ where: { packageVersionId: { in: projectPackages.map((link) => link.packageVersion.id) } } });
+    await prisma.reviewJob.deleteMany({ where: { packageVersionId: { in: projectPackages.map((link) => link.packageVersion.id) } } });
+
+    await prisma.importedPackageVersion.deleteMany({ where: { projectId: readyProjectId } });
+    await prisma.lockfileImport.deleteMany({ where: { projectId: readyProjectId } });
+    await prisma.packageSubscription.deleteMany({ where: { projectId: readyProjectId } });
     await prisma.project.deleteMany({ where: { id: readyProjectId } });
+  });
+
+  it('6c. refreshProjectReadinessForPackageVersion does not emit callback for incomplete coverage', async () => {
+    const prisma = getPrisma();
+    const incompleteProject = await prisma.project.create({
+      data: { name: 'lockfile-import-ready-registry-incomplete', graphState: 'IMPORTING' },
+    });
+    const incompleteProjectId = incompleteProject.id;
+
+    const lockfilePath = writeNpmLockfile({
+      'import-incomplete-pkg-a': { version: '1.0.0' },
+    });
+
+    await importLockfile(incompleteProjectId, lockfilePath);
+
+    const incompleteProjectPackages = await prisma.importedPackageVersion.findMany({
+      where: { projectId: incompleteProjectId },
+      include: { packageVersion: true },
+    });
+
+    const callbacks: Array<{ projectId: string; reason: string }> = [];
+    await refreshProjectReadinessForPackageVersion(
+      incompleteProjectPackages[0].packageVersionId,
+      async (projectId, reason) => {
+        callbacks.push({ projectId, reason });
+        return `project-ready-${projectId}`;
+      }
+    );
+
+    expect(callbacks).toEqual([]);
+
+    await prisma.importedPackageVersion.deleteMany({ where: { projectId: incompleteProjectId } });
+    await prisma.lockfileImport.deleteMany({ where: { projectId: incompleteProjectId } });
+    await prisma.packageSubscription.deleteMany({ where: { projectId: incompleteProjectId } });
+    await prisma.project.deleteMany({ where: { id: incompleteProjectId } });
   });
 
   it('7. tryEnableProjectRegistry fails without complete decisions', async () => {

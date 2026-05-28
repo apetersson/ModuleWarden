@@ -210,14 +210,17 @@ export async function checkProjectReadiness(projectId: string): Promise<{
  * Re-check all projects that currently include this package version and promote
  * them to READY when all imported versions are decided.
  */
-export async function refreshProjectReadinessForPackageVersion(packageVersionId: string): Promise<void> {
+export async function refreshProjectReadinessForPackageVersion(
+  packageVersionId: string,
+  onProjectReady?: (projectId: string, reason: string) => Promise<string | null>
+): Promise<void> {
   const prisma = getPrisma();
   const projectLinks = await prisma.importedPackageVersion.findMany({
     where: { packageVersionId },
     select: { projectId: true },
   });
   for (const { projectId } of projectLinks) {
-    await tryEnableProjectRegistry(projectId);
+    await tryEnableProjectRegistry(projectId, onProjectReady);
   }
 }
 

@@ -3,8 +3,8 @@ import { getPrisma, disconnectPrisma } from '../index.js';
 import { createProject, listProjects } from '../repositories/projects.js';
 import { upsertPackageVersion, findPackageVersion } from '../repositories/package-versions.js';
 import { createReviewJob, deduplicateReviewJob, updateReviewJobStatus } from '../repositories/review-jobs.js';
-import { createDecision, listDecisionsForPackage, getEffectiveDecision } from '../repositories/decisions.js';
-import { createOverride, listActiveOverrides, getEffectiveVerdict } from '../repositories/overrides.js';
+import { createDecision, listDecisionsForPackage, getEffectiveDecision, listAllowedVersionsForReAudit } from '../repositories/decisions.js';
+import { createOverride, deactivateOverride, listActiveOverrides, getEffectiveVerdict } from '../repositories/overrides.js';
 import { createReAuditCampaign, listCampaignsByProject } from '../repositories/campaigns.js';
 import { createEvidenceArtifact, listEvidenceByAuditRun, supersedeEvidenceArtifact } from '../repositories/evidence.js';
 import { subscribePackage, listActiveSubscriptions } from '../repositories/subscriptions.js';
@@ -279,5 +279,65 @@ describe('Prisma Schema & Repositories', () => {
     });
 
     expect(lineage.promptVersion).toBe(JSON.stringify(['v1-core-1', 'v2-core-6']));
+  });
+
+  it('11. applies active overrides to re-audit candidate selection', async () => {
+    const prisma = getPrisma();
+    const overrideProject = await createProject(`override-${Date.now()}`, 'Override-aware re-audit check');
+
+    const overridePkg = await upsertPackageVersion({
+      packageName: `override-check-${Date.now()}`,
+      version: '2.0.0',
+      registrySource: 'npm',
+      tarballHash: `sha-override-${Date.now()}`,
+      description: 'Override candidate',
+    });
+
+    const importedLink = await prisma.importedPackageVersion.create({
+      data: {
+        projectId: overrideProject.id,
+        packageVersionId: overridePkg.id,
+      },
+    });
+
+    const importedReviewJob = await createReviewJob({
+      packageVersionId: overridePkg.id,
+      auditContext: 'preflight:override-check',
+      trigger: 'MANUAL',
+      idempotencyKey: `mw:job:package-review:override-check-${Date.now()}:2.0.0:${overridePkg.tarballHash}:preflight:override-check`,
+    });
+
+    const decision = await createDecision({
+      reviewJobId: importedReviewJob.id,
+      packageVersionId: overridePkg.id,
+      verdict: 'ALLOW',
+      reasonSummary: 'Allowed for re-audit lineage test',
+      actorType: 'AGENT',
+    });
+
+    const override = await createOverride({
+      decisionId: decision.id,
+      adminIdentity: 'security-admin@example.com',
+      scope: 'SPECIFIC_VERSION',
+      targetVerdict: 'BLOCK',
+      reason: 'Policy hold',
+      supersedesDecisionId: decision.id,
+    });
+
+    const blocked = await listAllowedVersionsForReAudit(overrideProject.id);
+    expect(blocked).toHaveLength(0);
+
+    await deactivateOverride(override.id);
+
+    const allowed = await listAllowedVersionsForReAudit(overrideProject.id);
+    expect(allowed).toHaveLength(1);
+    expect(allowed[0].packageVersionId).toBe(overridePkg.id);
+    expect(allowed[0].decisionId).toBe(decision.id);
+
+    await prisma.importedPackageVersion.delete({ where: { id: importedLink.id } });
+    await prisma.decision.delete({ where: { id: decision.id } });
+    await prisma.reviewJob.delete({ where: { id: importedReviewJob.id } });
+    await prisma.packageVersion.delete({ where: { id: overridePkg.id } });
+    await prisma.project.delete({ where: { id: overrideProject.id } });
   });
 });
