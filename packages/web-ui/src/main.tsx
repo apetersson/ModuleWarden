@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const API_BASE = typeof window !== 'undefined' ? (window as any).__MW_API_BASE__ || process.env.MW_API_BASE_URL || '' : '';
+// API_BASE resolution order: Vite build arg > window global > empty string (same-origin)
+const viteBase = typeof import.meta !== 'undefined' ? (import.meta as Record<string, any>).env?.VITE_MW_API_BASE_URL : undefined;
+const API_BASE = viteBase || (typeof window !== 'undefined' ? (window as any).__MW_API_BASE__ : undefined) || '';
 const REFRESH_INTERVAL = 15_000;
 
 function authHeaders(token: string): Record<string, string> {
