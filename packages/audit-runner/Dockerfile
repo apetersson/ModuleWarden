@@ -1,13 +1,12 @@
 # ── ModuleWarden Audit Runner ─────────────────────────────────
-# Disposable container image for PI-based agentic audit runs.
-# Each container gets a fresh workspace, run-specific inputs,
-# the RPC bridge server, the audit orchestrator, and audit tools.
-# Does NOT include core prompts, model credentials, Postgres
-# credentials, or Verdaccio credentials.
+# Disposable container image for agentic audit runs.
+# The orchestrator runs PI in RPC mode (when model endpoint configured)
+# or falls back to tool-only inspection.
+# RPC bridge server TBD: requires fastify bundled — tracked separately.
 
-FROM node:20-alpine AS base
+FROM node:20-alpine
 
-# Install system tools needed for package inspection + networking
+# System tools for package inspection
 RUN apk add --no-cache \
     git \
     ripgrep \
@@ -23,9 +22,7 @@ RUN apk add --no-cache \
     netcat-openbsd
 
 # Enable corepack for pnpm
-RUN npm install -g corepack@latest && \
-    corepack enable && \
-    corepack prepare pnpm@latest --activate
+RUN npm install -g corepack@latest && corepack enable && corepack prepare pnpm@latest --activate
 
 # Install PI as the agentic audit runtime
 RUN npm install -g @earendil-works/pi-coding-agent@latest
@@ -36,11 +33,10 @@ RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence &&
 
 WORKDIR /workspace
 
-# ── Copy the PI audit orchestrator ────────────────────────────
-# Built from packages/audit-runner/src/orchestrator.ts
+# Copy the orchestrator (built locally before docker build)
 COPY packages/audit-runner/dist/orchestrator.js /app/orchestrator/index.js
 
-# ── Copy the entrypoint ───────────────────────────────────────
+# Copy the entrypoint
 COPY packages/audit-runner/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

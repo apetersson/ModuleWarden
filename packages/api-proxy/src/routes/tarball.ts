@@ -184,23 +184,29 @@ export async function registerTarballRoute(
       }
 
       // Version not found or no decision — enqueue review
+      let enqueued = false;
       if (pgBossSend) {
         const auditContext = `preflight:tarball:${packageName}@${version}`;
         const tarballHash = effectiveHash || `unresolved:${packageName}@${version}`;
-        await pgBossSend({
-          packageName,
-          packageVersion: version,
-          tarballHash,
-          auditContext,
-          idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
-        }).catch(() => {
-          // Fire-and-forget: queueing failure shouldn't crash the proxy
-        });
+        try {
+          const jobId = await pgBossSend({
+            packageName,
+            packageVersion: version,
+            tarballHash,
+            auditContext,
+            idempotencyKey: buildIdempotencyKey('package-review', packageName, version, tarballHash, auditContext),
+          });
+          enqueued = !!jobId;
+        } catch {
+          // Queueing failure shouldn't crash the proxy
+        }
       }
 
       return reply.status(404).send({
         error: 'Version not yet reviewed',
-        reason: `${packageName}@${version} has not been reviewed yet. A review has been enqueued.`,
+        reason: enqueued
+          ? `${packageName}@${version} has not been reviewed yet. A review has been enqueued.`
+          : `${packageName}@${version} has not been reviewed yet. Unable to enqueue review.`,
         package: packageName,
         requestedVersion: version,
         cliCommand: 'modulewarden status',

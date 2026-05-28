@@ -63,6 +63,11 @@ export async function importLockfile(
 
   // 3. Upsert each package version and create subscriptions
   for (const entry of parseResult.entries) {
+    // H-5: Skip entries with no integrity — cannot verify artifact identity
+    if (!entry.integrity) {
+      console.log(`[lockfile-import] Skipping ${entry.packageName}@${entry.version}: no integrity hash`);
+      continue;
+    }
     try {
       // Upsert package version
       const packageVersion = await prisma.packageVersion.upsert({

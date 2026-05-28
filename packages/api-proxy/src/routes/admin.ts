@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma, createOverride, listActiveOverrides, deactivateOverride } from '@modulewarden/prisma-client';
+import { parseLockfile } from '@modulewarden/shared/services/lockfile';
 
 interface OverrideBody {
   packageName: string;
@@ -181,6 +182,36 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       const { id } = request.params;
       await deactivateOverride(id);
       return reply.send({ status: 'deactivated', id });
+    }
+  );
+
+  /**
+   * POST /admin/import-lockfile — Import a lockfile and enqueue reviews.
+   */
+  app.post<{ Body: { filename: string; format: string; content: string } }>(
+    '/admin/import-lockfile',
+    async (request: FastifyRequest<{ Body: { filename: string; format: string; content: string } }>, reply: FastifyReply) => {
+      if (!checkAdmin(request, reply)) return;
+
+      const { filename, content } = request.body;
+      if (!filename || !content) {
+        return reply.status(400).send({ error: 'Missing filename or content' });
+      }
+
+      try {
+        const { importLockfileWithSubscriptions } = await import('../services/lockfile-import.js');
+        const result = await importLockfileWithSubscriptions(filename, content);
+        return reply.status(201).send({
+          packageCount: result.packageCount,
+          subscriptionCount: result.subscriptionCount,
+          reviewCount: result.reviewCount,
+        });
+      } catch (err) {
+        return reply.status(500).send({
+          error: 'Lockfile import failed',
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   );
 }
