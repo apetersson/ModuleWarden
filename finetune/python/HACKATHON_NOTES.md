@@ -119,6 +119,62 @@ Recommendation: run Option A first (low risk validation), and if it converges cl
 
 Pre-flight before either option: `python -m finetune.python.training.rehearsal` on a 1.5B model in 30 min before burning any H100 hours.
 
+## External recipes worth flagging
+
+Two repos landed during the build window that are worth a decision
+*after* Saturday SFT lands. Neither requires changes to the pinned dep
+cohort or the canonical schemas. Both stay inside the 4-arm matrix
+shape; the second adds a 5th arm rather than replacing one.
+
+### unslothai/unsloth (single-node SFT/QLoRA, 65k stars)
+
+Fit: Recipe A only (parallel vast.ai 7B QLoRA safety net). Strengths
+are single-node, single- or few-GPU: 2x faster, 70 percent less VRAM,
+Qwen-specific bug fixes called out in their README.
+
+Do NOT use on Leonardo Option B (Qwen3.6-27B FSDP1 across 6 nodes).
+Their multi-node story is "available with a major upgrade on the
+way", which we cannot absorb on hackathon day. Their `seq_len >
+65536` Qwen3 gradient-explosion warning does not apply to Option B
+(we run seq_len 4096) but is documented above and worth knowing.
+
+Concrete swap, if accepted: replace the `pip install transformers
+peft trl accelerate datasets bitsandbytes` cohort in vast_smoke.py
+with `pip install "unsloth[colab-new] @
+git+https://github.com/unslothai/unsloth.git"`. The training script
+shape is unchanged (model, dataset, lora_config, SFTTrainer). Wins
+about 2x wall-clock on the same A100; lets us run 2-3 hyperparam
+ablations inside the same budget.
+
+### AkaliKong/MiniOneRec (constrained-decoding reference, 1601 stars, Apache 2.0)
+
+Fit: arm 5 in the eval matrix, after SFT convergence. Their
+`LogitProcessor.py` is a 75-line `transformers.generation.LogitsProcessor`
+subclass that takes a `prefix_allowed_tokens_fn` callback returning the
+allowed token-id list for the current decode position. Domain mismatch
+on paper (next-item recommendation, not classification), but the
+constrained-decoding mechanism is domain-neutral and the SFT-then-GRPO
+sandwich pattern in `minionerec_trainer.py` is exactly the recipe
+arXiv:2602.14012 ("From SFT to RL for Vulnerability Detection")
+describes.
+
+Why this matters: ALLOW / BLOCK / QUARANTINE is a closed three-token
+verdict space, and our dossiers carry a finite `evidence_index` list.
+Porting the LogitProcessor with a callback that allows only those
+tokens at the right decode positions takes the `json_validity` metric
+to 100 percent by construction and the citation-format axis of
+`evidence_citation_accuracy` to 100 percent (the model cannot emit an
+`ev.fake.999` that is not in the dossier).
+
+Cost: about 3 to 4 GPU-hours from a working SFT checkpoint. Port (1h)
++ adapt the trainer reward to verdict correctness plus a 10 percent
+evidence-ref-match bonus (1h) + 50 to 100 GRPO steps (1 to 2h on 8
+to 16x A100s). Fits inside the documented slack window if Saturday
+SFT lands before late afternoon.
+
+Decision deferred until SFT loss curve is in hand. Add as arm 5 of
+the existing `matrix_runner.py` rather than replacing arms 1 to 4.
+
 ## Sources
 
 - Pantheon council session `d7b711f5-a467-4cbd-a395-a74492a157a0` (HIGH confidence, 3 reviewers)
@@ -129,3 +185,6 @@ Pre-flight before either option: `python -m finetune.python.training.rehearsal` 
 - arXiv:2604.01637 (SecLens-R 4-arm eval framework)
 - arXiv:2403.12196 (Shifting the Lens: npm malware detection)
 - arXiv:2510.20739 (Taint-based code slicing, F1=0.915 baseline)
+- arXiv:2602.14012 (From SFT to RL for Vulnerability Detection)
+- `unslothai/unsloth` README
+- `AkaliKong/MiniOneRec` `LogitProcessor.py` and `minionerec_trainer.py`
