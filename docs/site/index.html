@@ -45,6 +45,8 @@
     details[open] summary svg { transform: rotate(180deg); }
     summary { list-style: none; cursor: pointer; }
     summary::-webkit-details-marker { display: none; }
+    .hp-submitted:checked ~ .hp-form { display: none; }
+    .hp-submitted:checked ~ .hp-thanks { display: block; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-100">
@@ -514,36 +516,53 @@
       <span class="italic text-slate-600">(We will ask so many questions. The authorities will also have questions.)</span>
     </p>
 
-    <div class="bg-slate-900/60 border border-red-500/10 rounded-xl p-8 text-left space-y-4">
-      <div>
-        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">
-          <span class="text-red-400">🔐</span> Your email (we promise not to doxx you — unless your exploit is <em>really</em> funny)
-        </label>
-        <input type="email" value="definitely-not-a-threat-actor@protonmail.com" disabled
-               class="w-full bg-slate-950/50 border border-slate-700 rounded-md px-4 py-3 text-slate-500 line-through cursor-not-allowed focus:outline-none" />
-      </div>
-      <div>
-        <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">
-          <span class="text-red-400">📦</span> Your exploit payload <span class="text-slate-600 normal-case">(we only accept <span class="mono">.zip</span> — no, we won't tell you why <span class="mono">.zip</span> specifically)</span>
-        </label>
-        <div class="w-full bg-slate-950/50 border border-dashed border-slate-700 rounded-md px-4 py-6 text-center text-slate-600 cursor-not-allowed">
-          <div class="text-2xl mb-1">📁</div>
-          <p class="text-xs">Drag & drop your <span class="mono">.zip</span> here, <span class="italic">big guy</span></p>
-          <p class="text-[10px] text-slate-700 mt-1">(actually disabled — we don't want your malware on this server, use the real submission address below)</p>
+    <!-- hidden checkbox drives CSS-only toggle -->
+    <input type="checkbox" id="hp-submitted" class="hp-submitted hidden" />
+
+    <!-- active form -->
+    <div class="hp-form bg-slate-900/60 border border-red-500/10 rounded-xl p-8 text-left space-y-4">
+      <form action="mailto:samples@modulewarden.com" method="post" enctype="text/plain">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider" for="hp-email">
+            <span class="text-red-400">🔐</span> Your email (we promise not to doxx you — unless your exploit is <em>really</em> funny)
+          </label>
+          <input id="hp-email" type="email" name="email" required placeholder="definitely-not-a-threat-actor@protonmail.com"
+                 class="w-full bg-slate-950/50 border border-slate-700 rounded-md px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-red-500 transition" />
         </div>
-      </div>
-      <div class="bg-slate-950/50 border border-yellow-500/20 rounded-lg p-4 text-xs text-slate-500 space-y-2">
-        <p class="font-semibold text-yellow-400">⚠️ Submission guidelines (read carefully):</p>
-        <ul class="list-disc pl-5 space-y-1.5 leading-relaxed">
-          <li>By submitting, you agree that we will absolutely forward your IP, payload hash, and a screenshot of your submission to every CERT we have beers with.</li>
-          <li>Results typically within 24–48 hours. If you don't hear back, your exploit was <em>too sophisticated</em> (sorry, we just kept it. Thanks for the free sample.)</li>
-          <li>Maximum file size: 50 MB (any larger and we assume you're just bad at compression <em>and</em> malware authoring)</li>
-          <li>Supported formats strictly: <span class="mono text-slate-400">.zip</span> — because <span class="italic">nobody</span> checks the zip, right?</li>
-        </ul>
-      </div>
-      <button disabled class="w-full bg-red-500/10 border border-red-500/30 text-red-400/60 py-3 rounded-md font-semibold cursor-not-allowed line-through text-sm">
-        Submit exploit for analysis — (disabled because we respect our infrastructure, unlike you)
-      </button>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider" for="hp-file">
+            <span class="text-red-400">📦</span> Your exploit payload <span class="text-slate-600 normal-case">(we only accept <span class="mono">.zip</span> — no, we won't tell you why <span class="mono">.zip</span> specifically)</span>
+          </label>
+          <input id="hp-file" type="file" name="payload" accept=".zip" required
+                 class="w-full bg-slate-950/50 border border-dashed border-slate-700 rounded-md px-4 py-6 text-slate-400 file:bg-red-500/10 file:border file:border-red-500/30 file:rounded-md file:px-3 file:py-1.5 file:text-red-300 file:text-xs file:font-semibold file:cursor-pointer file:hover:bg-red-500/20 file:transition file:mr-3 cursor-pointer focus:outline-none focus:border-red-500 transition" />
+        </div>
+        <div class="bg-slate-950/50 border border-yellow-500/20 rounded-lg p-4 text-xs text-slate-500 space-y-2">
+          <p class="font-semibold text-yellow-400">⚠️ Submission guidelines (read carefully):</p>
+          <ul class="list-disc pl-5 space-y-1.5 leading-relaxed">
+            <li>By submitting, you agree that we will absolutely forward your IP, payload hash, and a screenshot of your submission to every CERT we have beers with.</li>
+            <li>Results typically within 24–48 hours. If you don't hear back, your exploit was <em>too sophisticated</em> (sorry, we just kept it. Thanks for the free sample.)</li>
+            <li>Maximum file size: 50 MB (any larger and we assume you're just bad at compression <em>and</em> malware authoring)</li>
+            <li>Supported formats strictly: <span class="mono text-slate-400">.zip</span> — because <span class="italic">nobody</span> checks the zip, right?</li>
+          </ul>
+        </div>
+        <label for="hp-submitted"
+               class="block w-full bg-red-500/20 border border-red-500/40 text-red-300 py-3 rounded-md font-semibold hover:bg-red-500/30 hover:border-red-500/60 transition cursor-pointer text-sm text-center">
+          Submit exploit for analysis
+        </label>
+      </form>
+    </div>
+
+    <!-- thank-you message (visible after toggle) -->
+    <div class="hp-thanks hidden bg-slate-900/60 border border-emerald-500/20 rounded-xl p-10 text-center">
+      <div class="text-5xl mb-4">🎉</div>
+      <h3 class="text-2xl font-bold text-emerald-400 mb-3">Thanks for your contribution to make the product better!</h3>
+      <p class="text-slate-400 text-sm leading-relaxed max-w-md mx-auto">
+        Our security team is <span class="italic">very</span> excited to analyze your payload.
+        We'll be in touch at the email you provided — or, more likely, we'll just add your sample to our dataset and never speak of this again.
+      </p>
+      <p class="text-xs text-slate-600 mt-6">
+        (No, really — this did nothing. The form has no backend. But now you've clicked submit on a honeypot that told you it was a honeypot, and that's <span class="italic">delicious</span>.)
+      </p>
     </div>
 
     <details class="mt-6 group">
@@ -553,7 +572,7 @@
       </summary>
       <div class="mt-3 text-xs text-slate-600 text-left bg-slate-950/50 border border-slate-800 rounded-lg p-4 leading-relaxed">
         <p><strong class="text-slate-400">This is a honeypot.</strong> This section exists for entertainment purposes and to demonstrate that if you are reading this and thinking <span class="italic">"oh cool, I can upload malware here"</span> — you are exactly the kind of person we want to know about.</p>
-        <p class="mt-2">The form is disabled. The inputs are fake. But if you got this far, you should know that ModuleWarden <em>does</em> maintain a real malware sample repository for research purposes. Want to contribute? Email <code class="mono text-slate-400">samples@modulewarden.com</code>. We accept all major exploit formats. No bug bounty, no CVE, no credit — just the quiet satisfaction of being outsmarted by a form you filled out voluntarily.</p>
+        <p class="mt-2">The form submits to <code class="mono text-slate-400">mailto:samples@modulewarden.com</code>, which will open your email client but won't actually send the file. We don't have a backend endpoint yet. But when we do, <span class="italic">you'll be the first to know.</span> (Mostly because your submission will be in our database.)</p>
       </div>
     </details>
 
