@@ -23,6 +23,9 @@ importers:
       '@modulewarden/shared':
         specifier: workspace:*
         version: link:../shared
+      '@modulewarden/worker':
+        specifier: workspace:*
+        version: link:../worker
       fastify:
         specifier: ^5.0.0
         version: 5.8.5

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { getEffectiveVerdictByHash } from '../services/decisions.js';
-import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
+import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import type { RegistryError } from '@modulewarden/shared/npm-types';
 
@@ -45,7 +45,7 @@ function parseVersionFromFilename(packageName: string, filename: string): string
 export async function registerTarballRoute(
   app: FastifyInstance,
   verdaccioUrl: string,
-  pgBossSend?: (queue: string, data: Record<string, unknown>) => Promise<string | null>
+  pgBossSend?: (data: Record<string, unknown>) => Promise<string | null>
 ): Promise<void> {
   app.get<{ Params: TarballParams }>(
     '/:package/-/:filename',
@@ -161,7 +161,7 @@ export async function registerTarballRoute(
       if (pgBossSend) {
         const auditContext = `preflight:tarball:${packageName}@${version}`;
         const tarballHash = effectiveHash || `unresolved:${packageName}@${version}`;
-        await pgBossSend('package-review', {
+        await pgBossSend({
           packageName,
           packageVersion: version,
           tarballHash,

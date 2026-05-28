@@ -16,7 +16,9 @@
     "baseUrl": ".",
     "paths": {
       "@modulewarden/shared": ["./packages/shared/src"],
-      "@modulewarden/prisma-client": ["./packages/prisma-client/src"]
+      "@modulewarden/prisma-client": ["./packages/prisma-client/src"],
+      "@modulewarden/worker": ["./packages/worker/src"],
+      "@modulewarden/worker/*": ["./packages/worker/src/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

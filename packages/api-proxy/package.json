@@ -14,6 +14,7 @@
   "dependencies": {
     "@modulewarden/shared": "workspace:*",
     "@modulewarden/prisma-client": "workspace:*",
+    "@modulewarden/worker": "workspace:*",
     "fastify": "^5.0.0",
     "pg-boss": "^11.0.0"
   },

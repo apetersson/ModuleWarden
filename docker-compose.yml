@@ -44,7 +44,7 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
-      MW_MODEL_ENDPOINT_BASE_URL: http://model-endpoint:8080/v1
+      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:-http://model-endpoint:8080/v1}
       MW_MODEL_ENDPOINT_API_KEY: sk-change-me
       MW_MODEL_ENDPOINT_MODEL: llama-3-70b
       MW_AUTH_ADMIN_TOKENS: mw-admin-token-change-me
@@ -71,7 +71,7 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
-      MW_MODEL_ENDPOINT_BASE_URL: http://model-endpoint:8080/v1
+      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:-http://model-endpoint:8080/v1}
       MW_MODEL_ENDPOINT_API_KEY: sk-change-me
       MW_MODEL_ENDPOINT_MODEL: llama-3-70b
       MW_AUTH_ADMIN_TOKENS: mw-admin-token-change-me
@@ -110,11 +110,12 @@ services:
     # The worker references this image by name.
     # Run: docker compose build audit-runner
 
-  # ── Model Endpoint (Development Fallback) ──────────────
-  # Local OpenAI-compatible endpoint for development.
-  # Production deployments replace this with external H100-backed infra.
+  # ── External Model Endpoint (default should be remote H100 service) ─────────
+  # Not started by default. Enable intentionally with:
+  # docker compose --profile local-model-endpoint up model-endpoint
   model-endpoint:
     image: ghcr.io/localai/localai:latest
+    profiles: [ "local-model-endpoint" ]
     ports:
       - "8081:8080"
     environment:

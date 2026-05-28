@@ -149,6 +149,7 @@ model ReviewJob {
   status           JobStatus @default(PENDING)
   pgBossJobId      String?
   idempotencyKey   String   @unique
+  failureReason    String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -260,10 +261,23 @@ model EvidenceArtifact {
   contentHash   String
   filePath      String?
   sizeBytes     Int?
+  status        EvidenceStatus @default(ACTIVE)
+  supersedesEvidenceArtifactId String?
   createdAt     DateTime @default(now())
+
+  supersedesEvidenceArtifact EvidenceArtifact? @relation("EvidenceSupersession", fields: [supersedesEvidenceArtifactId], references: [id])
+  supersededBy EvidenceArtifact[] @relation("EvidenceSupersession")
 
   decisions        Decision[] @relation("DecisionEvidence")
   evaluationLabels EvaluationLabel[]
+
+  @@index([supersedesEvidenceArtifactId])
+}
+
+enum EvidenceStatus {
+  ACTIVE
+  SUPERSEDED
+  REDACTED
 }
 
 enum EvidenceType {

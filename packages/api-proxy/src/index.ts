@@ -3,7 +3,7 @@ import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
-import PgBoss from 'pg-boss';
+import { JobQueue } from '@modulewarden/worker/src/jobs/queue.js';
 
 export async function buildServer() {
   const config = defaultConfig();
@@ -11,12 +11,15 @@ export async function buildServer() {
   await prisma.$connect();
   const connectionString = buildPostgresConnectionString(config, true);
 
-  const boss = new PgBoss({
+  const queue = new JobQueue({
     connectionString,
     schema: config.postgres.schema,
+    maxRetries: config.jobs.retryPolicy.maxRetries,
+    backoffDelayMs: config.jobs.retryPolicy.backoffDelayMs,
+    timeoutMs: config.jobs.retryPolicy.timeoutMs,
+    concurrency: config.jobs.concurrency,
   });
-  await boss.start();
-  await boss.createQueue('package-review');
+  await queue.start();
 
   const app = Fastify({
     logger: {
@@ -31,15 +34,13 @@ export async function buildServer() {
   await registerTarballRoute(
     app,
     config.verdaccio.registryUrl,
-    async (queue: string, data: Record<string, unknown>) => {
-      return boss.send(queue, data, {
-        singletonKey: String(data.idempotencyKey),
-        singletonSeconds: 86400,
-        retryLimit: config.jobs.retryPolicy.maxRetries,
-        retryBackoff: true,
-        retryDelay: config.jobs.retryPolicy.backoffDelayMs,
-        expireInSeconds: Math.ceil(config.jobs.retryPolicy.timeoutMs / 1000),
-      });
+    async (data: Record<string, unknown>) => {
+      return queue.enqueuePackageReview(
+        String(data.packageName),
+        String(data.packageVersion),
+        String(data.tarballHash),
+        String(data.auditContext)
+      );
     }
   );
 
@@ -50,7 +51,7 @@ export async function buildServer() {
   });
 
   app.addHook('onClose', async () => {
-    await boss.stop();
+    await queue.stop();
     await disconnectPrisma();
   });
 

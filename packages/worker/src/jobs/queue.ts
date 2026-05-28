@@ -1,7 +1,8 @@
 import PgBoss from 'pg-boss';
+import { getPrisma } from '@modulewarden/prisma-client';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import type { JobType, JobPayloads } from '@modulewarden/shared/types';
-import { JOB_RETRY_CONFIG } from './definitions.js';
+import { JOB_RETRY_CONFIG, shouldDeadLetter } from './definitions.js';
 
 export type JobHandler<T extends JobType> = (job: { id: string; data: JobPayloads[T] }) => Promise<void>;
 
@@ -32,6 +33,7 @@ export class JobQueue {
   private started = false;
   private options: Required<Pick<QueueOptions, 'maxRetries' | 'backoffDelayMs' | 'timeoutMs'>>;
   private concurrency: Record<string, number>;
+  private singletonSeconds: Partial<Record<JobType, number>>;
 
   constructor(opts: QueueOptions) {
     this.boss = new PgBoss({
@@ -47,6 +49,9 @@ export class JobQueue {
     };
 
     this.concurrency = opts.concurrency ?? {};
+    this.singletonSeconds = {
+      'package-review': 60 * 60 * 24 * 365,
+    };
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────
@@ -85,7 +90,9 @@ export class JobQueue {
     };
     if (singletonKey) {
       options.singletonKey = singletonKey;
-      options.singletonSeconds = 86400; // Dedup within 24h
+      options.singletonSeconds = jobType && jobType in this.singletonSeconds
+        ? this.singletonSeconds[jobType as JobType]
+        : policy?.singletonSeconds ?? 300;
     }
     return options;
   }
@@ -238,6 +245,32 @@ export class JobQueue {
             await handler({ id: job.id, data: job.data });
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            const payload = job.data as {
+              reviewJobId?: string;
+              packageName?: string;
+              packageVersion?: string;
+              auditContext?: string;
+            };
+            const reviewJobId = payload?.reviewJobId;
+            const jobType = name as JobType;
+            const retryCount = typeof (job as { retryCount?: number }).retryCount === 'number'
+              ? (job as { retryCount?: number }).retryCount!
+              : 0;
+            const willDeadLetter = typeof JOB_RETRY_CONFIG[jobType] !== 'undefined'
+              ? shouldDeadLetter(jobType, retryCount + 1)
+              : false;
+
+            if (reviewJobId) {
+              await this.markReviewJobFailed(reviewJobId, message, willDeadLetter);
+            }
+
+            await this.persistFailureContext({
+              reviewJobId,
+              name,
+              jobId: job.id,
+              error: message,
+            });
+
             await this.boss.fail(name, job.id, { error: message });
             throw err;
           }
@@ -245,6 +278,72 @@ export class JobQueue {
       );
     });
     return workerId;
+  }
+
+  private async markReviewJobFailed(
+    reviewJobId: string,
+    failureReason: string,
+    deadLetter: boolean
+  ): Promise<void> {
+    const status = deadLetter ? 'DEAD_LETTER' : 'FAILED';
+    const prisma = getPrisma();
+
+    await prisma.reviewJob.update({
+      where: { id: reviewJobId },
+      data: {
+        status,
+        // Keep a compact failure summary for forensic correlation.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        failureReason: `${new Date().toISOString()}: ${failureReason}` as any,
+      },
+    }).catch(() => {
+      // Some jobs (like package-review) may fail before a review row exists.
+    });
+  }
+
+  private async persistFailureContext(payload: {
+    reviewJobId: string | undefined;
+    name: string;
+    jobId: string;
+    error: string;
+  }): Promise<void> {
+    const prisma = getPrisma();
+    const reviewJobId = payload.reviewJobId;
+    if (!reviewJobId) {
+      return;
+    }
+
+    const now = new Date();
+    const existingRuns = await prisma.auditRun.findMany({
+      where: { reviewJobId },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+
+    if (existingRuns.length === 0) {
+      await prisma.auditRun.create({
+        data: {
+          reviewJobId,
+          status: 'CRASHED',
+          completedAt: now,
+          errorMessage: `${payload.name} job ${payload.jobId} failed: ${payload.error}`,
+        },
+      }).catch(() => {
+        // Ignore failures when auditRun cannot be recorded yet.
+      });
+      return;
+    }
+
+    await prisma.auditRun.update({
+      where: { id: existingRuns[0].id },
+      data: {
+        status: 'CRASHED',
+        completedAt: now,
+        errorMessage: `${payload.name} job ${payload.jobId} failed: ${payload.error}`,
+      },
+    }).catch(() => {
+      // Ignore persistence failures; pg-boss still handles retry/dead-letter state.
+    });
   }
 
   // ── Scheduling ────────────────────────────────────────────────

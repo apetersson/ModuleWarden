@@ -10,6 +10,8 @@ export interface EvidenceArtifactInput {
   contentHash: string;
   filePath?: string;
   sizeBytes?: number;
+  status?: 'ACTIVE' | 'SUPERSEDED' | 'REDACTED';
+  supersedesEvidenceArtifactId?: string;
 }
 
 export async function createEvidenceArtifact(input: EvidenceArtifactInput): Promise<EvidenceArtifact> {
@@ -22,6 +24,8 @@ export async function createEvidenceArtifact(input: EvidenceArtifactInput): Prom
       contentHash: input.contentHash,
       filePath: input.filePath,
       sizeBytes: input.sizeBytes,
+      status: (input.status ?? 'ACTIVE') as any,
+      supersedesEvidenceArtifactId: input.supersedesEvidenceArtifactId,
     },
   });
 }
@@ -49,4 +53,22 @@ export async function linkEvidenceToDecision(
       },
     },
   });
+}
+
+export async function supersedeEvidenceArtifact(
+  existingEvidenceArtifactId: string,
+  replacement: Omit<EvidenceArtifactInput, 'supersedesEvidenceArtifactId'>
+): Promise<EvidenceArtifact> {
+  const next = await createEvidenceArtifact({
+    ...replacement,
+    supersedesEvidenceArtifactId: existingEvidenceArtifactId,
+    status: 'SUPERSEDED',
+  });
+
+  await getPrisma().evidenceArtifact.update({
+    where: { id: existingEvidenceArtifactId },
+    data: { status: 'REDACTED' },
+  });
+
+  return next;
 }

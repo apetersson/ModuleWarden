@@ -16,13 +16,43 @@ export interface DecisionInput {
   actorType: 'AGENT' | 'ADMIN';
   piSessionId?: string;
   piRunId?: string;
+  evidenceArtifactIds?: string[];
+  scoreEntries?: Array<{
+    name: string;
+    value: number;
+    weight?: number;
+    category?: string;
+  }>;
 }
 
 export async function createDecision(input: DecisionInput): Promise<Decision> {
+  const { scores, evidenceArtifactIds, scoreEntries, ...decisionData } = input as any;
+
   return getPrisma().decision.create({
     data: {
-      ...input,
-      scores: input.scores ?? undefined,
+      ...decisionData,
+      scores: scores ?? undefined,
+      scoresData:
+        scoreEntries?.length
+          ? {
+            create: scoreEntries.map((score) => ({
+              name: score.name,
+              value: score.value,
+              weight: score.weight,
+              category: score.category,
+            })),
+          }
+          : undefined,
+      evidenceArtifacts:
+        evidenceArtifactIds && evidenceArtifactIds.length > 0
+          ? {
+            connect: evidenceArtifactIds.map((id) => ({ id })),
+          }
+          : undefined,
+    },
+    include: {
+      scoresData: true,
+      evidenceArtifacts: true,
     },
   });
 }

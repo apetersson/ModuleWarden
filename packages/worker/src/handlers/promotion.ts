@@ -2,6 +2,7 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
 import type { JobQueue } from '../jobs/queue.js';
 import { fetchUpstreamTarball, promoteTarballToVerdaccio } from '@modulewarden/shared/services/upstream';
+import { getBestActiveOverrideForPackageVersion } from '@modulewarden/prisma-client';
 
 /**
  * Register the Verdaccio promotion job handler.
@@ -59,31 +60,18 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
       throw new Error(`Promotion payload does not match decision ${decisionId}`);
     }
 
-    const newerDecision = await prisma.decision.findFirst({
-      where: {
-        packageVersionId: decision.packageVersionId,
-        createdAt: { gt: decision.createdAt },
-      },
-      select: { id: true, verdict: true },
+    const latestDecision = await prisma.decision.findFirst({
+      where: { packageVersionId: decision.packageVersionId },
       orderBy: { createdAt: 'desc' },
     });
-
-    if (newerDecision) {
+    if (!latestDecision || latestDecision.id !== decision.id) {
       throw new Error(
-        `Decision ${decisionId} for ${packageName}@${packageVersion} was superseded by ${newerDecision.id} (${newerDecision.verdict})`
+        `Decision ${decisionId} for ${packageName}@${packageVersion} is not the latest decision`
       );
     }
 
-    const activeOverride = await prisma.override.findFirst({
-      where: {
-        active: true,
-        decision: { packageVersionId: decision.packageVersionId },
-      },
-      select: { id: true, targetVerdict: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (activeOverride && activeOverride.createdAt > decision.createdAt && activeOverride.targetVerdict !== 'ALLOW') {
+    const activeOverride = await getBestActiveOverrideForPackageVersion(decision.packageVersionId);
+    if (activeOverride && activeOverride.targetVerdict !== 'ALLOW') {
       throw new Error(
         `Decision ${decisionId} for ${packageName}@${packageVersion} has active ${activeOverride.targetVerdict} override ${activeOverride.id}`
       );

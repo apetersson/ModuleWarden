@@ -76,11 +76,15 @@ export const SCHEDULED_JOBS: Array<{
 /**
  * Retry and timeout configuration per job type.
  */
-export const JOB_RETRY_CONFIG: Record<JobType, { maxRetries: number; timeoutMs: number; backoffMs: number }> = {
+export const JOB_RETRY_CONFIG: Record<
+  JobType,
+  { maxRetries: number; timeoutMs: number; backoffMs: number; singletonSeconds?: number }
+> = {
   'package-review': {
     maxRetries: 3,
     timeoutMs: 600_000,  // 10 min
     backoffMs: 30_000,
+    singletonSeconds: 60 * 60 * 24 * 365, // 1 year dedupe window by job key
   },
   'upstream-subscription-poll': {
     maxRetries: 2,

@@ -6,6 +6,7 @@ FROM node:20-alpine AS deps
 RUN npm install -g pnpm@9
 WORKDIR /app
 COPY pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml ./
 COPY packages/api-proxy/package.json packages/api-proxy/
 COPY packages/worker/package.json packages/worker/
 COPY packages/web-ui/package.json packages/web-ui/
@@ -47,4 +48,4 @@ COPY packages/shared packages/shared
 COPY packages/web-ui packages/web-ui
 RUN pnpm --filter @modulewarden/web-ui build
 EXPOSE 3000
-CMD ["node", "packages/web-ui/dist/server/index.js"]
+CMD ["pnpm", "--filter", "@modulewarden/web-ui", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "3000"]

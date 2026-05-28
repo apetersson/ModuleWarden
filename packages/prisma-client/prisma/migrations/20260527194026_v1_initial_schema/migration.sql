@@ -16,6 +16,8 @@ CREATE TYPE "PromptCategory" AS ENUM ('CORE', 'CUSTOM_ADMIN', 'ESCALATION', 'PAT
 -- CreateEnum
 CREATE TYPE "EvidenceType" AS ENUM ('DIFF_SUMMARY', 'DEPENDENCY_DIFF', 'LIFECYCLE_SCRIPT_CHANGES', 'CAPABILITY_DELTA', 'OBFUSCATION_INDICATORS', 'NATIVE_WASM_ADDITIONS', 'CHANGELOG_CONTEXT', 'REPOSITORY_SOURCE', 'SANDBOX_INSTALL_TRACE', 'NETWORK_EGRESS_TRACE', 'PI_SESSION_METADATA', 'PROMPT_VERSION', 'MODEL_VERSION', 'SCORES', 'REVIEWER_SUMMARY', 'STATIC_RULE_RESULTS', 'DECOMPILED_OUTPUT', 'OTHER');
 
+CREATE TYPE "EvidenceStatus" AS ENUM ('ACTIVE', 'SUPERSEDED', 'REDACTED');
+
 -- CreateEnum
 CREATE TYPE "Verdict" AS ENUM ('ALLOW', 'BLOCK', 'QUARANTINE');
 
@@ -143,6 +145,7 @@ CREATE TABLE "ReviewJob" (
     "status" "JobStatus" NOT NULL DEFAULT 'PENDING',
     "pgBossJobId" TEXT,
     "idempotencyKey" TEXT NOT NULL,
+    "failureReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -209,6 +212,8 @@ CREATE TABLE "EvidenceArtifact" (
     "contentHash" TEXT NOT NULL,
     "filePath" TEXT,
     "sizeBytes" INTEGER,
+    "status" "EvidenceStatus" NOT NULL DEFAULT 'ACTIVE',
+    "supersedesEvidenceArtifactId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "EvidenceArtifact_pkey" PRIMARY KEY ("id")
@@ -349,6 +354,9 @@ CREATE UNIQUE INDEX "ReviewJob_idempotencyKey_key" ON "ReviewJob"("idempotencyKe
 CREATE INDEX "ReviewJob_status_idx" ON "ReviewJob"("status");
 
 -- CreateIndex
+CREATE INDEX "EvidenceArtifact_supersedesEvidenceArtifactId_idx" ON "EvidenceArtifact"("supersedesEvidenceArtifactId");
+
+-- CreateIndex
 CREATE INDEX "ReviewJob_idempotencyKey_idx" ON "ReviewJob"("idempotencyKey");
 
 -- CreateIndex
@@ -434,6 +442,9 @@ ALTER TABLE "AuditRun" ADD CONSTRAINT "AuditRun_reviewJobId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "EvidenceArtifact" ADD CONSTRAINT "EvidenceArtifact_auditRunId_fkey" FOREIGN KEY ("auditRunId") REFERENCES "AuditRun"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EvidenceArtifact" ADD CONSTRAINT "EvidenceArtifact_supersedesEvidenceArtifactId_fkey" FOREIGN KEY ("supersedesEvidenceArtifactId") REFERENCES "EvidenceArtifact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Decision" ADD CONSTRAINT "Decision_reviewJobId_fkey" FOREIGN KEY ("reviewJobId") REFERENCES "ReviewJob"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
