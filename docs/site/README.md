@@ -1,6 +1,6 @@
 # ModuleWarden landing page
 
-Static marketing site. Single `index.html` file, Tailwind via CDN, no build step.
+Static marketing site. Single `index.html` file plus local CSS/font assets, no runtime third-party dependencies.
 
 ## Deploy
 
