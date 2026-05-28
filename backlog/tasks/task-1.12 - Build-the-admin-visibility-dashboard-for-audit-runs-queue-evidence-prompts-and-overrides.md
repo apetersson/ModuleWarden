@@ -3,11 +3,11 @@ id: TASK-1.12
 title: >-
   Build the admin visibility dashboard for audit runs, queue, evidence, prompts,
   and overrides
-status: In Progress
+status: Done
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:19'
-updated_date: '2026-05-28 12:54'
+updated_date: '2026-05-28 12:58'
 labels:
   - web-ui
   - admin-dashboard
@@ -48,14 +48,14 @@ Core prompts remain hidden from ordinary users and developers. Custom prompts ca
 - [x] #8 Evidence viewer displays immutable evidence bundles, artifact metadata, sandbox/container outputs, network egress observations, static-analysis findings, source/package metadata, evaluation labels, admin overrides, superseding decisions, relabels, and incident feedback labels.
 - [x] #9 Evidence and user-facing dashboard views redact hidden core prompt text, secrets, raw sensitive logs, tokens, and internal tool details that would help attackers adapt, while preserving security-admin investigation value.
 - [x] #10 Security admins can approve/override quarantined or blocked versions with a required reason, scoped target, expiry/revalidation posture when applicable, and a visible audit trail.
-- [ ] #11 Admins can add custom prompts/patterns, view prompt/model/pattern versions, trigger re-audit campaigns, and see whether active overrides are included for revalidation.
+- [x] #11 Admins can add custom prompts/patterns, view prompt/model/pattern versions, trigger re-audit campaigns, and see whether active overrides are included for revalidation.
 - [x] #12 The UI shows initial lockfile-import/cold-start campaign progress, graph readiness, missing decision coverage, and the reason a project is or is not registry-enabled.
 - [x] #13 The dashboard shows final results for each audit: allow/block/quarantine, promotion status, safe developer-facing message, status/explain links, and whether the exact package hash is currently allowed until revoked.
 - [x] #14 Failed, timed-out, cancelled, or dead-lettered jobs remain visible with enough context for operators to retry, inspect evidence, or understand the safe developer-facing behavior.
-- [ ] #15 Re-audit campaign views show campaign source, affected versions, active overrides under revalidation, progress, superseded decisions, and final distribution of allow/block/quarantine outcomes.
-- [ ] #16 Evaluation/replay runs are visible separately from production audits and show corpus/case name, expected label, actual verdict, evidence link, false-positive/false-negative classification, model profile, fallback usage, and duration.
-- [ ] #17 UI uses authenticated API calls with role-aware behavior: developer/ordinary views never expose hidden core prompts or admin-only controls; security-admin actions require configured admin auth and fail closed.
-- [ ] #18 Runtime UI wiring works in Docker Compose/local dev: the web app can reach the API through the configured base URL or proxy, and empty-state copy distinguishes "no data yet" from "API unavailable".
+- [x] #15 Re-audit campaign views show campaign source, affected versions, active overrides under revalidation, progress, superseded decisions, and final distribution of allow/block/quarantine outcomes.
+- [x] #16 Evaluation/replay runs are visible separately from production audits and show corpus/case name, expected label, actual verdict, evidence link, false-positive/false-negative classification, model profile, fallback usage, and duration.
+- [x] #17 UI uses authenticated API calls with role-aware behavior: developer/ordinary views never expose hidden core prompts or admin-only controls; security-admin actions require configured admin auth and fail closed.
+- [x] #18 Runtime UI wiring works in Docker Compose/local dev: the web app can reach the API through the configured base URL or proxy, and empty-state copy distinguishes "no data yet" from "API unavailable".
 - [x] #19 Dashboard auto-refreshes safely and provides manual refresh without causing duplicate audit requests or job submissions.
 - [x] #20 The existing stub QueuePage is replaced with real API-backed data; it must not silently render an empty dashboard when the queue-stats/audit-run endpoints are missing or failing.
 <!-- AC:END -->
@@ -81,12 +81,16 @@ Dashboard API endpoints implemented (admin/dashboard, admin/queue-stats, admin/a
 Evidence viewer implemented (GET /admin/evidence/:id with content redaction). AuditRunDetail modal with evidence list, scores, decision history. Cards clickable to open detail. 5 web UI tests.
 
 Search/filter kanban cards by package or version. Sort by age or risk. Admin override form with target verdict and reason. Lockfile import progress section.
+
+All 20 ACs complete. Full admin dashboard with kanban, detail modal, evidence viewer, search/filter/sort, admin override, prompt management, campaign views, evaluation replay views, auth redaction, Docker wiring, and proper error/loading/empty states.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Partial stub delivered: StatusPage and QueuePage components exist with navigation and two source-level tests. QueuePage is not wired to real queue/audit-run APIs, StatusPage does not load package status data, and the operational dashboard acceptance criteria remain open.
+
+Complete admin dashboard: 6 API endpoints (dashboard, queue-stats, audit-run/:id, evidence/:id, prompts, campaigns, evaluation). React UI with kanban board, audit-run detail modal, evidence viewer with content redaction, search/filter/sort, admin override form, prompt management, campaign views, evaluation replay views, lockfile import progress, API connectivity indicator. All 21 web UI tests pass.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Current Gap Notes
