@@ -35,9 +35,9 @@ import type {
 const PORT = parseInt(process.env.MW_RPC_PORT ?? '9090', 10);
 const HOST = process.env.MW_RPC_HOST ?? '127.0.0.1';
 const RPC_TOKEN = process.env.MW_RPC_TOKEN ?? '';
+const MW_API_TOKEN = process.env.MW_API_TOKEN ?? process.env.MW_RPC_TOKEN ?? ''; // Distinct token for outbound API calls; falls back to RPC token for backward compat
 const WORKSPACE = process.env.MW_WORKSPACE ?? '/workspace';
 const MW_API_BASE = process.env.MW_API_BASE ?? 'http://modulewarden-api:4000';
-const MW_API_TOKEN = RPC_TOKEN; // Same run-scoped token for API calls
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -205,9 +205,9 @@ function handleStaticChecks(requestId: string): RpcToolResult {
   const pkg = readPackageJson();
   if (pkg) {
     const scripts = (pkg.scripts ?? {}) as Record<string, string>;
-    if (scripts.preinstall || scripts.install || scripts.postinstall) {
+    if (scripts.preinstall || scripts.install || scripts.postinstall || scripts.prepare) {
       summary['install-time'] = 'high';
-      findings.push({ category: 'install-time', severity: 'high', description: 'Lifecycle scripts', files: ['package.json'], evidence: ['preinstall/install/postinstall defined'] });
+      findings.push({ category: 'install-time', severity: 'high', description: 'Lifecycle scripts', files: ['package.json'], evidence: ['preinstall/install/postinstall/prepare defined'] });
     }
   }
 

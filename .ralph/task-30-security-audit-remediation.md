@@ -19,17 +19,17 @@ Repeat Phase 2-3 until the subagent returns zero findings.
 ## Phase 1 Checklist (31 findings)
 
 ### Security Issues (8)
-- [ ] SEC-01 (remaining): Add min-length/character-format validation for auth tokens in `readRequiredList()`
+- [x] SEC-01 (remaining): Add min-length/character-format validation for auth tokens in `readRequiredList()`
 - [ ] SEC-02: Split RPC token — use distinct tokens for PI auth vs outbound API calls
 - [ ] SEC-03: Replace `$queryRawUnsafe` with type-safe Prisma queries in dashboard
 - [ ] SEC-05: Reject tarball if integrity hash cannot be resolved from upstream (fail closed)
 - [ ] SEC-06: Consolidate to single AST-aware implementation for static analysis
 - [ ] SEC-07: Only set `hasLifecycleScript: true` for install-phase lifecycle hooks
 - [ ] SEC-08: Implement recursive redaction of keys AND string values in evidence
-- [ ] SEC-09: Extract `checkAdmin` into shared Fastify plugin/middleware
+- [x] SEC-09: Extract `checkAdmin` into shared Fastify plugin/middleware
 
 ### Logic Bugs (5)
-- [ ] BUG-01: Fix empty `tarballHash: ''` fallback in admin override route
+- [x] BUG-01: Fix empty `tarballHash: ''` fallback in admin override route
 - [ ] BUG-02: Fix misleading `predecessorDecisions` relation name or add clarifying comment
 - [ ] BUG-03: Fix shell injection risk in sandbox-execute — use `execFileSync`
 - [ ] BUG-04: Fix TOCTOU race in promotion.ts — wrap in `$transaction` with lock
