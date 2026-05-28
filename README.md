@@ -73,6 +73,7 @@ The defensible thesis: *private, agentic, version-diff review of package updates
 
 ```bash
 # 1. Start the stack
+cp .env.example .env
 docker compose up -d
 
 # 2. Import your project's lockfile
@@ -86,6 +87,40 @@ modulewarden status
 npm config set registry http://localhost:8080/
 pnpm config set registry http://localhost:8080/
 ```
+
+## 60-Second Live Demo
+
+No docker, no network, no API keys. Replay three confirmed npm
+supply-chain incidents through the deterministic gate plus cited model
+verdict, and have the Control Evidence Memo dropped on disk:
+
+```bash
+python -m demo.run_incident_replay --list
+python -m demo.run_incident_replay --incident postmark-mcp-1.0.16   # BLOCK
+python -m demo.run_incident_replay --incident postmark-mcp-1.0.12   # ALLOW
+python -m demo.run_incident_replay --incident lodash-4.17.21        # ALLOW
+ls demo/outputs/                                                     # 3 memos
+```
+
+See [`demo/README.md`](demo/README.md) for the full demo recipe.
+
+## Conversational Underwriter Assistant
+
+Same audit pipeline, conversational wrapper aimed at a cyber-policy
+underwriter or claims analyst:
+
+```bash
+# Headless CLI (no UI deps)
+python -m chat.cli "look up postmark-mcp@1.0.16"
+python -m chat.cli "what are the gate rules?"
+
+# Streamlit UI
+pip install -r chat/requirements.txt
+streamlit run chat/app.py
+```
+
+See [`chat/README.md`](chat/README.md) for the architecture and the
+optional LLM-augmented path.
 
 ## Prerequisites
 
