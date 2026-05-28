@@ -99,7 +99,9 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
     }
 
     // 2. Fetch the tarball from upstream npm
-    const tarballUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}/-/${encodeURIComponent(packageName)}-${packageVersion}.tgz`;
+    // Scoped packages: @scope/name -> name-version.tgz; Unscoped: name-version.tgz (H-1)
+    const unscopedName = packageName.startsWith('@') ? packageName.split('/')[1] : packageName;
+    const tarballUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}/-/${unscopedName}-${packageVersion}.tgz`;
     const tarball = await fetchUpstreamTarball(tarballUrl);
 
     if (!tarball) {
@@ -133,7 +135,7 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
             },
           },
         },
-        storagePath: `${encodeURIComponent(packageName)}/-/${encodeURIComponent(packageName)}-${packageVersion}.tgz`,
+        storagePath: `${encodeURIComponent(packageName)}/-/${unscopedName}-${packageVersion}.tgz`,
       },
     });
 

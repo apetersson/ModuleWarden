@@ -1,20 +1,24 @@
 import Fastify from 'fastify';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
-import { defaultConfig } from '@modulewarden/shared/config';
-import { buildIdempotencyKey } from '@modulewarden/shared/constants';
+import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shared/config';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerInternalRoutes } from './routes/internal.js';
+import PgBoss from 'pg-boss';
 
-/**
- * Lightweight pg-boss enqueue function for the api-proxy.
- * Does NOT start a full JobQueue worker — it directly inserts a job
- * into pg-boss's queue using a raw SQL call. The dedicated worker
- * service handles job processing (C-4).
- */
-import { randomBytes } from 'node:crypto';
+let _boss: PgBoss | null = null;
+
+async function getBoss(): Promise<PgBoss> {
+  if (!_boss) {
+    const config = defaultConfig();
+    const connectionString = buildPostgresConnectionString(config, true);
+    _boss = new PgBoss({ connectionString, schema: config.postgres.schema });
+    await _boss.start();
+  }
+  return _boss;
+}
 
 async function enqueuePackageReviewLight(
   packageName: string,
@@ -22,30 +26,15 @@ async function enqueuePackageReviewLight(
   tarballHash: string,
   auditContext: string
 ): Promise<string | null> {
-  const prisma = getPrisma();
-  const idempotencyKey = buildIdempotencyKey('package-review', packageName, packageVersion, tarballHash, auditContext);
-  const jobId = `mw:${Date.now()}:${randomBytes(4).toString('hex')}`;
-
+  const boss = await getBoss();
   try {
-    // Direct pg-boss insert via raw query — lightweight, no worker overhead
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO pgboss.schedule (name, data) VALUES ($1, $2)
-      ON CONFLICT DO NOTHING
-    `, [
-      `package-review:${packageName}@${packageVersion}`,
-      JSON.stringify({
-        type: 'package-review',
-        data: {
-          packageName,
-          packageVersion,
-          tarballHash,
-          auditContext,
-          idempotencyKey,
-          pgBossJobId: jobId,
-        },
-      }),
-    ]);
-    return jobId;
+    const jobId = await boss.send('package-review', {
+      packageName,
+      packageVersion,
+      tarballHash,
+      auditContext,
+    } as Record<string, unknown>);
+    return jobId ?? null;
   } catch {
     return null;
   }

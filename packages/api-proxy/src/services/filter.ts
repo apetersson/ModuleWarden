@@ -123,9 +123,13 @@ function decisionKey(version: string, tarballHash: string): string {
  * Simple semver sort (descending) for finding the highest version.
  */
 function semverSortDesc(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
+  // Strip pre-release suffix, compare numeric parts (M-5)
+  const cleanA = a.replace(/-.*$/, '');
+  const cleanB = b.replace(/-.*$/, '');
+  const pa = cleanA.split('.').map(Number);
+  const pb = cleanB.split('.').map(Number);
+  const maxLen = Math.max(pa.length, pb.length);
+  for (let i = 0; i < maxLen; i++) {
     const diff = (pb[i] || 0) - (pa[i] || 0);
     if (diff !== 0) return diff;
   }

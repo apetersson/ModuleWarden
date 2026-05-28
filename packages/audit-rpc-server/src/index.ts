@@ -50,7 +50,8 @@ function getOutputDir(): string {
 }
 
 function checkToken(token: string | undefined): boolean {
-  if (!RPC_TOKEN) return true;
+  // Fail closed: require a valid token even though the container is isolated (M-7)
+  if (!RPC_TOKEN) return false;
   return token === RPC_TOKEN;
 }
 

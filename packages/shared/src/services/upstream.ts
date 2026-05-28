@@ -1,4 +1,5 @@
 import type { NpmPackument } from '@modulewarden/shared/npm-types';
+import { createHash } from 'node:crypto';
 
 const NPM_REGISTRY = 'https://registry.npmjs.org';
 
@@ -54,7 +55,9 @@ export async function fetchUpstreamTarball(
 }
 
 /**
+/**
  * Stream a tarball from upstream into a Verdaccio instance.
+ * Verifies the tarball integrity hash before promoting (H-2).
  */
 export async function promoteTarballToVerdaccio(
   verdaccioUrl: string,
@@ -70,19 +73,45 @@ export async function promoteTarballToVerdaccio(
     throw new Error(`Tarball not found upstream for ${packageName}@${packageVersion}`);
   }
 
-  // Publish to Verdaccio using npm publish API
-  // Verdaccio API: PUT /:package/-/:filename
-  const filename = `${packageName}-${packageVersion}.tgz`;
+  // Buffer the entire tarball to verify integrity before promoting (H-2, TOCTOU)
+  const reader = tarball.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+  const buf = new Uint8Array(totalLen);
+  let offset = 0;
+  for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
+
+  // Verify integrity hash
+  const hashAlgo = integrity.startsWith('sha512-') ? 'sha512'
+    : integrity.startsWith('sha256-') || integrity.startsWith('sha384-') ? 'sha256'
+    : 'sha256';
+  const expectedHash = integrity.replace(/^(sha512|sha256|sha384)-/, '');
+  const actualHash = createHash(hashAlgo).update(buf).digest('base64');
+  if (actualHash !== expectedHash) {
+    throw new Error(
+      `Integrity mismatch for ${packageName}@${packageVersion}: ` +
+      `expected ${hashAlgo}-${expectedHash.slice(0, 16)}..., got ${actualHash.slice(0, 16)}...`
+    );
+  }
+
+  // Hash verified — promote to Verdaccio
+  const unscopedName = packageName.startsWith('@') ? packageName.split('/')[1] : packageName;
+  const filename = `${unscopedName}-${packageVersion}.tgz`;
   const putUrl = `${verdaccioUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`;
 
   const response = await fetch(putUrl, {
     method: 'PUT',
     headers: {
       'Content-Type': tarball.contentType,
-      'Content-Length': String(tarball.contentLength ?? 0),
+      'Content-Length': String(totalLen),
       Authorization: `Bearer ${verdaccioToken}`,
     },
-    body: tarball.stream,
+    body: buf,
   });
 
   if (!response.ok) {
