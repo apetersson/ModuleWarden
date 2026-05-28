@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@agent-k'
 created_date: '2026-05-27 17:18'
-updated_date: '2026-05-28 11:48'
+updated_date: '2026-05-28 11:50'
 labels:
   - prompts
   - models
@@ -56,6 +56,8 @@ The review strategy is dual: first pass prompts are deliberately broader and mor
 Created prompt pack and model profile repositories. Created prompt-pack.ts service (assembleAuditInstructions, buildContainerInstructionFile, shouldEscalate). Created prompt-reaudit.ts service (triggerPromptChangeReAudit, onPromptPackCreated). All tests pass.
 
 Escalation path wired: shouldEscalateVerdict() in api-proxy/service/escalation.ts detects quarantine/high-risk verdicts. Internal verdict endpoint stores escalation_recommended label. Jobs test for escalation previously existed in model-escalation handler.
+
+TASK-1.13 started. Evaluation corpus and runner created.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done
