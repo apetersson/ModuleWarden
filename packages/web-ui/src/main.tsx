@@ -2,9 +2,17 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UnderwriterPage } from './underwriter/UnderwriterPage';
 
-// API_BASE resolution order: Vite build arg > window global > empty string (same-origin)
-const viteBase = typeof import.meta !== 'undefined' ? (import.meta as Record<string, any>).env?.VITE_MW_API_BASE_URL : undefined;
-const API_BASE = viteBase || (typeof window !== 'undefined' ? (window as any).__MW_API_BASE__ : undefined) || '';
+// API_BASE is injected at build time by Vite via VITE_MW_API_BASE_URL.
+// The vite.config.ts plugin makes this a build-time invariant — the
+// dev server or build will fail if VITE_MW_API_BASE_URL is unset.
+const apiBase = (import.meta as Record<string, any>).env?.VITE_MW_API_BASE_URL;
+if (!apiBase) {
+  throw new Error(
+    'VITE_MW_API_BASE_URL is not set. The vite.config.ts plugin should have ' +
+    'caught this at build time. Ensure the environment variable is set.'
+  );
+}
+const API_BASE: string = apiBase;
 const REFRESH_INTERVAL = 15_000;
 
 function authHeaders(token: string): Record<string, string> {

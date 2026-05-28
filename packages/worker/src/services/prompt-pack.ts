@@ -32,8 +32,7 @@ export interface AuditInstructions {
     name: string;
     baseUrl: string;
     modelName: string;
-    isFallback: boolean;
-  } | null;
+  };
   /** Whether escalation should be triggered after first pass */
   needsEscalation: boolean;
   /** Escalation model profile (if different from first-pass) */
@@ -139,12 +138,11 @@ export async function assembleAuditInstructions(
     corePromptVersions: packs.core.map((p) => `${p.name}@${p.version}`),
     customPromptNames: packs.custom.map((p) => p.name),
     instructionsText: buildInstructionSummary(bundle, deltaReport),
-    modelProfile: activeProfile ? {
+    modelProfile: {
       name: activeProfile.name,
       baseUrl: activeProfile.baseUrl,
       modelName: activeProfile.modelName,
-      isFallback: activeProfile.isFallback,
-    } : null,
+    },
     needsEscalation,
     escalationModelProfile: needsEscalation && escalationProfile ? {
       name: escalationProfile.name,
@@ -167,7 +165,7 @@ export function buildContainerInstructionFile(instructions: AuditInstructions): 
     `Type: ${instructions.isColdStart ? 'cold-start' : 'version-diff'}`,
     `Core prompt packs: ${instructions.corePromptVersions.join(', ') || 'none'}`,
     `Custom prompts: ${instructions.customPromptNames.join(', ') || 'none'}`,
-    `Model: ${instructions.modelProfile?.modelName ?? 'default'}`,
+    `Model: ${instructions.modelProfile.modelName}`,
     `Escalation: ${instructions.needsEscalation ? `yes (${instructions.escalationModelProfile?.modelName ?? 'same model'})` : 'no'}`,
     ``,
     `## Analysis Context`,

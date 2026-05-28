@@ -21,9 +21,6 @@ export interface ModuleWardenConfig {
     baseUrl: string;
     apiKey: string;
     modelName: string;
-    fallbackBaseUrl?: string;
-    fallbackApiKey?: string;
-    fallbackModelName?: string;
   };
   piOrchestration: {
     auditImageName: string;
@@ -64,6 +61,30 @@ export function buildPostgresConnectionString(config: ModuleWardenConfig, includ
   return `${baseUrl}${delimiter}schema=${encodeURIComponent(config.postgres.schema)}`;
 }
 
+/**
+ * Read a required string env var. Throws at startup if missing or empty.
+ */
+function readRequiredString(name: string): string {
+  const value = process.env[name];
+  if (!value || value.trim() === '') {
+    const hints: Record<string, string> = {
+      MW_MODEL_ENDPOINT_BASE_URL: 'An OpenAI-compatible /v1 endpoint URL (e.g. https://api.deepseek.com/v1)',
+      MW_MODEL_ENDPOINT_API_KEY: 'The API key credential for the model endpoint',
+      MW_MODEL_ENDPOINT_MODEL: 'A model slug (e.g. deepseek-chat, gpt-4o, llama-3-70b)',
+      MW_POSTGRES_HOST: 'PostgreSQL hostname (e.g. postgres or localhost)',
+      MW_POSTGRES_DB: 'PostgreSQL database name',
+      MW_POSTGRES_USER: 'PostgreSQL user',
+      MW_POSTGRES_PASSWORD: 'PostgreSQL password',
+    };
+    const hint = hints[name] ? ` — ${hints[name]}` : '';
+    throw new Error(
+      `${name} is not set. This environment variable is required.${hint}\n` +
+      `Set it in your .env file or shell before starting ModuleWarden.`
+    );
+  }
+  return value.trim();
+}
+
 export function defaultConfig(): ModuleWardenConfig {
   const readList = (name: string, fallback: string[]) =>
     process.env[name]?.split(',').map((value) => value.trim()).filter(Boolean) ?? fallback;
@@ -79,11 +100,11 @@ export function defaultConfig(): ModuleWardenConfig {
 
   return {
     postgres: {
-      host: process.env.MW_POSTGRES_HOST ?? 'postgres',
+      host: readRequiredString('MW_POSTGRES_HOST'),
       port: readInt('MW_POSTGRES_PORT', 5432),
-      database: process.env.MW_POSTGRES_DB ?? 'modulewarden',
-      user: process.env.MW_POSTGRES_USER ?? 'modulewarden',
-      password: process.env.MW_POSTGRES_PASSWORD ?? 'modulewarden',
+      database: readRequiredString('MW_POSTGRES_DB'),
+      user: readRequiredString('MW_POSTGRES_USER'),
+      password: readRequiredString('MW_POSTGRES_PASSWORD'),
       schema: process.env.MW_POSTGRES_SCHEMA ?? 'public',
     },
     verdaccio: {
@@ -97,12 +118,9 @@ export function defaultConfig(): ModuleWardenConfig {
       developerTokens: readList('MW_AUTH_DEV_TOKENS', ['mw-dev-token-change-me']),
     },
     modelEndpoint: {
-      baseUrl: process.env.MW_MODEL_ENDPOINT_BASE_URL ?? 'http://model-endpoint:8080/v1',
-      apiKey: process.env.MW_MODEL_ENDPOINT_API_KEY ?? 'sk-change-me',
-      modelName: process.env.MW_MODEL_ENDPOINT_MODEL ?? 'llama-3-70b',
-      fallbackBaseUrl: process.env.MW_MODEL_FALLBACK_BASE_URL ?? 'http://fallback-model:8080/v1',
-      fallbackApiKey: process.env.MW_MODEL_FALLBACK_API_KEY ?? 'sk-fallback-change-me',
-      fallbackModelName: process.env.MW_MODEL_FALLBACK_MODEL ?? 'llama-3-8b',
+      baseUrl: readRequiredString('MW_MODEL_ENDPOINT_BASE_URL'),
+      apiKey: readRequiredString('MW_MODEL_ENDPOINT_API_KEY'),
+      modelName: readRequiredString('MW_MODEL_ENDPOINT_MODEL'),
     },
     piOrchestration: {
       auditImageName: process.env.MW_AUDIT_IMAGE ?? 'modulewarden-audit-runner',

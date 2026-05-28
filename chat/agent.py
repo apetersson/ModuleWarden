@@ -26,7 +26,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEMO_INCIDENTS = REPO_ROOT / "demo" / "incidents"
@@ -42,7 +42,7 @@ SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system.md"
 class ChatTurn:
     response_md: str
     evidence: dict[str, Any] = field(default_factory=dict)
-    route: str = "router"  # "router" | "llm" | "fallback"
+    route: Literal["router", "llm"] = "router"
 
 
 # ---------------------------------------------------------------------------

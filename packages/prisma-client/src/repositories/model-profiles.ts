@@ -15,7 +15,6 @@ export interface CreateModelProfileInput {
   apiKeyHash?: string;
   temperature?: number;
   maxTokens?: number;
-  isFallback: boolean;
 }
 
 /**
@@ -43,16 +42,21 @@ export async function listModelProfiles(): Promise<ModelProfile[]> {
 }
 
 /**
- * Get the active model profile (non-fallback), or the fallback if none primary.
+ * Get the most recently created model profile.
+ * Throws if no profile exists — the system must have at least one profile configured.
  */
-export async function getActiveModelProfile(): Promise<ModelProfile | null> {
+export async function getActiveModelProfile(): Promise<ModelProfile> {
   const prisma = getPrisma();
-  const primary = await prisma.modelProfile.findFirst({
-    where: { isFallback: false },
+  const profile = await prisma.modelProfile.findFirst({
     orderBy: { createdAt: 'desc' },
   });
-  if (primary) return primary;
-  return prisma.modelProfile.findFirst({ where: { isFallback: true } });
+  if (!profile) {
+    throw new Error(
+      'No model profile found. At least one model profile must be configured ' +
+      'before audits can run. Use the admin API or seed script to create one.'
+    );
+  }
+  return profile;
 }
 
 /**

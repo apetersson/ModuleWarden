@@ -1,7 +1,7 @@
 ---
 id: TASK-28
 title: Remove file-only audit fallback from agentic audits
-status: To Do
+status: Superseded
 assignee: []
 created_date: '2026-05-28 19:45'
 labels:
@@ -15,6 +15,7 @@ modified_files:
   - packages/audit-runner/src/orchestrator.ts
   - packages/audit-runner/entrypoint.sh
 priority: high
+superseded_by: TASK-29
 ordinal: 44000
 ---
 

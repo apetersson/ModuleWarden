@@ -44,9 +44,9 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
-      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:-http://model-endpoint:8080/v1}
-      MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:-sk-change-me}
-      MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:-llama-3-70b}
+      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env to point at an OpenAI-compatible /v1 endpoint}
+      MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env to the endpoint credential}
+      MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env to a model slug (e.g. deepseek-chat)}
       MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
       MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
     depends_on:
@@ -71,9 +71,9 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
-      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:-http://model-endpoint:8080/v1}
-      MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:-sk-change-me}
-      MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:-llama-3-70b}
+      MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env}
+      MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env}
+      MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env}
       MW_AUTH_ADMIN_TOKENS: ${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}
       MW_AUTH_DEV_TOKENS: ${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}
       MW_AUDIT_IMAGE: modulewarden-audit-runner
@@ -92,6 +92,8 @@ services:
       dockerfile: Dockerfile
       target: web-ui
       args:
+        # api-proxy is always reachable at this URL within the Compose network.
+        # Override with MW_API_BASE_URL in .env for external deployments.
         VITE_MW_API_BASE_URL: ${MW_API_BASE_URL:-http://api-proxy:8080}
     ports:
       - "3000:3000"

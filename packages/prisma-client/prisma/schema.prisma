@@ -243,7 +243,6 @@ model ModelProfile {
   apiKeyHash String?
   temperature Float?
   maxTokens  Int?
-  isFallback Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

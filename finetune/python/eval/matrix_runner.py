@@ -13,9 +13,8 @@ Results write to ``finetune/python/eval/results/matrix-{timestamp}.json``.
 The model arms (1, 2) are implemented against the HF transformers
 ``pipeline('text-generation', ...)`` API so this script is fully usable
 on a single GPU for the smoke test, even with a 1.5B substitute model.
-The agentic arms (3, 4) shell out via ``pi_harness_wrapper``; on a dev
-box without the audit-runner built, those arms are skipped and the
-results clearly mark them ``status='unavailable'``.
+The agentic arms (3, 4) shell out via ``pi_harness_wrapper`` and fail
+early if the orchestrator is not available or not built.
 
 Usage::
 
@@ -40,7 +39,6 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .metrics import aggregate_arm_metrics, per_case_metrics
-from .pi_harness_wrapper import is_available as pi_available
 from .pi_harness_wrapper import run_pi_audit
 
 logger = logging.getLogger("modulewarden.matrix_runner")
@@ -230,23 +228,12 @@ def _run_arm_agentic(
     seed_reports: dict[str, dict[str, Any]] | None,
     timeout_s: float,
 ) -> list[dict[str, Any]]:
-    """Arms 3 and 4: PI agentic run per case."""
-    rows: list[dict[str, Any]] = []
-    if not pi_available(repo_root):
-        logger.warning("arm %d skipped: PI harness unavailable", arm)
-        for record in cases:
-            dossier, expected = _extract_dossier_and_report(record)
-            rows.append(
-                {
-                    "audit_id": dossier.get("audit_id"),
-                    "arm": arm,
-                    "status": "unavailable",
-                    "case_type": record.get("source"),
-                    "expected_verdict": (expected or {}).get("verdict"),
-                }
-            )
-        return rows
+    """Arms 3 and 4: PI agentic run per case.
 
+    Fails early via :func:`run_pi_audit` if the orchestrator is not available,
+    not compiled, or node is not on PATH.
+    """
+    rows: list[dict[str, Any]] = []
     for record in cases:
         dossier, expected = _extract_dossier_and_report(record)
         audit_id = str(dossier.get("audit_id") or "audit_unknown")

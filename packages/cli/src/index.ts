@@ -12,8 +12,37 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { MODULEWARDEN_VERSION } from '@modulewarden/shared/constants';
 
-const API_BASE = process.env.MW_API_BASE ?? 'http://localhost:8080';
-const ADMIN_TOKEN = process.env.MW_AUTH_ADMIN_TOKENS?.split(',')[0]?.trim() ?? '';
+function requireEnv(name: string, hint?: string): string {
+  const value = process.env[name];
+  if (!value || value.trim() === '') {
+    console.error(`Error: ${name} is not set. ${hint ?? ''}`.trim());
+    process.exit(1);
+  }
+  return value.trim();
+}
+
+/** Lazy API base URL — validated on first use, not at module load. */
+let _apiBase: string | null = null;
+function getApiBase(): string {
+  if (!_apiBase) {
+    _apiBase = requireEnv('MW_API_BASE', 'Set it to the ModuleWarden API URL (e.g. http://localhost:8080).');
+  }
+  return _apiBase;
+}
+
+function getDevToken(): string {
+  const token = process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim();
+  if (!token) {
+    console.error('Error: MW_AUTH_DEV_TOKENS is not set. Set it to your developer token.');
+    process.exit(1);
+  }
+  return token;
+}
+
+const ADMIN_TOKEN = (() => {
+  const token = process.env.MW_AUTH_ADMIN_TOKENS?.split(',')[0]?.trim();
+  return token ?? '';
+})();
 
 function printHelp(): void {
   console.log(`
@@ -28,7 +57,7 @@ Usage:
   modulewarden help                     Show this help
 
 Environment:
-  MW_API_BASE        ModuleWarden API URL (default: http://localhost:8080)
+  MW_API_BASE        ModuleWarden API URL (required)
   MW_AUTH_ADMIN_TOKENS  Comma-separated admin tokens
   MW_AUTH_DEV_TOKENS    Comma-separated developer tokens
 `);
@@ -41,12 +70,13 @@ async function cmdVersion(): Promise<void> {
 async function cmdStatus(args: string[]): Promise<void> {
   const packageName = args[0];
   const url = packageName
-    ? `${API_BASE}/status/${encodeURIComponent(packageName)}`
-    : `${API_BASE}/status`;
+    ? `${getApiBase()}/status/${encodeURIComponent(packageName)}`
+    : `${getApiBase()}/status`;
 
   try {
+    const devToken = getDevToken();
     const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
+      headers: { Authorization: `Bearer ${devToken}` },
     });
     if (!resp.ok) {
       console.error(`Error: ${resp.status} ${resp.statusText}`);
@@ -57,7 +87,7 @@ async function cmdStatus(args: string[]): Promise<void> {
     const data = await resp.json();
     console.log(JSON.stringify(data, null, 2));
   } catch (err) {
-    console.error(`Failed to reach ModuleWarden API at ${API_BASE}:`, err instanceof Error ? err.message : String(err));
+    console.error(`Failed to reach ModuleWarden API at ${getApiBase()}:`, err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 }
@@ -92,27 +122,17 @@ async function cmdExplain(args: string[]): Promise<void> {
   }
 
   try {
-    // API uses /explain/:package/:version (two path segments)
-    const explainResp = await fetch(
-      `${API_BASE}/explain/${encodeURIComponent(parsed.name)}/${encodeURIComponent(parsed.version)}`,
+    const devToken = getDevToken();
+    const resp = await fetch(
+      `${getApiBase()}/explain/${encodeURIComponent(parsed.name)}/${encodeURIComponent(parsed.version)}`,
       {
-        headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
+        headers: { Authorization: `Bearer ${devToken}` },
       }
     );
-    if (explainResp.ok) {
-      const explainData = await explainResp.json();
-      console.log(JSON.stringify(explainData, null, 2));
-      return;
-    }
-
-    // Fallback: try status
-    const resp = await fetch(`${API_BASE}/status/${encodeURIComponent(parsed.name)}`, {
-      headers: { Authorization: `Bearer ${process.env.MW_AUTH_DEV_TOKENS?.split(',')[0]?.trim() ?? ''}` },
-    });
     if (!resp.ok) {
-      console.error(`Error: ${resp.status} ${resp.statusText}`);
+      console.error(`Explain API returned ${resp.status} ${resp.statusText}`);
       const body = await resp.text().catch(() => '');
-      if (body) console.error(body.slice(0, 300));
+      if (body) console.error(body.slice(0, 500));
       process.exit(1);
     }
     const data = await resp.json();
@@ -138,11 +158,11 @@ async function cmdPreflight(args: string[]): Promise<void> {
     const lockfileContent = readFileSync(lockfilePath, 'utf-8');
     const format = lockfilePath.endsWith('.yaml') || lockfilePath.endsWith('.yml') ? 'pnpm' : 'npm';
 
-    const resp = await fetch(`${API_BASE}/admin/import-lockfile`, {
+    const resp = await fetch(`${getApiBase()}/admin/import-lockfile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${ADMIN_TOKEN || (process.env.MW_AUTH_ADMIN_TOKENS?.split(',')[0]?.trim() ?? '')}`,
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
       },
       body: JSON.stringify({
         filename: lockfilePath,
@@ -163,7 +183,7 @@ async function cmdPreflight(args: string[]): Promise<void> {
     console.log(`[preflight] Enqueued ${result.reviewCount ?? '?'} reviews`);
     console.log(`[preflight] Run 'modulewarden status' to check progress.`);
   } catch (err) {
-    console.error(`Failed to reach ModuleWarden API at ${API_BASE}:`, err instanceof Error ? err.message : String(err));
+    console.error(`Failed to reach ModuleWarden API at ${getApiBase()}:`, err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 }
@@ -196,7 +216,7 @@ async function cmdAdmin(args: string[]): Promise<void> {
     }
 
     try {
-      const resp = await fetch(`${API_BASE}/admin/override`, {
+      const resp = await fetch(`${getApiBase()}/admin/override`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +245,7 @@ async function cmdAdmin(args: string[]): Promise<void> {
     }
   } else if (subCmd === 'list-overrides') {
     try {
-      const resp = await fetch(`${API_BASE}/admin/overrides`, {
+      const resp = await fetch(`${getApiBase()}/admin/overrides`, {
         headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
       });
       if (!resp.ok) {

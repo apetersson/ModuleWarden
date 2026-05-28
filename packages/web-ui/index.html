@@ -4,11 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ModuleWarden</title>
-    <script>
-      // In Docker: VITE_MW_API_BASE_URL is set at build time by docker-compose
-      // Fallback: empty string means same-origin (local dev with proxy)
-      window.__MW_API_BASE__ = window.__MW_API_BASE__ || '';
-    </script>
   </head>
   <body>
     <div id="root"></div>
