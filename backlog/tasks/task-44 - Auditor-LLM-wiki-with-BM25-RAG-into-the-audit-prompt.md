@@ -1,7 +1,7 @@
 ---
-id: TASK-40
+id: TASK-44
 title: Auditor LLM-wiki with BM25 RAG into the audit prompt
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-29 20:11'
 labels: [wiki, model, finetune]

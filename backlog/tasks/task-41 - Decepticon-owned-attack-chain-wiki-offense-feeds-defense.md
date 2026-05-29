@@ -1,11 +1,11 @@
 ---
 id: TASK-41
 title: Decepticon-owned attack-chain wiki (offense-feeds-defense)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-29 20:12'
 labels: [wiki, decepticon]
-dependencies: [TASK-40]
+dependencies: [TASK-44]
 ordinal: 57000
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: TASK-36
 title: Extract static features from the ZeroToOne tarball corpus
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-29 19:45'
 labels: [corpus, finetune, safety]

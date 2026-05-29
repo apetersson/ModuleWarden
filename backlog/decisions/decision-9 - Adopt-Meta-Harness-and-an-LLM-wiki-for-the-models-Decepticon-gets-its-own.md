@@ -24,7 +24,8 @@ github.com/stanford-iris-lab/meta-harness), and the BitGN-PAC agent
    wiki at `finetune/wiki/decepticon/` (8 technique nodes one-per-mapper
    capability key, 4 chain nodes seeded from curated-threat-chains.json, a
    `detection_gaps` field). The mapper stays deterministic; the wiki is the
-   learn-from-production and offense-feeds-defense layer. Tasks 40, 41.
+   learn-from-production and offense-feeds-defense layer. Tasks 44 (auditor
+   wiki) and 41 (Decepticon wiki); task-40 is a separate teammate task.
 
 2. Stanford Meta-Harness: HIGH fit, adopt (task 42). ModuleWarden already has 3
    of the 4 required pieces (a scorer in local_finetune_eval / matrix_runner, a

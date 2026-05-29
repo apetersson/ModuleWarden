@@ -1,7 +1,7 @@
 ---
 id: TASK-38
 title: Build dossiers from local corpus tarballs (contrastive version pairs)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-29 19:47'
 labels: [corpus, finetune]

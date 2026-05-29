@@ -1,7 +1,7 @@
 ---
 id: TASK-43
 title: Adopt BitGN-PAC hardening (B5 secret-redaction, B3 grounding-refs, B4 spiral-brake)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-29 20:14'
 labels: [security, hardening, audit-runner]

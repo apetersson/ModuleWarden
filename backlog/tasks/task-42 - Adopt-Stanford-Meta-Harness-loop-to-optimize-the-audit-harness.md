@@ -1,7 +1,7 @@
 ---
 id: TASK-42
 title: Adopt Stanford Meta-Harness loop to optimize the audit harness
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-29 20:13'
 labels: [meta-harness, eval, model]

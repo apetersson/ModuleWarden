@@ -24,7 +24,7 @@ See `decision-8` for the verdict and `task-36` through `task-39` for the
 leverage-ranked ingestion work. Ingestion is static-only; the vulnerable
 tarballs are never executed.
 
-## LLM-wiki + meta-harness (decision-9, tasks 40-43)
+## LLM-wiki + meta-harness (decision-9, tasks 41-44)
 
 `06` designs an LLM-wiki for the models: an auditor wiki (BM25 RAG of prior
 cases into the audit prompt, feeding back as SFT rows) and a Decepticon-owned
@@ -32,4 +32,5 @@ attack-chain wiki seeded from `demo/curated-threat-chains.json`. `07` assesses
 Stanford Meta-Harness (HIGH fit, adopt - it auto-optimizes the audit harness
 against our own eval metrics) and BitGN-PAC (not a meta-harness; adopt its B5
 secret-redaction, B3 grounding-refs, B4 spiral-brake into the audit runner).
-See `decision-9` and `task-40` through `task-43`.
+See `decision-9` and tasks 41 (Decepticon wiki), 42 (Meta-Harness), 43
+(hardening), 44 (auditor wiki).

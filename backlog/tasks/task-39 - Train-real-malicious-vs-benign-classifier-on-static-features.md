@@ -1,7 +1,7 @@
 ---
 id: TASK-39
 title: Train a real malicious-vs-benign classifier on static features
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-29 19:48'
 labels: [corpus, model, eval]

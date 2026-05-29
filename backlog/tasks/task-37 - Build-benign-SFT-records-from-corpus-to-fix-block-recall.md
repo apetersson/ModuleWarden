@@ -1,7 +1,7 @@
 ---
 id: TASK-37
 title: Build benign SFT records from the corpus to fix block-recall
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-29 19:46'
 labels: [corpus, finetune, model]
