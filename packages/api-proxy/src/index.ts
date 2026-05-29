@@ -181,7 +181,14 @@ export async function buildServer() {
 
   // ── Admin & status endpoints ─────────────────────────────────
 
-  await registerAdminRoutes(app);
+  await registerAdminRoutes(app, async (data) => {
+    return enqueuePackageReviewLight(
+      data.packageName,
+      data.packageVersion,
+      data.tarballHash,
+      data.auditContext
+    );
+  });
   await registerStatusRoutes(app);
 
   // ── Internal RPC endpoints (audit bridge) ───────────────────

@@ -1,6 +1,18 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma, createOverride, listActiveOverrides, deactivateOverride } from '@modulewarden/prisma-client';
+import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
+import { logger } from '@modulewarden/shared/services/logger';
 import { checkAdmin } from '../middleware/auth.js';
+
+/** Callback to enqueue a package-review directly (bypasses pipeline). */
+type EnqueueManualReview = (data: {
+  packageName: string;
+  packageVersion: string;
+  tarballHash: string;
+  auditContext: string;
+  idempotencyKey: string;
+}) => Promise<string | null>;
 
 interface OverrideBody {
   packageName: string;
@@ -16,7 +28,10 @@ interface OverrideBody {
  * Admin override endpoints.
  * Only accessible with security-admin tokens.
  */
-export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
+export async function registerAdminRoutes(
+  app: FastifyInstance,
+  enqueueManualReview?: EnqueueManualReview
+): Promise<void> {
   /**
    * POST /admin/override — Create a security-admin override.
    */
@@ -219,6 +234,105 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         return reply.status(500).send({
           error: 'Lockfile import failed',
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /admin/manual-audit — Manually audit a single package version,
+   * bypassing the DAG pipeline. The package is enqueued directly as a
+   * package-review job at the front of the queue (high priority).
+   */
+  app.post<{ Body: { packageName: string; version?: string } }>(
+    '/admin/manual-audit',
+    async (request: FastifyRequest<{ Body: { packageName: string; version?: string } }>, reply: FastifyReply) => {
+      if (!checkAdmin(request, reply)) return;
+
+      const { packageName, version } = request.body;
+      if (!packageName) {
+        return reply.status(400).send({ error: 'packageName is required' });
+      }
+
+      if (!enqueueManualReview) {
+        return reply.status(503).send({ error: 'Audit queue is not available' });
+      }
+
+      try {
+        // Fetch upstream packument to resolve exact version + tarball hash
+        const packument = await fetchUpstreamPackument(packageName);
+        if (!packument) {
+          return reply.status(404).send({ error: `Package ${packageName} not found upstream` });
+        }
+
+        // Resolve the version (or use latest)
+        const resolvedVersion = version ?? packument['dist-tags']?.latest;
+        if (!resolvedVersion || !packument.versions[resolvedVersion]) {
+          return reply.status(400).send({
+            error: `Version ${resolvedVersion ?? '(none)'} not found for ${packageName}`,
+            availableVersions: Object.keys(packument.versions).slice(0, 10),
+          });
+        }
+
+        const versionData = packument.versions[resolvedVersion]!;
+        const tarballHash = versionData.dist?.integrity ?? versionData.dist?.shasum;
+        if (!tarballHash) {
+          return reply.status(502).send({ error: `Could not resolve integrity hash for ${packageName}@${resolvedVersion}` });
+        }
+
+        // Ensure PackageVersion record exists
+        const prisma = getPrisma();
+        await prisma.packageVersion.upsert({
+          where: {
+            packageName_version_registrySource_tarballHash: {
+              packageName,
+              version: resolvedVersion,
+              registrySource: 'npm',
+              tarballHash,
+            },
+          },
+          create: {
+            packageName,
+            version: resolvedVersion,
+            registrySource: 'npm',
+            tarballHash,
+          },
+          update: {},
+        });
+
+        // Enqueue a package-review directly (bypasses pipeline)
+        const auditContext = `admin:manual:${packageName}@${resolvedVersion}`;
+        const idempotencyKey = buildIdempotencyKey('package-review', packageName, resolvedVersion, tarballHash, auditContext);
+
+        const jobId = await enqueueManualReview({
+          packageName,
+          packageVersion: resolvedVersion,
+          tarballHash,
+          auditContext,
+          idempotencyKey,
+        });
+
+        if (!jobId) {
+          return reply.status(500).send({ error: 'Failed to enqueue audit job' });
+        }
+
+        return reply.status(201).send({
+          success: true,
+          packageName,
+          version: resolvedVersion,
+          tarballHash,
+          jobId,
+          message: `Manual audit enqueued for ${packageName}@${resolvedVersion}`,
+        });
+      } catch (err) {
+        logger.warn('Manual audit enqueue failed', {
+          packageName,
+          version,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return reply.status(500).send({
+          error: 'Manual audit failed',
           detail: err instanceof Error ? err.message : String(err),
         });
       }

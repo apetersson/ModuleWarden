@@ -255,6 +255,10 @@ function DashboardPage({
   const [activeColumn, setActiveColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'age-asc' | 'age-desc' | 'risk'>('age-desc');
+  const [manualPkg, setManualPkg] = useState('');
+  const [manualVer, setManualVer] = useState('');
+  const [manualStatus, setManualStatus] = useState<string | null>(null);
+  const [manualLoading, setManualLoading] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -423,6 +427,60 @@ function DashboardPage({
         >
           Refresh
         </button>
+      </div>
+
+      {/* Manual Audit Form */}
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: 8, background: '#fff8e1' }}>
+        <span style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>🔍 Manual Audit</span>
+        <input
+          type="text"
+          placeholder="package name (e.g. vite)"
+          value={manualPkg}
+          onChange={(e) => { setManualPkg(e.target.value); setManualStatus(null); }}
+          style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem', borderRadius: 4, border: '1px solid #ccc', width: 200, fontFamily: 'monospace' }}
+        />
+        <input
+          type="text"
+          placeholder="version (optional, default latest)"
+          value={manualVer}
+          onChange={(e) => { setManualVer(e.target.value); setManualStatus(null); }}
+          style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem', borderRadius: 4, border: '1px solid #ccc', width: 160, fontFamily: 'monospace' }}
+        />
+        <button
+          disabled={manualLoading || !manualPkg.trim()}
+          onClick={async () => {
+            if (!manualPkg.trim()) return;
+            setManualLoading(true);
+            setManualStatus(null);
+            try {
+              const body: Record<string, string> = { packageName: manualPkg.trim() };
+              if (manualVer.trim()) body.version = manualVer.trim();
+              const resp = await fetch(`${API_BASE}/admin/manual-audit`, {
+                method: 'POST',
+                headers: { ...authHeaders(adminToken), 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              const data = await resp.json() as Record<string, unknown>;
+              if (resp.ok) {
+                setManualStatus(`✅ Enqueued ${data.packageName}@${data.version}`);
+                setTimeout(() => void fetchDashboard(), 500);
+              } else {
+                setManualStatus(`❌ ${data.error ?? resp.status}`);
+              }
+            } catch (err) {
+              setManualStatus(`❌ ${err instanceof Error ? err.message : String(err)}`);
+            }
+            setManualLoading(false);
+          }}
+          style={{ padding: '0.3rem 0.8rem', cursor: 'pointer', fontWeight: 600, background: manualLoading ? '#ccc' : '#1565c0', color: '#fff', border: 'none', borderRadius: 4 }}
+        >
+          {manualLoading ? '...' : 'Audit → Front of Queue'}
+        </button>
+        {manualStatus && (
+          <span style={{ fontSize: '0.8rem', color: manualStatus.startsWith('✅') ? '#2e7d32' : '#c62828', marginLeft: '0.5rem' }}>
+            {manualStatus}
+          </span>
+        )}
       </div>
 
       {error && (
