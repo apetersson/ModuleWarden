@@ -134,7 +134,7 @@ optional LLM-augmented path.
 # Install
 pnpm install
 
-# Build
+# Build (generates the Prisma client first, then compiles every package)
 pnpm -r build
 
 # Test
@@ -146,6 +146,19 @@ docker compose up -d
 # Start worker (separate terminal)
 cd packages/worker && npx tsx src/index.ts
 ```
+
+Build notes (read this before concluding "it does not compile"):
+
+- `pnpm -r build` is self-sufficient from a clean clone. The
+  `@modulewarden/prisma-client` build runs `prisma generate` before `tsc`, so
+  the worker and api-proxy get the generated `Prisma.*` types. If you run
+  `tsc` in `packages/worker` or `packages/api-proxy` directly WITHOUT first
+  generating the client, you will see spurious errors like
+  `Prisma has no exported member 'InputJsonValue'` and many implicit-`any`s.
+  Run `pnpm generate` (or `pnpm -r build`) first.
+- `packages/web-ui` build needs `VITE_MW_API_BASE_URL` at build time. Docker
+  Compose sets it automatically; for a standalone build use
+  `VITE_MW_API_BASE_URL=http://localhost:8080 pnpm --filter @modulewarden/web-ui build`.
 
 ## Environment Variables
 
