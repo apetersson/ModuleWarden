@@ -231,6 +231,59 @@ References: arXiv:2403.14720 (spotlighting), StruQ + SecAlign (USENIX Sec'25 /
 CCS'25), arXiv:2404.13208 (instruction hierarchy), arXiv:2308.10248 (steering),
 arXiv:2602.14161 (LODO).
 
+## Adaptive steering layer (the model is frozen; the defense is not)
+
+The SFT run on Leonardo fixes the model's shape ONCE. The injection surface
+keeps moving after the checkpoint is frozen. So the defense that wins the
+insurance track is the part that lives OUTSIDE the weights and updates as new
+attacks appear, with no retrain. Three pieces, all in `steering/`:
+
+1. Steering-vector registry (`steering/registry.py`). A versioned JSON store
+   keyed by attack family. Each entry carries the vector plus the evidence it
+   is safe to ship: the layer and coefficient it was validated at, the ASR it
+   removed, and the clean-accuracy delta it cost. One active vector per key;
+   registering a new active vector auto-deprecates the prior one. Vectors that
+   FAILED the guardrail are kept with `status='rejected'` so the record of why
+   they were not shipped survives. Readable without torch (vectors are float
+   lists); `to_steering_vector()` lazily rebuilds a tensor when applied.
+
+2. Conditional activation steering / CAST (`steering/conditional.py`). Plain
+   steering perturbs every forward pass, including the benign majority, and
+   quietly raises false BLOCK/QUARANTINE. CAST gates the steering on a cheap
+   regex+unicode detector so the residual stream is only touched when the input
+   looks like an attack; benign packages run the frozen model untouched. The
+   detector reads its signatures alongside the same `injection_payloads`
+   catalog, so adding a new attack phrasing extends coverage with no code
+   change. The detector is the SECOND update surface (the vector being the
+   first). Method: Lee et al., "Programming Refusal with Conditional Activation
+   Steering" (arXiv:2409.05907).
+
+3. Calibration pipeline (`steering/calibrate.py`). The operational loop for a
+   new attack: measure baseline robustness, build a candidate vector from
+   contrastive examples, sweep the coefficient, and accept the setting that
+   buys the most robustness WITHOUT dropping clean accuracy past a guardrail
+   (`--max-clean-drop`, default 2 points). If nothing qualifies, nothing ships
+   and the rejection is recorded. `select_coefficient` is pure (testable with
+   stub classifiers, no GPU); `calibrate_against_attack` wires the model. Run:
+
+   ```
+   python -m finetune.python.steering.calibrate \
+     --registry finetune/steering_registry \
+     --corpus finetune/corpus/sft-records.jsonl \
+     --model ./finetune/checkpoints/qwen-audit --layer 16 --key injection_resist
+   ```
+
+The pitch line for the UNIQA judges: the trained model is the certified control,
+and this layer lets us answer a brand-new attack the same day it appears without
+re-certifying a new model. Demo it as a delta: `evaluate_injection_robustness`
+on a held-out novel-phrasing set, unsteered vs the registered vector, with the
+clean-accuracy number held flat next to the ASR drop.
+
+Why training-time SFT stays primary and steering is the adaptive bonus: the SFT
+data generalizes to paraphrases and needs no inference hooks; steering needs the
+HF residual-stream path (vLLM does not expose hooks) and can backfire if the
+coefficient is unmanaged, which is exactly why the calibration guardrail exists.
+
 ## Sources
 
 - Pantheon council session `d7b711f5-a467-4cbd-a395-a74492a157a0` (HIGH confidence, 3 reviewers)
