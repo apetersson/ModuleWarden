@@ -49,6 +49,21 @@ For every replay the CLI prints, in order:
 
 ## Pre-pitch checklist
 
+Run the automated preflight first. It fails non-zero the instant a fixture
+has drifted, so a broken demo is caught backstage instead of on stage:
+
+```bash
+python -m demo.preflight            # exit 0 = demo path is green
+bash demo/safe_demo.sh              # the full guided 90s run, preflight-gated
+```
+
+`safe_demo.sh` runs preflight, then walks the three incidents offline. Set
+`MW_PROXY_URL=http://host:port` to add the live `npm install -> 403` moment
+if the proxy stack is up; without it, the offline path is the demo and the
+script still succeeds.
+
+Manual equivalents (what preflight automates):
+
 ```bash
 python -m demo.run_incident_replay --list                            # 3 incidents
 python -m demo.run_incident_replay --incident postmark-mcp-1.0.16    # expect BLOCK
