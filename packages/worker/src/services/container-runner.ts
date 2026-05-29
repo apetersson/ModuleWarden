@@ -1,11 +1,11 @@
-import { execSync, exec as execCb } from 'node:child_process';
+import { execSync, execFileSync, execFile } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { logger } from '@modulewarden/shared/services/logger';
 
-const execAsync = promisify(execCb);
+const execFileAsync = promisify(execFile);
 
 export interface ContainerInputs {
   /** AuditRun row id for live workspace discovery */
@@ -59,17 +59,26 @@ export class ContainerRunner {
   private readonly auditNetworkName: string;
   private readonly containerTimeoutMs: number;
   private readonly workspaceRoot: string;
+  private readonly containerMemory: string;
+  private readonly containerCpus: number;
+  private readonly containerPidsLimit: number;
 
   constructor(opts: {
     imageName: string;
     auditNetworkName?: string;
     containerTimeoutMs?: number;
     workspaceRoot?: string;
+    containerMemory?: string;
+    containerCpus?: number;
+    containerPidsLimit?: number;
   }) {
     this.imageName = opts.imageName;
     this.auditNetworkName = opts.auditNetworkName ?? 'mw-audit-net';
     this.containerTimeoutMs = opts.containerTimeoutMs ?? 600_000; // 10 min
     this.workspaceRoot = opts.workspaceRoot ?? tmpdir();
+    this.containerMemory = opts.containerMemory ?? '1024m';  // M2: 1GB RAM limit
+    this.containerCpus = opts.containerCpus ?? 1.0;           // M2: 1 CPU limit
+    this.containerPidsLimit = opts.containerPidsLimit ?? 100; // M2: prevent fork bombs
   }
 
   /**
@@ -170,30 +179,31 @@ export class ContainerRunner {
       execSync(`cp "${inputs.diffPath}" "${workspacePath}/diff.patch"`, { stdio: 'pipe' });
     }
 
-    // Build volume mount args
-    const volumeArgs = volumeMounts.map(v => `-v "${v}"`).join(' ');
-    const envArgs = envVars.map(e => `-e "${e}"`).join(' ');
-
-    const runCommand = [
-      'docker create',
+    // Build docker create args as an argv array (no shell quoting — M3 fix)
+    const dockerArgs = [
+      'create',
       '--name', containerName,
-      `--network ${this.auditNetworkName}`,
+      '--network', this.auditNetworkName,
       '--add-host=host.docker.internal:host-gateway',
-      volumeArgs,
-      envArgs,
-      '--cap-drop=ALL',                    // Drop all capabilities
-      '--security-opt=no-new-privileges:true', // No privilege escalation
-      '--read-only',                       // Read-only root filesystem
-      `--tmpfs /tmp:rw,noexec,nosuid,size=100m`, // Writable temp
+      ...volumeMounts.flatMap(v => ['-v', v]),
+      ...envVars.flatMap(e => ['-e', e]),
+      '--cap-drop=ALL',
+      '--security-opt=no-new-privileges:true',
+      '--read-only',
+      '--memory', this.containerMemory,
+      '--cpus', String(this.containerCpus),
+      '--pids-limit', String(this.containerPidsLimit),
+      '--tmpfs', '/tmp:rw,noexec,nosuid,size=100m',
       '--label', `mw.audit=${inputs.packageName}@${inputs.packageVersion}`,
       this.imageName,
-    ].join(' ');
+    ];
 
     let containerId: string;
     try {
       // 4. Create container
-      const createOutput = execSync(
-        runCommand,
+      const createOutput = execFileSync(
+        'docker',
+        dockerArgs,
         { encoding: 'utf-8', stdio: 'pipe' }
       ).trim();
       containerId = createOutput;
@@ -206,7 +216,7 @@ export class ContainerRunner {
 
     try {
       // 5. Start the container
-      execSync(`docker start ${containerId}`, { stdio: 'pipe' });
+      execFileSync('docker', ['start', containerId], { stdio: 'pipe' });
 
       // 6. Wait for completion with timeout
       const startTime = Date.now();
@@ -216,8 +226,8 @@ export class ContainerRunner {
       // Poll for completion — container stays around because we didn't use --rm
       while (Date.now() - startTime < this.containerTimeoutMs) {
         try {
-          const { stdout } = await execAsync(
-            `docker inspect ${containerId} --format='{{json .State}}'`
+          const { stdout } = await execFileAsync(
+            'docker', ['inspect', containerId, '--format={{json .State}}']
           );
           const inspectOutput = JSON.parse(stdout);
 
@@ -243,14 +253,14 @@ export class ContainerRunner {
       // Timeout check — kill if still running
       if (exitCode === null) {
         try {
-          await execAsync(`docker kill ${containerId}`);
+          await execFileAsync('docker', ['kill', containerId]);
         } catch (err) {
           logger.warn('Container kill failed (best-effort)', { containerId, error: err instanceof Error ? err.message : String(err) });
         }
         // Get final state after kill
         try {
-          const { stdout } = await execAsync(
-            `docker inspect ${containerId} --format='{{json .State}}'`
+          const { stdout } = await execFileAsync(
+            'docker', ['inspect', containerId, '--format={{json .State}}']
           );
           const finalState = JSON.parse(stdout);
           exitCode = finalState.ExitCode;
@@ -261,11 +271,12 @@ export class ContainerRunner {
       }
 
       try {
-        const logs = execSync(`docker logs ${containerId} 2>&1`, {
+        const logs = execFileSync('docker', ['logs', containerId], {
           encoding: 'utf-8',
           maxBuffer: 10 * 1024 * 1024,
           stdio: 'pipe',
         });
+        // Capture container logs (docker logs outputs to stdout)
         writeFileSync(join(outputDir, 'container.log'), logs);
       } catch (err) {
         logger.warn('Container log capture failed (preserving audit result)', { containerId, error: err instanceof Error ? err.message : String(err) });

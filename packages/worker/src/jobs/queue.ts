@@ -280,6 +280,10 @@ export class JobQueue {
               error: message,
             });
 
+            // Note: In pg-boss v11, throwing `err` already fails the job.
+            // The explicit `boss.fail()` call may be redundant and could log
+            // a state-transition warning. Keep both for now for forward-compat
+            // with potential pg-boss v10 deployments.
             await this.boss.fail(name, job.id, { error: message });
             throw err;
           }

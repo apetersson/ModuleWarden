@@ -1,7 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { getPrisma, disconnectPrisma } from '@modulewarden/prisma-client';
 import {
   importLockfile,
@@ -11,7 +8,6 @@ import {
 } from '../services/lockfile-import.js';
 
 let projectId: string;
-let lockfileDir: string;
 
 beforeAll(async () => {
   const prisma = getPrisma();
@@ -22,8 +18,6 @@ beforeAll(async () => {
     data: { name: 'lockfile-import-test', graphState: 'IMPORTING' },
   });
   projectId = project.id;
-
-  lockfileDir = mkdtempSync(join(tmpdir(), 'mw-import-test-'));
 });
 
 afterAll(async () => {
@@ -43,10 +37,9 @@ afterAll(async () => {
   await prisma.project.deleteMany({ where: { id: projectId } });
   await prisma.$disconnect();
   await disconnectPrisma();
-  rmSync(lockfileDir, { recursive: true, force: true });
 });
 
-function writeNpmLockfile(entries: Record<string, { version: string }>): string {
+function makeNpmLockfileContent(entries: Record<string, { version: string }>): string {
   const packages: Record<string, any> = {};
   for (const [name, info] of Object.entries(entries)) {
     packages[`node_modules/${name}`] = {
@@ -54,24 +47,22 @@ function writeNpmLockfile(entries: Record<string, { version: string }>): string 
       integrity: `sha512-${Buffer.from(`${name}@${info.version}`).toString('base64').slice(0, 44)}`,
     };
   }
-  const path = join(lockfileDir, 'package-lock.json');
-  writeFileSync(path, JSON.stringify({
+  return JSON.stringify({
     name: 'test-project',
     lockfileVersion: 3,
     packages,
-  }, null, 2));
-  return path;
+  }, null, 2);
 }
 
 describe('lockfile import', () => {
   it('1. imports npm lockfile and creates package versions', async () => {
-    const lockfilePath = writeNpmLockfile({
+    const content = makeNpmLockfileContent({
       'import-test-pkg-a': { version: '1.0.0' },
       'import-test-pkg-b': { version: '2.0.0' },
       'import-test-pkg-c': { version: '3.0.0' },
     });
 
-    const result = await importLockfile(projectId, lockfilePath);
+    const result = await importLockfile(projectId, content, 'npm');
 
     expect(result.totalEntries).toBe(3);
     expect(result.newVersions).toBe(3);
@@ -81,12 +72,12 @@ describe('lockfile import', () => {
   });
 
   it('2. handles duplicate import (upsert)', async () => {
-    const lockfilePath = writeNpmLockfile({
+    const content = makeNpmLockfileContent({
       'import-test-pkg-a': { version: '1.0.0' },
       'import-test-pkg-d': { version: '4.0.0' },
     });
 
-    const result = await importLockfile(projectId, lockfilePath);
+    const result = await importLockfile(projectId, content, 'npm');
 
     // pkg-a already exists, so it is updated and still re-enqueues if still pending
     // pkg-d should be new and also enqueued
@@ -102,7 +93,7 @@ describe('lockfile import', () => {
     });
 
     expect(subs.length).toBeGreaterThanOrEqual(4);
-    const names = subs.map((s) => s.packageName);
+    const names = subs.map((s: { packageName: string }) => s.packageName);
     expect(names).toContain('import-test-pkg-a');
     expect(names).toContain('import-test-pkg-d');
   });
@@ -116,8 +107,8 @@ describe('lockfile import', () => {
     });
 
     expect(jobs.length).toBeGreaterThanOrEqual(4);
-    expect(jobs.every((j) => j.status === 'PENDING')).toBe(true);
-    expect(jobs.every((j) => j.trigger === 'PREFLIGHT')).toBe(true);
+    expect(jobs.every((j: { status: string }) => j.status === 'PENDING')).toBe(true);
+    expect(jobs.every((j: { trigger: string }) => j.trigger === 'PREFLIGHT')).toBe(true);
   });
 
   it('5. checkProjectReadiness returns correct counts', async () => {
@@ -135,12 +126,12 @@ describe('lockfile import', () => {
     });
     const readyProjectId = readyProject.id;
 
-    const lockfilePath = writeNpmLockfile({
+    const content = makeNpmLockfileContent({
       'import-ready-pkg-a': { version: '1.0.0' },
       'import-ready-pkg-b': { version: '1.0.1' },
     });
 
-    await importLockfile(readyProjectId, lockfilePath);
+    await importLockfile(readyProjectId, content, 'npm');
 
     const projectPackages = await prisma.importedPackageVersion.findMany({
       where: {
@@ -191,8 +182,9 @@ describe('lockfile import', () => {
       },
     ]);
 
-    await prisma.decision.deleteMany({ where: { packageVersionId: { in: projectPackages.map((link) => link.packageVersion.id) } } });
-    await prisma.reviewJob.deleteMany({ where: { packageVersionId: { in: projectPackages.map((link) => link.packageVersion.id) } } });
+    const packageIds = projectPackages.map((link: { packageVersionId: string }) => link.packageVersionId);
+    await prisma.decision.deleteMany({ where: { packageVersionId: { in: packageIds } } });
+    await prisma.reviewJob.deleteMany({ where: { packageVersionId: { in: packageIds } } });
 
     await prisma.importedPackageVersion.deleteMany({ where: { projectId: readyProjectId } });
     await prisma.lockfileImport.deleteMany({ where: { projectId: readyProjectId } });
@@ -207,11 +199,11 @@ describe('lockfile import', () => {
     });
     const incompleteProjectId = incompleteProject.id;
 
-    const lockfilePath = writeNpmLockfile({
+    const content = makeNpmLockfileContent({
       'import-incomplete-pkg-a': { version: '1.0.0' },
     });
 
-    await importLockfile(incompleteProjectId, lockfilePath);
+    await importLockfile(incompleteProjectId, content, 'npm');
 
     const incompleteProjectPackages = await prisma.importedPackageVersion.findMany({
       where: { projectId: incompleteProjectId },
@@ -242,11 +234,11 @@ describe('lockfile import', () => {
     });
     const resilientProjectId = resilientProject.id;
 
-    const lockfilePath = writeNpmLockfile({
+    const content = makeNpmLockfileContent({
       'import-failing-callback': { version: '1.0.0' },
     });
 
-    await importLockfile(resilientProjectId, lockfilePath);
+    await importLockfile(resilientProjectId, content, 'npm');
 
     const resilientPackages = await prisma.importedPackageVersion.findMany({
       where: { projectId: resilientProjectId },
@@ -305,7 +297,7 @@ describe('lockfile import', () => {
   });
 
   it('8. handles missing lockfile gracefully', async () => {
-    const result = await importLockfile(projectId, '/nonexistent/lockfile.json');
+    const result = await importLockfile(projectId, '', 'npm');
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.totalEntries).toBe(0);
   });

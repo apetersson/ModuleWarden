@@ -5,15 +5,6 @@ import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { logger } from '@modulewarden/shared/services/logger';
 import { checkAdmin } from '../middleware/auth.js';
 
-/** Callback to enqueue a package-review directly (bypasses pipeline). */
-type EnqueueManualReview = (data: {
-  packageName: string;
-  packageVersion: string;
-  tarballHash: string;
-  auditContext: string;
-  idempotencyKey: string;
-}) => Promise<string | null>;
-
 interface OverrideBody {
   packageName: string;
   version: string;
@@ -30,7 +21,7 @@ interface OverrideBody {
  */
 export async function registerAdminRoutes(
   app: FastifyInstance,
-  enqueueManualReview?: EnqueueManualReview
+  pgBossSend?: (queue: string, data: Record<string, unknown>) => Promise<string | null>
 ): Promise<void> {
   /**
    * POST /admin/override — Create a security-admin override.
@@ -59,7 +50,7 @@ export async function registerAdminRoutes(
         return reply.status(400).send({ error: 'scope must be SPECIFIC_VERSION, PACKAGE, PROJECT, or GLOBAL' });
       }
 
-      if (!/^@?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
+      if (!/^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
         return reply.status(400).send({ error: 'Invalid package name format. Must be a valid npm package name.' });
       }
 
@@ -218,18 +209,30 @@ export async function registerAdminRoutes(
     async (request: FastifyRequest<{ Body: { filename: string; format: string; content: string } }>, reply: FastifyReply) => {
       if (!checkAdmin(request, reply)) return;
 
-      const { filename, content } = request.body;
+      const { filename, format, content } = request.body;
       if (!filename || !content) {
         return reply.status(400).send({ error: 'Missing filename or content' });
       }
 
       try {
+        const prisma = getPrisma();
+
+        // Create or resolve a project from the filename (basename only, no extension)
+        const projectName = filename.split('/').pop()?.split('\\').pop()?.replace(/\.[^.]+$/, '') ?? 'imported-project';
+        const project = await prisma.project.upsert({
+          where: { name: projectName },
+          create: { name: projectName, graphState: 'IMPORTING' },
+          update: {},
+        });
+
         const { importLockfile } = await import('../services/lockfile-import.js');
-        const result = await importLockfile(filename, content);
+        const result = await importLockfile(project.id, content, format, pgBossSend);
         return reply.status(201).send({
+          projectId: project.id,
           packageCount: result.newVersions,
           subscriptionCount: result.newSubscriptions,
           reviewCount: result.enqueuedReviews,
+          errors: result.errors.length > 0 ? result.errors : undefined,
         });
       } catch (err) {
         return reply.status(500).send({
@@ -255,7 +258,7 @@ export async function registerAdminRoutes(
         return reply.status(400).send({ error: 'packageName is required' });
       }
 
-      if (!enqueueManualReview) {
+      if (!pgBossSend) {
         return reply.status(503).send({ error: 'Audit queue is not available' });
       }
 
@@ -305,7 +308,7 @@ export async function registerAdminRoutes(
         const auditContext = `admin:manual:${packageName}@${resolvedVersion}`;
         const idempotencyKey = buildIdempotencyKey('package-review', packageName, resolvedVersion, tarballHash, auditContext);
 
-        const jobId = await enqueueManualReview({
+        const jobId = await pgBossSend('package-review', {
           packageName,
           packageVersion: resolvedVersion,
           tarballHash,

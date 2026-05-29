@@ -17,6 +17,8 @@ import type { PredecessorDiffResponse, WebSearchResponse } from '@modulewarden/s
 import type { JobQueue } from '@modulewarden/worker/jobs/queue.js';
 import { createHash } from 'node:crypto';
 
+type QueueProvider = () => Promise<JobQueue | null | undefined>;
+
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
@@ -117,7 +119,19 @@ async function searchSearxng(query: string): Promise<WebSearchResponse['results'
  * Routes are registered inside a scoped plugin so that the auth hook
  * only applies to /internal/* paths (C-1).
  */
-export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQueue): Promise<void> {
+export async function registerInternalRoutes(app: FastifyInstance, queueProvider?: QueueProvider): Promise<void> {
+  async function resolveQueue(): Promise<JobQueue | null> {
+    if (!queueProvider) return null;
+    try {
+      return (await queueProvider()) ?? null;
+    } catch (err) {
+      logger.warn('Failed to resolve job queue for internal route side effect', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
   await app.register(async function internalScope(scoped: FastifyInstance) {
     // Routes inside this plugin get /internal/ prefix via app.register's prefix option
     // ── Auth middleware (scoped to /internal/* only) ──────────
@@ -283,6 +297,10 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
             artifactType,
             name: label,
             content: { description, source: 'audit-rpc' },
+            // ⚠️ STUB: contentHash is a timestamp, not a true hash of evidence content.
+            // This is acceptable for v1 provenance tracking but does NOT provide
+            // content-integrity guarantees (evidence-integrity framing).
+            // TODO: Replace with real SHA-256 hash of serialized evidence content.
             contentHash: `sha256-${Date.now()}`,
             filePath: label.replace(/[^a-zA-Z0-9_-]/g, '_'),
           },
@@ -343,6 +361,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
       });
 
       // A-4: Enqueue verdaccio promotion when verdict is ALLOW
+      const queue = await resolveQueue();
       if (verdict === 'ALLOW' && queue && reviewJob.packageVersion) {
         const { packageName, version: pkgVersion, tarballHash } = reviewJob.packageVersion;
         try {

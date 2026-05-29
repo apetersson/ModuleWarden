@@ -179,21 +179,18 @@ export async function buildServer() {
     }
   );
 
+  // ── Internal RPC endpoints (audit bridge) ───────────────────
+  // Pass a queue getter, not the current _queue value, so verdict side effects
+  // (ALLOW promotion and escalation) can resolve the lazily-started queue.
+  await registerInternalRoutes(app, getQueue);
+
   // ── Admin & status endpoints ─────────────────────────────────
 
-  await registerAdminRoutes(app, async (data) => {
-    return enqueuePackageReviewLight(
-      data.packageName,
-      data.packageVersion,
-      data.tarballHash,
-      data.auditContext
-    );
+  await registerAdminRoutes(app, async (queueName, data) => {
+    const queue = await getQueue();
+    return queue.send(queueName as never, data as never);
   });
   await registerStatusRoutes(app);
-
-  // ── Internal RPC endpoints (audit bridge) ───────────────────
-
-  await registerInternalRoutes(app, _queue ?? undefined);
 
   // ── Dashboard admin endpoints ────────────────────────────────
 

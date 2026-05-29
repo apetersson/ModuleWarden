@@ -25,7 +25,7 @@ const HEDGING_PATTERNS = [
 /**
  * Check if a verdict warrants escalation to a more capable model.
  *
- * @param verdict - The raw verdict string ('allow', 'block', 'quarantine')
+ * @param verdict - The verdict string ('ALLOW', 'BLOCK', or 'QUARANTINE')
  * @param scores - Score map from the audit (expects risk/confidence fields)
  * @param riskSummary - Human-readable risk summary
  * @returns true if escalation is recommended
@@ -35,8 +35,11 @@ export function shouldEscalateVerdict(
   scores: Record<string, number>,
   riskSummary: string
 ): boolean {
+  // Normalize to uppercase for case-insensitive comparison
+  const normalized = verdict.toUpperCase();
+
   // Always escalate quarantines — the escalation pass reduces false positives
-  if (verdict === 'quarantine') return true;
+  if (normalized === 'QUARANTINE') return true;
 
   // Escalate when risk scores are high
   const riskScore = scores.risk ?? scores.riskScore ?? scores.riskLevel ?? 0;
@@ -48,7 +51,7 @@ export function shouldEscalateVerdict(
 
   // Escalate blocks where the risk summary contains hedging/uncertainty language
   // (indicating the first-pass model lacked sufficient evidence for a confident block)
-  if (verdict === 'block') {
+  if (normalized === 'BLOCK') {
     const hasHedging = HEDGING_PATTERNS.some((p) => p.test(riskSummary));
     if (hasHedging) return true;
   }

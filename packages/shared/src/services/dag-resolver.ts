@@ -86,12 +86,14 @@ function resolveLatestVersion(packument: NpmPackument): string | null {
  * @param rootVersion  Specific version to resolve, or "latest" for auto-resolve
  * @param upstreamFetch  Function to fetch upstream packuments (injectable for testing)
  * @param maxDepth  Maximum recursion depth (prevents runaway on pathological trees)
+ * @param maxSteps  Maximum total steps before truncation (H2: prevents unauthenticated amplification)
  */
 export async function resolveDependencyDag(
   rootPackage: string,
   rootVersion: string,
   upstreamFetch: (name: string) => Promise<NpmPackument | null>,
-  maxDepth = 6
+  maxDepth = 6,
+  maxSteps = 500
 ): Promise<DagResolution> {
   // ── Step 1: Recursive DFS to build the full graph ──────────────
 
@@ -114,6 +116,7 @@ export async function resolveDependencyDag(
     depth: number
   ): Promise<void> {
     if (depth > maxDepth) return;
+    if (visited.size >= maxSteps) return; // H2: prevent unbounded fan-out
 
     // Resolve the actual version from the packument
     const packument = await upstreamFetch(packageName);

@@ -20,6 +20,12 @@ import type { JobQueue } from '../jobs/queue.js';
 
 // ── audit-pipeline-schedule ──────────────────────────────────────
 
+// H2: Limit DAG depth and total steps to prevent unauthenticated amplification.
+// The packument route is unauthenticated; unbounded transitive dep resolution
+// could exhaust resources. These limits cap the worst case.
+const MAX_PIPELINE_DEPTH = 10;
+const MAX_PIPELINE_STEPS = 500;
+
 /**
  * Register the `audit-pipeline-schedule` handler.
  *
@@ -63,12 +69,27 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
       return;
     }
 
-    // 1. Resolve the full dependency DAG
-    const dag = await resolveDependencyDag(packageName, packageVersion, fetchUpstreamPackument);
+    // 1. Resolve the full dependency DAG (with depth/step limits -- H2)
+    const dag = await resolveDependencyDag(
+      packageName,
+      packageVersion,
+      fetchUpstreamPackument,
+      MAX_PIPELINE_DEPTH,
+      MAX_PIPELINE_STEPS,
+    );
 
     if (dag.steps.length === 0) {
       logger.warn('DAG resolution returned no steps', { packageName, packageVersion });
       return;
+    }
+
+    if (dag.steps.length >= MAX_PIPELINE_STEPS) {
+      logger.warn('DAG hit max step limit, pipeline may be incomplete', {
+        packageName,
+        packageVersion,
+        stepCount: dag.steps.length,
+        maxSteps: MAX_PIPELINE_STEPS,
+      });
     }
 
     // 2. Create the pipeline record

@@ -324,6 +324,11 @@ function handleSandboxExecute(requestId: string, params: SandboxExecuteParams): 
     }
   } catch (err) { stderr = String(err); exitCode = 1; }
 
+  // ⚠️ STUB: observedNetworkConnections is always empty — the sandbox does not
+  // currently record actual network egress. "recorded-open egress" in the
+  // container-runner config is a network *name*, not a recording capability.
+  // Empty here means "no recording mechanism", not "no connections observed."
+  // TODO: Implement actual network egress monitoring in the sandbox container.
   const data: SandboxExecuteResponse = {
     success: exitCode === 0, exitCode, stdout, stderr,
     observedNetworkConnections: [], observedFileWrites: exitCode === 0 ? ['node_modules/'] : [], durationMs: Date.now() - startTime,

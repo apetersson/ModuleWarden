@@ -1,14 +1,14 @@
 {
-  "name": "v1-continuation",
-  "taskFile": ".ralph/v1-continuation.md",
+  "name": "task-1_18-dag-linearisation",
+  "taskFile": ".ralph/task-1_18-dag-linearisation.md",
   "iteration": 1,
-  "maxIterations": 20,
-  "itemsPerIteration": 1,
+  "maxIterations": 8,
+  "itemsPerIteration": 3,
   "reflectEvery": 0,
   "reflectInstructions": "REFLECTION CHECKPOINT\n\nPause and reflect on your progress:\n1. What has been accomplished so far?\n2. What's working well?\n3. What's not working or blocking progress?\n4. Should the approach be adjusted?\n5. What are the next priorities?\n\nUpdate the task file with your reflection, then continue working.",
   "active": false,
   "status": "completed",
-  "startedAt": "2026-05-28T06:57:22.183Z",
+  "startedAt": "2026-05-29T07:26:47.373Z",
   "lastReflectionAt": 0,
-  "completedAt": "2026-05-29T07:05:31.007Z"
+  "completedAt": "2026-05-29T07:42:11.943Z"
 }

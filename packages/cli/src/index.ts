@@ -258,6 +258,23 @@ async function cmdAdmin(args: string[]): Promise<void> {
       console.error(`Failed:`, err instanceof Error ? err.message : String(err));
       process.exit(1);
     }
+  } else if (subCmd === 'remove-override' && args.length >= 2) {
+    const overrideId = args[1]!;
+    try {
+      const resp = await fetch(`${getApiBase()}/admin/override/${encodeURIComponent(overrideId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => '');
+        console.error(`Remove override failed: ${resp.status} ${body.slice(0, 300)}`);
+        process.exit(1);
+      }
+      console.log(`Override ${overrideId} removed.`);
+    } catch (err) {
+      console.error(`Failed:`, err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
   } else {
     console.error('Unknown admin command. Use: modulewarden admin');
     process.exit(1);
