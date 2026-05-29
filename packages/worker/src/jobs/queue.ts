@@ -79,7 +79,8 @@ export class JobQueue {
     const options: PgBoss.SendOptions = {
       retryLimit: policy?.maxRetries ?? this.options.maxRetries,
       retryBackoff: true,
-      retryDelay: policy?.backoffMs ?? this.options.backoffDelayMs,
+      // Convert backoff from milliseconds to seconds (pg-boss uses seconds)
+      retryDelay: Math.ceil((policy?.backoffMs ?? this.options.backoffDelayMs) / 1000),
       expireInSeconds: Math.ceil((policy?.timeoutMs ?? this.options.timeoutMs) / 1000),
       priority: 0,
       ...extra,

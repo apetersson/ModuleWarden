@@ -40,44 +40,51 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!packageVersionRecord && tarballHash.startsWith('unresolved:')) {
+    if (!packageVersionRecord) {
+      // PackageVersion not found — fetch upstream and upsert.
+      // This handles cases where the enqueue happens before the tarball route
+      // has had a chance to create the record (background dep enqueue from
+      // packument endpoint, subscription polling, etc.).
       const packument = await fetchUpstreamPackument(packageName);
       const versionData = packument?.versions[packageVersion];
-      effectiveTarballHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum ?? '';
+      effectiveTarballHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum ?? tarballHash;
       if (!effectiveTarballHash) {
         throw new Error(`Could not resolve tarball integrity for ${packageName}@${packageVersion}`);
       }
-      packageVersionRecord = await prisma.packageVersion.upsert({
-        where: {
-          packageName_version_registrySource_tarballHash: {
+      try {
+        packageVersionRecord = await prisma.packageVersion.upsert({
+          where: {
+            packageName_version_registrySource_tarballHash: {
+              packageName,
+              version: packageVersion,
+              registrySource: 'npm',
+              tarballHash: effectiveTarballHash,
+            },
+          },
+          create: {
             packageName,
             version: packageVersion,
             registrySource: 'npm',
             tarballHash: effectiveTarballHash,
+            hasLifecycleScript: typeof versionData?.scripts === 'object' && Object.keys(versionData.scripts ?? {}).length > 0,
+            ...(packument?.time?.[packageVersion]
+              ? { publishDate: new Date(packument.time[packageVersion]) }
+              : {}),
           },
-        },
-        create: {
-          packageName,
-          version: packageVersion,
-          registrySource: 'npm',
-          tarballHash: effectiveTarballHash,
-          hasLifecycleScript: typeof versionData?.scripts === 'object' && Object.keys(versionData.scripts ?? {}).length > 0,
-          ...(packument?.time?.[packageVersion]
-            ? { publishDate: new Date(packument.time[packageVersion]) }
-            : {}),
-        },
-        update: {},
-        select: {
-          id: true,
-          predecessor: {
-            select: { tarballHash: true },
+          update: {},
+          select: {
+            id: true,
+            predecessor: {
+              select: { tarballHash: true },
+            },
           },
-        },
-      });
-    }
-
-    if (!packageVersionRecord) {
-      throw new Error(`Package version ${packageName}@${packageVersion} (${effectiveTarballHash}) not found`);
+        });
+      } catch (upsertErr) {
+        throw new Error(
+          `Package version ${packageName}@${packageVersion} (${effectiveTarballHash}) ` +
+          `not found and could not be created: ${upsertErr instanceof Error ? upsertErr.message : String(upsertErr)}`
+        );
+      }
     }
 
     const canonicalIdempotencyKey = buildIdempotencyKey(
