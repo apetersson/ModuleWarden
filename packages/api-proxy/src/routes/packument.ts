@@ -3,6 +3,7 @@ import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { filterToApproved } from '../services/filter.js';
 import { getDecisionsForVersions } from '../services/decisions.js';
+import type { VersionDecision } from '../services/filter.js';
 import type { FilteredPackument, NpmPackageVersion, NpmPackument } from '@modulewarden/shared/npm-types';
 
 interface PackumentParams {
@@ -22,13 +23,50 @@ function localTarballUrl(packageName: string, version: string, baseUrl: string):
   return `${baseUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`;
 }
 
-function toPendingResolutionPackument(packument: NpmPackument, reason: string, baseUrl: string): FilteredPackument {
+function decisionForVersion(
+  version: string,
+  versionData: NpmPackageVersion,
+  decisions: Map<string, VersionDecision>
+): VersionDecision | undefined {
+  const upstreamHash = versionData.dist?.integrity ?? versionData.dist?.shasum;
+  if (upstreamHash) {
+    const exact = decisions.get(`${version}::${upstreamHash}`);
+    if (exact) return exact;
+  }
+  return decisions.get(version);
+}
+
+function warningForVersion(
+  packageName: string,
+  version: string,
+  versionData: NpmPackageVersion,
+  decisions: Map<string, VersionDecision>,
+  fallbackReason: string
+): string {
+  const decision = decisionForVersion(version, versionData, decisions);
+  if (decision?.verdict === 'BLOCK') {
+    return `[BLOCKED] ModuleWarden blocked ${packageName}@${version}. ` +
+      `This package version is not available for installation.`;
+  }
+  if (decision?.verdict === 'QUARANTINE') {
+    return `[QUARANTINED] ModuleWarden quarantined ${packageName}@${version}. ` +
+      `Human review is required before installation.`;
+  }
+  return fallbackReason;
+}
+
+function toPendingResolutionPackument(
+  packument: NpmPackument,
+  reason: string,
+  baseUrl: string,
+  decisions: Map<string, VersionDecision> = new Map()
+): FilteredPackument {
   const versions: Record<string, NpmPackageVersion> = Object.fromEntries(
     Object.entries(packument.versions).map(([version, versionData]) => [
       version,
       {
         ...versionData,
-        deprecated: reason,
+        deprecated: warningForVersion(packument.name, version, versionData, decisions, reason),
         dist: {
           ...versionData.dist,
           tarball: localTarballUrl(packument.name, version, baseUrl),
@@ -102,7 +140,8 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
           upstream,
           `[PENDING] Package ${packageName} has not been reviewed by ModuleWarden yet. ` +
             `The tarball request will enqueue an audit and refuse installation.`,
-          baseUrl
+          baseUrl,
+          decisions
         ));
       }
 
@@ -115,7 +154,8 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
           upstream,
           `[AUDITING] Package ${packageName} is still being audited. ` +
             `Run 'modulewarden status' to check progress.`,
-          baseUrl
+          baseUrl,
+          decisions
         ));
       }
 
@@ -125,7 +165,8 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
           upstream,
           `[PENDING] Package ${packageName} has no approved versions yet. ` +
             `The tarball request will enqueue an audit and refuse installation.`,
-          baseUrl
+          baseUrl,
+          decisions
         ));
       }
       return reply.send(filtered);
