@@ -28,9 +28,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from . import model_client
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEMO_INCIDENTS = REPO_ROOT / "demo" / "incidents"
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system.md"
+
+
+def _load_system_prompt() -> str:
+    """Load the underwriter system prompt. Wired in (was previously dead)."""
+    try:
+        return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return "You are the ModuleWarden Underwriter Assistant."
 
 
 # ---------------------------------------------------------------------------
@@ -165,17 +175,30 @@ def lookup_by_incident_id(incident_id: str) -> ChatTurn:
             evidence={"intent": "lookup_unknown", "incident_id": incident_id},
         )
     dossier, report = pair
-    return ChatTurn(
-        response_md=_render_lookup(incident_id, dossier, report),
-        evidence={
-            "intent": "lookup",
-            "incident_id": incident_id,
-            "verdict": report.get("verdict"),
-            "risk_level": report.get("risk_level"),
-            "confidence": report.get("confidence"),
-            "primary_findings_count": len(report.get("primary_findings") or []),
-        },
-    )
+    memo = _render_underwriting_memo(incident_id, dossier, report)
+    prose, route, endpoint_error = narrate_underwriting(incident_id, dossier, report)
+    # The deterministic memo is always shown (verdict is pinned). When the
+    # fine-tuned model is configured and responds, its underwriter narrative
+    # leads, with the pinned memo beneath it as the audit trail.
+    if prose:
+        response_md = f"{prose.strip()}\n\n---\n\n{memo}"
+    else:
+        response_md = memo
+    evidence = {
+        "intent": "lookup",
+        "incident_id": incident_id,
+        "verdict": report.get("verdict"),
+        "risk_level": report.get("risk_level"),
+        "confidence": report.get("confidence"),
+        "underwriting_tier": _underwriting_tier(
+            report.get("verdict") or "", report.get("risk_level") or ""
+        ),
+        "primary_findings_count": len(report.get("primary_findings") or []),
+        "model_backed": route == "llm",
+    }
+    if endpoint_error:
+        evidence["endpoint_error"] = endpoint_error
+    return ChatTurn(response_md=response_md, evidence=evidence, route=route)
 
 
 # ---------------------------------------------------------------------------
@@ -241,28 +264,149 @@ def _underwriting_implication(verdict: str, risk_level: str) -> str:
     return ""
 
 
-def _render_lookup(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
+# ---------------------------------------------------------------------------
+# Underwriting Control Evidence Memo
+#
+# The verdict is pinned by the deterministic gate + the audit report. These
+# functions translate that pinned verdict into the three fields a UNIQA
+# cyber-policy underwriter acts on: a risk tier, a premium/exclusion
+# recommendation, and the cited evidence. NONE of this is model-generated;
+# the model (when configured) narrates this card, it does not produce it.
+# ---------------------------------------------------------------------------
+
+
+def _underwriting_tier(verdict: str, risk_level: str) -> str:
+    """Map the pinned verdict + risk level to an underwriting decision tier."""
+    v = (verdict or "").lower()
+    r = (risk_level or "").lower()
+    if v == "block":
+        return "DECLINE (refer to security; supply-chain control credit withheld)"
+    if v == "quarantine":
+        return "ACCEPT-WITH-CONDITIONS (remediation clause required before bind)"
+    if v == "allow":
+        if r in {"none", "low"}:
+            return "ACCEPT (clean supply-chain control signal; credit-eligible)"
+        return "ACCEPT-WITH-CONDITIONS (residual risk; partial control credit)"
+    return "REFER (verdict unavailable; manual review)"
+
+
+def _premium_exclusion_line(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
+    """The premium-loading / exclusion recommendation for the policy file."""
+    v = (report.get("verdict") or "").lower()
+    name = (dossier.get("package") or {}).get("name") or incident_id.rsplit("-", 1)[0]
+    baseline = (dossier.get("baseline") or {}).get("version")
+    clean_ref = f"@{baseline}" if baseline else " a last-known-clean release"
+    if v == "block":
+        return (
+            f"**Premium / exclusion.** Recommend a policy exclusion for losses "
+            f"arising from `{name}` at the audited version until the insured pins "
+            f"to {clean_ref}. Do not extend supply-chain control credit on this "
+            f"dependency while the compromise is live."
+        )
+    if v == "quarantine":
+        return (
+            f"**Premium / exclusion.** Accept with a remediation clause: the "
+            f"insured pins an allowlisted version of `{name}`, supplies a "
+            f"maintainer attestation, or excludes it from production by bind. "
+            f"Hold control credit pending remediation."
+        )
+    if v == "allow":
+        r = (report.get("risk_level") or "").lower()
+        if r in {"none", "low"}:
+            return (
+                f"**Premium / exclusion.** No loading. `{name}` is a positive "
+                f"control-class signal and is eligible for the supply-chain "
+                f"premium credit at bind."
+            )
+        return (
+            f"**Premium / exclusion.** No exclusion, but weight the residual "
+            f"risk on `{name}` when sizing the supply-chain credit; partial "
+            f"credit only."
+        )
+    return "**Premium / exclusion.** Manual underwriting review required."
+
+
+def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
+    """Deterministic Control Evidence Memo, framed as an underwriting decision.
+
+    Always renderable without the model. The verdict line is preserved so
+    the verdict remains visible and auditable.
+    """
+    verdict = (report.get("verdict") or "unknown").lower()
+    tier = _underwriting_tier(verdict, report.get("risk_level") or "")
     verdict_line = _format_verdict_line(incident_id, report)
     summary = report.get("summary") or ""
-    implication = _underwriting_implication(
-        report.get("verdict") or "", report.get("risk_level") or ""
-    )
+    premium = _premium_exclusion_line(incident_id, dossier, report)
     findings = _format_findings(report)
-    memo_path = f"demo/outputs/{incident_id}__YYYY-MM-DD.md"
     body = [
+        "### Control Evidence Memo",
+        "",
         verdict_line,
         "",
-        summary,
+        f"**Risk tier.** {tier}",
         "",
-        implication,
+        premium,
         "",
-        "### Primary findings",
+        f"_Why:_ {summary}" if summary else "",
+        "",
+        "**Cited evidence**",
         "",
         findings,
-        "",
-        f"_Control Evidence Memo path (after running the live replay): `{memo_path}`_",
     ]
-    return "\n".join(body)
+    return "\n".join(line for line in body if line is not None)
+
+
+def _render_lookup(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
+    """Lookup output is the underwriting Control Evidence Memo."""
+    return _render_underwriting_memo(incident_id, dossier, report)
+
+
+def narrate_underwriting(
+    incident_id: str,
+    dossier: dict[str, Any],
+    report: dict[str, Any],
+    history: list[dict[str, str]] | None = None,
+) -> tuple[str | None, str, str | None]:
+    """Ask the fine-tuned model to narrate the PINNED memo in underwriter voice.
+
+    Returns ``(prose, route, error)``:
+    - ``(text, "llm", None)`` when an endpoint is configured and responds.
+    - ``(None, "router", None)`` when no endpoint is configured.
+    - ``(None, "router", err)`` when an endpoint is configured but errored
+      (surfaced, not hidden; the caller renders the deterministic memo).
+
+    The model is given the pinned verdict + evidence and is instructed to
+    explain, not to change, the decision. The verdict never comes from the
+    model.
+    """
+    if not model_client.is_configured():
+        return None, "router", None
+    pinned = {
+        "package": dossier.get("package"),
+        "verdict": report.get("verdict"),
+        "confidence": report.get("confidence"),
+        "risk_level": report.get("risk_level"),
+        "underwriting_tier": _underwriting_tier(
+            report.get("verdict") or "", report.get("risk_level") or ""
+        ),
+        "primary_findings": report.get("primary_findings"),
+        "summary": report.get("summary"),
+    }
+    user_msg = (
+        "A UNIQA cyber-policy underwriter is assessing this applicant's "
+        "dependency. The verdict and evidence below are PINNED by the "
+        "ModuleWarden gate and are authoritative -- explain and frame them "
+        "for the underwriter, do not change the verdict or invent findings.\n\n"
+        + json.dumps(pinned, indent=2, ensure_ascii=False)
+    )
+    messages = [*(history or []), {"role": "user", "content": user_msg}]
+    try:
+        text = model_client.complete(
+            system_prompt=_load_system_prompt(), messages=messages
+        )
+        return text, "llm", None
+    except model_client.ModelEndpointError as exc:
+        return None, "router", str(exc)
 
 
 def _render_list() -> str:
@@ -368,21 +512,11 @@ def handle_query(message: str, history: list[dict[str, str]] | None = None) -> C
         incident_id = facts.get("incident_id")
         if not incident_id:
             return ChatTurn(response_md=_render_unknown(facts), evidence={"intent": "lookup_unknown"})
-        pair = _load_pair(incident_id)
-        if pair is None:
+        if _load_pair(incident_id) is None:
             return ChatTurn(response_md=_render_unknown(facts), evidence={"intent": "lookup_unknown"})
-        dossier, report = pair
-        return ChatTurn(
-            response_md=_render_lookup(incident_id, dossier, report),
-            evidence={
-                "intent": "lookup",
-                "incident_id": incident_id,
-                "verdict": report.get("verdict"),
-                "risk_level": report.get("risk_level"),
-                "confidence": report.get("confidence"),
-                "primary_findings_count": len(report.get("primary_findings") or []),
-            },
-        )
+        # Unified path: typed lookups and the CLI get the same model-backed
+        # underwriting memo the sidebar button produces.
+        return lookup_by_incident_id(incident_id)
 
     if intent == "lookup_unknown":
         return ChatTurn(response_md=_render_unknown(facts), evidence={"intent": "lookup_unknown"})
