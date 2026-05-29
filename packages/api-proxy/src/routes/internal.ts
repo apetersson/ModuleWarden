@@ -359,9 +359,12 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      }
 
-        // Cascade to pipeline: if this ReviewJob belongs to a pipeline step,
-        // enqueue audit-pipeline-unblock to check downstream dependencies
+      // Cascade to pipeline regardless of verdict — if this ReviewJob
+      // belongs to a pipeline step, enqueue audit-pipeline-unblock so
+      // BLOCKED/QUARANTINED verdicts cascade downstream too.
+      if (queue && reviewJob) {
         try {
           const step = await prisma.auditPipelineStep.findFirst({
             where: { reviewJobId: reviewJob.id },
