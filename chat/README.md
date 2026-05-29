@@ -55,19 +55,25 @@ lookup        list         gate            freeform / help
  templated underwriting-language response
 ```
 
-`chat/agent.py` is a deterministic router. No API keys are required to
-run it. The handle_query function takes a user message and an optional
-history list and returns a `ChatTurn` with:
+`chat/agent.py` pins the verdict deterministically and, when a model
+endpoint is configured, narrates it with the fine-tuned model. No API
+keys are required to run it deterministically. `handle_query` returns a
+`ChatTurn` with:
 
-- `response_md`: the markdown the UI renders
-- `evidence`: a structured dict the UI shows in the side panel
-- `route`: "router" (always for now; "llm" when the optional OpenAI
-  path is enabled)
+- `response_md`: the markdown the UI renders (the Control Evidence Memo,
+  with model narration on top when an endpoint is live)
+- `evidence`: a structured dict the UI shows in the side panel, including
+  `verdict`, `underwriting_tier`, `model_backed`, and `endpoint_error`
+- `route`: `"router"` (deterministic) or `"llm"` (model narrated the
+  pinned verdict)
 
-When `OPENAI_API_KEY` is set the agent can be extended to wrap the
-router output in a chat completion call. See the docstring at the top
-of `agent.py` for the contract; the LLM never gets to invent verdicts -
-the dossier and report are pre-loaded by the router.
+Model-backed mode is wired and live (`chat/model_client.py`). Set
+`MW_MODEL_ENDPOINT_BASE_URL` (+ `_API_KEY` / `_MODEL`), reusing the gate's
+contract, or `OPENAI_API_KEY`, and point it at whatever serves the
+fine-tuned weights (local vLLM, the Leonardo checkpoint, any
+OpenAI-compatible host). The model narrates the verdict; it never sources
+it. The verdict is always the gate plus the audit report, and tests
+assert the model cannot change it.
 
 ## What the assistant can do
 

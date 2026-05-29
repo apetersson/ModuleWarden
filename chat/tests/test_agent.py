@@ -100,11 +100,17 @@ def test_handle_query_freeform_offers_help():
     assert "help" in turn.response_md.lower()
 
 
-def test_underwriting_implication_per_verdict():
+def test_underwriting_memo_per_verdict():
+    """Lookup output is the Control Evidence Memo with tier + premium/exclusion."""
     block_turn = handle_query("postmark-mcp@1.0.16")
-    assert "supply-chain section" in block_turn.response_md.lower() or "control-class credit" in block_turn.response_md.lower()
+    md = block_turn.response_md
+    assert "Control Evidence Memo" in md
+    assert "Risk tier" in md
+    assert "DECLINE" in md
+    assert "Premium / exclusion" in md
     allow_turn = handle_query("lodash@4.17.21")
-    assert "control-class credit" in allow_turn.response_md.lower() or "clean control signal" in allow_turn.response_md.lower()
+    assert "ACCEPT" in allow_turn.response_md
+    assert "credit" in allow_turn.response_md.lower()
 
 
 def test_cli_single_message():
