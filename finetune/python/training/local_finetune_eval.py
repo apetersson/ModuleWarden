@@ -36,6 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SFT_PATH = REPO_ROOT / "finetune" / "corpus" / "sft-records.jsonl"
 DEFAULT_OUT = REPO_ROOT / "finetune" / "python" / "training" / "adapters" / "local-sft"
 METRICS_OUT = REPO_ROOT / "finetune" / "python" / "eval" / "finetune-metrics.json"
+TRACES_DIR = REPO_ROOT / "finetune" / "python" / "eval" / "traces"
 
 VALID_VERDICTS = {"allow", "quarantine", "block"}
 
@@ -112,14 +113,59 @@ def _extract_verdict(text: str) -> tuple[bool, str | None]:
 _TECHNIQUE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 
 
-def _evaluate(model, tokenizer, records, max_new_tokens, label, torch, max_prompt_tokens=4096) -> dict[str, Any]:
+def _trace_id(rec: dict[str, Any], idx: int) -> str:
+    """Stable per-case id for the trace filename.
+
+    Prefers record_id (always present in the SFT corpus), falls back to the
+    audit_id embedded in the user message, then to a positional index. The
+    result is filesystem-safe so it can be used directly as a JSON filename.
+    """
+    raw = rec.get("record_id")
+    if not raw:
+        try:
+            user = json.loads(rec["messages"][1]["content"])
+            raw = user.get("audit_id")
+        except Exception:
+            raw = None
+    if not raw:
+        raw = f"case_{idx:04d}"
+    return re.sub(r"[^A-Za-z0-9._-]", "_", str(raw))
+
+
+def _write_trace(traces_dir: Path, trace: dict[str, Any]) -> None:
+    """Write one per-case trace JSON the meta-harness proposer reads.
+
+    The proposer greps and cats these files to diagnose why a case failed,
+    so each trace is the full causal record for one eval case. raw_output is
+    model-generated text written as DATA only; it is never executed.
+    """
+    traces_dir.mkdir(parents=True, exist_ok=True)
+    path = traces_dir / f"{trace['trace_id']}.json"
+    path.write_text(json.dumps(trace, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _evaluate(
+    model,
+    tokenizer,
+    records,
+    max_new_tokens,
+    label,
+    torch,
+    max_prompt_tokens=4096,
+    write_traces=False,
+    traces_dir=None,
+) -> dict[str, Any]:
     schema_valid = 0
     verdict_match = 0
     block_total = 0
     block_caught = 0
     kill_chain_emitted = 0
     n = 0
-    for rec in records:
+    # Trace writing is opt-in. When off, the loop below is byte-for-byte the
+    # behavior that shipped before --write-traces existed.
+    if write_traces:
+        traces_dir = Path(traces_dir) if traces_dir is not None else TRACES_DIR
+    for idx, rec in enumerate(records):
         gold = _gold_verdict(rec)
         if gold is None:
             continue
@@ -158,6 +204,28 @@ def _evaluate(model, tokenizer, records, max_new_tokens, label, torch, max_promp
             # block-recall: model must produce the block verdict, not soften it.
             if pred == "block":
                 block_caught += 1
+        if write_traces:
+            # prompt_used is the exact text the model saw (post-truncation),
+            # so the proposer diagnoses against the real input, not the raw
+            # untruncated dossier.
+            prompt_used = tokenizer.decode(ids, skip_special_tokens=False)
+            _write_trace(
+                traces_dir,
+                {
+                    "trace_id": _trace_id(rec, idx),
+                    "label": label,
+                    "split": rec.get("split"),
+                    "source": rec.get("source"),
+                    "gold_verdict": gold,
+                    "model_verdict": pred,
+                    "verdict_match": bool(pred is not None and pred == gold),
+                    "schema_valid": ok,
+                    "is_block_gold": gold == "block",
+                    "block_caught": bool(gold == "block" and pred == "block"),
+                    "prompt_used": prompt_used,
+                    "raw_output": gen,
+                },
+            )
     return {
         "label": label,
         "n": n,
@@ -187,6 +255,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-4bit", action="store_true", help="full precision (more VRAM)")
     parser.add_argument("--corpus", default=str(SFT_PATH), help="SFT JSONL (e.g. the ATT&CK-augmented corpus)")
     parser.add_argument("--smoke", action="store_true", help="2-step run to prove it executes")
+    parser.add_argument(
+        "--write-traces",
+        action="store_true",
+        help="write one per-case trace JSON to the traces dir for the meta-harness "
+        "proposer (off by default; existing eval behavior is unchanged when off)",
+    )
+    parser.add_argument(
+        "--traces-dir",
+        default=str(TRACES_DIR),
+        help="directory for per-case trace JSON files (used only with --write-traces)",
+    )
     args = parser.parse_args(argv)
 
     import torch
@@ -282,7 +361,16 @@ def main(argv: list[str] | None = None) -> int:
     model.config.use_cache = True  # generation wants the KV cache
     print("evaluating BASE (adapter disabled) ...")
     with model.disable_adapter():
-        base = _evaluate(model, tokenizer, eval_recs, args.max_new_tokens, "base", torch)
+        base = _evaluate(
+            model,
+            tokenizer,
+            eval_recs,
+            args.max_new_tokens,
+            "base",
+            torch,
+            write_traces=args.write_traces,
+            traces_dir=args.traces_dir,
+        )
     print("base:", json.dumps(base))
 
     print("training ...")
@@ -295,7 +383,16 @@ def main(argv: list[str] | None = None) -> int:
     print("evaluating FINE-TUNED (adapter enabled) ...")
     model.eval()
     model.config.use_cache = True
-    tuned = _evaluate(model, tokenizer, eval_recs, args.max_new_tokens, "fine_tuned", torch)
+    tuned = _evaluate(
+        model,
+        tokenizer,
+        eval_recs,
+        args.max_new_tokens,
+        "fine_tuned",
+        torch,
+        write_traces=args.write_traces,
+        traces_dir=args.traces_dir,
+    )
     print("fine_tuned:", json.dumps(tuned))
 
     metrics = {
@@ -310,6 +407,8 @@ def main(argv: list[str] | None = None) -> int:
         "base": base,
         "fine_tuned": tuned,
         "adapter_dir": str(out_dir),
+        "write_traces": args.write_traces,
+        "traces_dir": str(args.traces_dir) if args.write_traces else None,
     }
     Path(args.metrics).write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     print(f"wrote {args.metrics}")

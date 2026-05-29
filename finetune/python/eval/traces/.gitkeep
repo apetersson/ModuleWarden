@@ -1,0 +1,4 @@
+# Per-case eval trace JSON files land here when local_finetune_eval.py runs
+# with --write-traces. The meta-harness proposer (meta_harness_loop.sh) greps
+# and cats these to diagnose why a candidate harness failed a given case.
+# Trace contents are model-generated text written as DATA only; never executed.
