@@ -9,6 +9,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { defaultConfig } from '@modulewarden/shared/config';
 import { logger } from '@modulewarden/shared/services/logger';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
 import { shouldEscalateVerdict } from '../services/escalation.js';
@@ -58,6 +59,57 @@ async function findAuditRunByToken(token: string): Promise<{ id: string; reviewJ
     where: { rpcTokenHash: tokenHash, status: 'RUNNING' },
     select: { id: true, reviewJobId: true },
   });
+}
+
+function addSearchResult(
+  results: WebSearchResponse['results'],
+  seenUrls: Set<string>,
+  result: WebSearchResponse['results'][number]
+): void {
+  const key = result.url.trim();
+  if (!key || seenUrls.has(key)) return;
+  seenUrls.add(key);
+  results.push(result);
+}
+
+async function searchSearxng(query: string): Promise<WebSearchResponse['results']> {
+  const config = defaultConfig();
+  if (config.search.provider === 'disabled') return [];
+
+  const url = new URL('/search', config.search.searxngUrl);
+  url.searchParams.set('q', query);
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('language', 'en');
+  url.searchParams.set('safesearch', '1');
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'ModuleWarden/0.1 audit-search',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`SearXNG returned ${response.status}`);
+  }
+
+  const body = await response.json() as {
+    results?: Array<{
+      title?: string;
+      url?: string;
+      content?: string;
+      engine?: string;
+    }>;
+  };
+
+  return (body.results ?? [])
+    .filter((item) => item.url)
+    .slice(0, 10)
+    .map((item) => ({
+      title: item.title ?? item.url ?? 'Search result',
+      url: item.url ?? '',
+      snippet: item.content ?? '',
+      source: item.engine ? `searxng:${item.engine}` : 'searxng',
+    }));
 }
 
 /**
@@ -119,11 +171,23 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
         if (!query) return reply.status(400).send({ error: 'Missing query' });
 
         const results: WebSearchResponse['results'] = [];
+        const seenUrls = new Set<string>();
+
+        if (!sources || sources.includes('web') || sources.includes('searxng')) {
+          try {
+            for (const result of await searchSearxng(query)) {
+              addSearchResult(results, seenUrls, result);
+            }
+          } catch (err) {
+            logger.warn('SearXNG search failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
+        }
+
         if (!sources || sources.includes('npm')) {
           try {
             const packument = await fetchUpstreamPackument(query);
             if (packument) {
-              results.push({
+              addSearchResult(results, seenUrls, {
                 title: `${packument.name} — npm registry`,
                 url: `https://www.npmjs.com/package/${query}`,
                 snippet: packument.description ?? `Package ${query} on npm`,
@@ -143,7 +207,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
             if (resp.ok) {
               const advisoryData = await resp.json() as { data?: Array<{ title: string; url: string; severity: string }> };
               for (const adv of advisoryData?.data ?? []) {
-                results.push({
+                addSearchResult(results, seenUrls, {
                   title: `[${adv.severity}] ${adv.title}`,
                   url: adv.url,
                   snippet: `Security advisory for ${query}`,
@@ -178,7 +242,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
                 }>;
               };
               for (const vuln of osvData.vulns ?? []) {
-                results.push({
+                addSearchResult(results, seenUrls, {
                   title: `[${vuln.database_specific?.severity ?? 'UNKNOWN'}] ${vuln.summary ?? vuln.id}`,
                   url: vuln.references?.find((ref) => ref.url)?.url ?? `https://osv.dev/vulnerability/${vuln.id}`,
                   snippet: [

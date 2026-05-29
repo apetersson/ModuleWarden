@@ -82,6 +82,7 @@ You have access to the following tools via the RPC bridge at http://127.0.0.1:${
 - **source-metadata** — README, changelog, repository info
 - **static-checks** — Static analysis for capabilities, obfuscation, patterns
 - **sandbox-execute** — Run npm install, import checks, script execution
+- **web-search** — Search npm/advisory/general web sources via ModuleWarden's search broker
 - **write-evidence** — Persist findings as evidence artifacts
 - **submit-verdict** — Submit your final structured verdict
 
@@ -103,10 +104,11 @@ ${configuredInstructions}
 
 1. Apply every configured prompt-pack instruction above.
 2. Explore the package using \`package-info\` and \`source-metadata\`.
-3. Run \`static-checks\` to detect suspicious patterns.
-4. Write key findings as \`write-evidence\`.
-5. Submit your final verdict with \`submit-verdict\`.
-6. Include risk summary, capability findings, evidence references, and prompt-pack provenance.
+3. Run \`web-search\` when prompt packs require advisory, provenance, or public-source checks.
+4. Run \`static-checks\` to detect suspicious patterns.
+5. Write key findings as \`write-evidence\`.
+6. Submit your final verdict with \`submit-verdict\`.
+7. Include risk summary, capability findings, evidence references, and prompt-pack provenance.
 `);
 
   // Add prepared evidence summary

@@ -27,6 +27,20 @@ services:
     # ModuleWarden is the gate. This service is internal.
     # It is exposed only on the Compose network for ModuleWarden services.
 
+  # ── Search Broker ───────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    expose:
+      - "8080"
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${MW_SEARXNG_SECRET:-modulewarden-local-searxng-change-me}
+    volumes:
+      - ./infra/searxng:/etc/searxng
+      - ${MW_LOCALDATA_ROOT:-../localdata}/searxng:/var/cache/searxng
+    # Internal-only search broker for audit containers via api-proxy.
+    # Do not expose this directly to the host by default.
+
   # ── Control Plane ───────────────────────────────────────
   api-proxy:
     build:
@@ -45,6 +59,8 @@ services:
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
       MW_VERDACCIO_TOKEN: ${MW_VERDACCIO_TOKEN:-}
+      MW_SEARCH_PROVIDER: ${MW_SEARCH_PROVIDER:-searxng}
+      MW_SEARXNG_URL: ${MW_SEARXNG_URL:-http://searxng:8080}
       MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env to point at an OpenAI-compatible /v1 endpoint}
       MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env to the endpoint credential}
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env to a model slug (e.g. deepseek-chat)}
@@ -58,6 +74,8 @@ services:
       postgres:
         condition: service_healthy
       verdaccio:
+        condition: service_started
+      searxng:
         condition: service_started
 
   worker:
@@ -77,6 +95,8 @@ services:
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
       MW_VERDACCIO_TOKEN: ${MW_VERDACCIO_TOKEN:-}
+      MW_SEARCH_PROVIDER: ${MW_SEARCH_PROVIDER:-searxng}
+      MW_SEARXNG_URL: ${MW_SEARXNG_URL:-http://searxng:8080}
       MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env}
       MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env}
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env}
@@ -94,6 +114,8 @@ services:
       postgres:
         condition: service_healthy
       verdaccio:
+        condition: service_started
+      searxng:
         condition: service_started
 
   # ── Web UI ──────────────────────────────────────────────

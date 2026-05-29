@@ -22,6 +22,10 @@ export interface ModuleWardenConfig {
     apiKey: string;
     modelName: string;
   };
+  search: {
+    provider: 'searxng' | 'disabled';
+    searxngUrl: string;
+  };
   piOrchestration: {
     auditImageName: string;
     rpcPort: number;
@@ -157,6 +161,10 @@ export function defaultConfig(): ModuleWardenConfig {
       baseUrl: readRequiredString('MW_MODEL_ENDPOINT_BASE_URL'),
       apiKey: readRequiredString('MW_MODEL_ENDPOINT_API_KEY'),
       modelName: readRequiredString('MW_MODEL_ENDPOINT_MODEL'),
+    },
+    search: {
+      provider: process.env.MW_SEARCH_PROVIDER === 'disabled' ? 'disabled' : 'searxng',
+      searxngUrl: process.env.MW_SEARXNG_URL ?? 'http://searxng:8080',
     },
     piOrchestration: {
       auditImageName: process.env.MW_AUDIT_IMAGE ?? 'modulewarden-audit-runner',

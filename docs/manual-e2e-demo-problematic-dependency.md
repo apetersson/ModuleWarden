@@ -88,7 +88,7 @@ Build the audit-runner image first, then start the stack.
 
 ```bash
 docker compose build audit-runner
-docker compose up -d --build postgres verdaccio api-proxy worker web-ui
+docker compose up -d --build postgres verdaccio searxng api-proxy worker web-ui
 ```
 
 Validate services:
@@ -103,8 +103,10 @@ docker compose logs --tail=100 worker
 Expected:
 
 - API health returns JSON.
-- `postgres`, `verdaccio`, `api-proxy`, `worker`, and `web-ui` are running.
+- `postgres`, `verdaccio`, `searxng`, `api-proxy`, `worker`, and `web-ui` are running.
 - Worker logs do not show database connection or Docker socket failures.
+
+The `searxng` service is internal-only. Audit containers do not call it directly; they call ModuleWarden's `web-search` RPC tool, and `api-proxy` brokers the request to SearXNG plus npm/OSV advisory sources.
 
 ## 3. Create A Fresh Demo Repo
 
