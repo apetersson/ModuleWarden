@@ -273,11 +273,13 @@ it because it gates every install regardless of the trigger.
 ## Q11b. Are you not just using DeepSeek's hosted API to do your job?
 
 No. The deterministic gate handles 80 percent of decisions with zero
-LLM involvement. Our fine-tuned 27B model is the primary verdict for
-the other 20 percent, running in the per-job Docker container with
-prompt secrecy guaranteed. DeepSeek V3 is consulted only when our
-primary model lands in the QUARANTINE band, which is roughly 5 percent
-of total decisions. The DeepSeek call is the second-opinion model that
+LLM involvement, and the gate is the verdict authority. For the ambiguous
+20 percent, our own fine-tuned auditor model produces the structured audit
+report in the per-job Docker container with prompt secrecy guaranteed. That
+auditor is a real fine-tune trained on real GHSA cases (a small QLoRA today,
+Qwen2.5-Coder; the 27B is the Leonardo scale-up, not yet trained). DeepSeek
+V3 is consulted only in the QUARANTINE band, roughly 5 percent of total
+decisions. The DeepSeek call is the second-opinion model that
 underwriters use for borderline accounts. The supersedes pointer
 captures the case where the two models disagree, and that case routes
 to admin review. We trained the primary model. We hired the second
@@ -298,10 +300,12 @@ over-represented in the synthetic data, the breakdown would show it.
 
 ---
 
-## Q13. Why Qwen3.6-27B and not GPT-4?
+## Q13. Why Qwen3.6-27B as the scale-up target and not GPT-4?
 
-Three reasons. First, latency: Qwen3.6-27B with bf16 LoRA on an H100
-runs the audit in under 8 seconds. A per-install GPT-4 call would put
+To be precise: the model we have trained so far is a small Qwen2.5-Coder
+QLoRA; Qwen3.6-27B is the production scale-up target, and we picked it over
+a hosted model like GPT-4 for three reasons. First, latency: Qwen3.6-27B
+with bf16 LoRA on an H100 runs the audit in under 8 seconds. A per-install GPT-4 call would put
 cost-per-install at multiple cents, incompatible with a 12 USD per
 developer per month pricing model. Second, prompt secrecy: GPT-4 is
 hosted; our fine-tuned weights run in the customer's audit container

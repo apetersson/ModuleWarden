@@ -12,9 +12,10 @@ The deck is structured around ModuleWarden v2: an agentic version-diff
 gate for npm dependencies. Every install routes through the registry
 proxy; every gate decision pairs an `AuditDossier` (deterministic
 evidence) with an `AuditReport` (model verdict + cited findings); every
-allow is scoped to the exact tarball hash. The fine-tuned Qwen3.6-27B
-auditor is one component of the gate; the PI agentic harness is a
-second; the deterministic policy rules are a third. The story is the
+allow is scoped to the exact tarball hash. The fine-tuned auditor model
+(a small Qwen2.5-Coder fine-tune today; 27B is the scale-up target) is one
+component of the gate; the PI agentic harness is a second; the
+deterministic policy rules are a third. The story is the
 gate as a verifiable, attestable control class, not any single model.
 
 ---
@@ -92,7 +93,7 @@ start" with a question-mark icon. Below each: the default verdict
 deterministic 5-rule gate handles roughly 80 percent of decisions with
 zero LLM involvement. Release age, lifecycle script triage, SRI
 checksum, source-match, allowlist. Free and fast. Middle layer: our
-fine-tuned Qwen3.6-27B auditor runs the remaining 20 percent inside a
+fine-tuned auditor model runs the remaining 20 percent inside a
 per-job Docker container with run-scoped RPC tokens and prompt secrecy
 guaranteed. The audit container never sees DB credentials, Verdaccio
 credentials, or the audit prompts; the client never sees the prompts
@@ -106,17 +107,20 @@ trip on the primary path."
 
 **Visual:** Three stacked horizontal bands. Top band (80 percent of
 decisions): deterministic 5-rule gate. Middle band (20 percent): MW
-fine-tuned Qwen3.6-27B in per-job Docker container with prompt-secrecy
-boundary marked. Bottom band (5 percent of total, QUARANTINE only):
+fine-tuned auditor (Qwen2.5-Coder now; 27B target) in per-job Docker
+container with prompt-secrecy boundary marked. Bottom band (5 percent of total, QUARANTINE only):
 DeepSeek V3 second opinion, with supersedes-pointer arrow to admin
 override workflow. Verdaccio promote-only backing on the right.
 Postgres lineage on the left.
 
 **Bullets:**
-- Layer 1: deterministic 5-rule gate, ~80 percent of decisions, no LLM
-- Layer 2: MW fine-tuned Qwen3.6-27B in `packages/audit-runner` Docker
-  container, prompt secrecy guaranteed, primary verdict for the
-  remaining 20 percent
+- Layer 1: deterministic 5-rule gate, ~80 percent of decisions, no LLM.
+  This is the verdict authority.
+- Layer 2: MW fine-tuned auditor model in `packages/audit-runner` Docker
+  container, prompt secrecy guaranteed. It produces the structured audit
+  report for the ambiguous ~20 percent. Today a small QLoRA (Qwen2.5-Coder)
+  trained on real GHSA cases; the 27B is the Leonardo scale-up target, not
+  yet trained.
 - Layer 3: DeepSeek V3 hosted, QUARANTINE-band only (~5 percent of
   total), captured in supersedes pointer if disagreement
 - `AuditDossier`-`AuditReport` contract: stable evidence references,
@@ -331,7 +335,7 @@ deferred". Each side has a bulleted list. No padding or bluffing.
 - Deterministic policy engine
 - `AuditDossier`-`AuditReport` contract with schema enforcement
 - Corpus walker: scraped-cases.jsonl -> sft-records.jsonl
-- Abliteration + SFT LoRA on Qwen3.6-27B
+- Abliteration + SFT LoRA (Qwen2.5-Coder trained now; Qwen3.6-27B target)
 - PI agentic harness (`packages/audit-runner`)
 - 4-arm eval matrix runner
 - postmark-mcp incident replay with Control Evidence Memo
@@ -347,13 +351,17 @@ deferred". Each side has a bulleted list. No padding or bluffing.
 ## Slide 11 - Eval methodology (held in reserve)
 
 **Speaker note:** Only show this slide if a judge asks about the model
-side. "Train, validation, test split is 70-15-15 stratified by package
-name so the model cannot memorize package quirks. The 4-arm eval
-matrix compares base Qwen3.6-27B one-shot, fine-tuned Qwen3.6-27B
-one-shot, base + PI agentic harness, and fine-tuned + PI agentic
-harness seeded with the one-shot report. Metrics: malicious catch
-rate, benign false quarantine/block rate, JSON validity, evidence
-citation accuracy, missed suspicious deltas, runtime, tool call count.
+side, and be precise about what is trained versus planned. "We have a real
+trained model: a QLoRA fine-tune of Qwen2.5-Coder on 386 real GHSA
+dossier-to-report records, evaluated on a held-out split. Honest current
+result on the 0.5B: base produces no parseable verdict (0 percent),
+fine-tuned reproduces the gold verdict 46.7 percent of the time - the lift
+shows the data and pipeline work end to end, and the model is a narrator,
+not the verdict authority (the deterministic gate is). The 1.5B local run is
+VRAM-bound on this box; the 27B is the Leonardo scale-up. The planned 4-arm
+matrix (base vs fine-tuned, one-shot vs PI agentic harness) reports malicious
+catch rate, benign false quarantine/block rate, JSON validity, evidence
+citation accuracy, missed deltas, runtime, tool call count.
 Output ships as a JSON document per run; we can show the per-arm
 breakdown to confirm the model is not just memorizing the synthetic
 distribution."

@@ -326,6 +326,32 @@ def _premium_exclusion_line(incident_id: str, dossier: dict[str, Any], report: d
     return "**Premium / exclusion.** Manual underwriting review required."
 
 
+def _kill_chain_attack(dossier: dict[str, Any]) -> dict[str, Any] | None:
+    """Map the dossier's static capability_deltas to a MITRE ATT&CK kill chain.
+
+    Optional enrichment, never the verdict. Guarded import so the chat still
+    runs if the mapper is unavailable; returns None when there is no chain.
+    """
+    try:
+        from finetune.python.decepticon.mapper import kill_chain_narrative
+    except Exception:
+        return None
+    kc = kill_chain_narrative(dossier.get("capability_deltas") or [])
+    return kc if kc.get("depth", 0) > 0 else None
+
+
+def _kill_chain_line(dossier: dict[str, Any]) -> str | None:
+    """One-line ATT&CK attack-path summary for the underwriting memo."""
+    kc = _kill_chain_attack(dossier)
+    if not kc:
+        return None
+    techs = ", ".join(kc["technique_ids"])
+    return (
+        f"**Attack path (MITRE ATT&CK).** {kc['chain']} "
+        f"({techs}), mapped from the package's observed capabilities."
+    )
+
+
 def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
     """Deterministic Control Evidence Memo, framed as an underwriting decision.
 
@@ -337,6 +363,7 @@ def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report:
     verdict_line = _format_verdict_line(incident_id, report)
     summary = report.get("summary") or ""
     premium = _premium_exclusion_line(incident_id, dossier, report)
+    kill_chain = _kill_chain_line(dossier)
     findings = _format_findings(report)
     body = [
         "### Control Evidence Memo",
@@ -347,6 +374,8 @@ def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report:
         "",
         premium,
         "",
+        kill_chain,
+        "" if kill_chain else None,
         f"_Why:_ {summary}" if summary else "",
         "",
         "**Cited evidence**",
@@ -391,12 +420,16 @@ def narrate_underwriting(
         ),
         "primary_findings": report.get("primary_findings"),
         "summary": report.get("summary"),
+        "mitre_attack_kill_chain": _kill_chain_attack(dossier),
     }
     user_msg = (
         "A UNIQA cyber-policy underwriter is assessing this applicant's "
         "dependency. The verdict and evidence below are PINNED by the "
         "ModuleWarden gate and are authoritative -- explain and frame them "
-        "for the underwriter, do not change the verdict or invent findings.\n\n"
+        "for the underwriter, do not change the verdict or invent findings. "
+        "If mitre_attack_kill_chain is present, narrate it as the attack path "
+        "in underwriter terms; cite only those technique ids, do not invent "
+        "techniques.\n\n"
         + json.dumps(pinned, indent=2, ensure_ascii=False)
     )
     messages = [*(history or []), {"role": "user", "content": user_msg}]

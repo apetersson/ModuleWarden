@@ -266,6 +266,32 @@ def _render_summaries(p: _Palette, report: dict[str, Any]) -> None:
         print(f"  {adm}\n")
 
 
+def _attack_kill_chain(dossier: dict[str, Any]) -> dict[str, Any] | None:
+    """MITRE ATT&CK kill chain from the dossier's static capability_deltas.
+
+    Deterministic mapping, no execution, no Decepticon process. Guarded so the
+    demo runs even if the mapper is unavailable.
+    """
+    try:
+        from finetune.python.decepticon.mapper import kill_chain_narrative
+    except Exception:
+        return None
+    kc = kill_chain_narrative(dossier.get("capability_deltas") or [])
+    return kc if kc.get("depth", 0) > 0 else None
+
+
+def _render_kill_chain(p: _Palette, dossier: dict[str, Any]) -> None:
+    kc = _attack_kill_chain(dossier)
+    if not kc:
+        return
+    print(p.bold("  MITRE ATT&CK kill chain"))
+    print(p.gray("  " + "-" * 64))
+    print(p.cyan(f"  {kc['chain']}"))
+    for s in kc["steps"]:
+        print(f"  {p.yellow(s['technique_id']):<22} {s['tactic']:<18} {s['technique_name']}")
+    print(p.gray("  (mapped from observed capabilities; Decepticon is the offensive-validation roadmap partner)\n"))
+
+
 def _write_evidence_memo(
     incident_id: str,
     dossier: dict[str, Any],
@@ -401,6 +427,7 @@ def main(argv: list[str] | None = None) -> int:
     _render_gate_table(palette, gate_results)
     print(palette.gray(f"  Deterministic-gate action: {gate_action}\n"))
     _render_model_verdict(palette, report)
+    _render_kill_chain(palette, dossier)
     _render_summaries(palette, report)
 
     if not args.no_write:

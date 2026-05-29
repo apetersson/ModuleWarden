@@ -51,14 +51,14 @@ asking an LLM for a CSV parser, or a contractor merging a dependency PR."
 
 **Visual:** Architecture diagram appears, drawn one box at a time. Three
 horizontal layers. Top: deterministic 5-rule gate. Middle: MW fine-tuned
-Qwen3.6-27B auditor in a per-job Docker container. Bottom: DeepSeek V3
+auditor model in a per-job Docker container. Bottom: DeepSeek V3
 second opinion on QUARANTINE band only. Verdaccio promote-only backing on
 the right. Postgres lineage on the left.
 
 **Narrator:** "ModuleWarden gates every install through three layers. A
-deterministic policy engine handles 80 percent. Our fine-tuned 27B model
-is the primary verdict for the rest, running in an isolated audit container
-with prompt secrecy. DeepSeek V3 is the second opinion on the QUARANTINE
+deterministic policy engine handles 80 percent and is the verdict authority.
+Our fine-tuned auditor produces the audit report for the rest, running in an
+isolated container with prompt secrecy. DeepSeek V3 is the second opinion on the QUARANTINE
 band. Every decision lands in Postgres with prompt version, model profile,
 and supersedes pointer. Underwriting-grade evidence."
 

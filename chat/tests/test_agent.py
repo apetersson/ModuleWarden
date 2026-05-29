@@ -113,6 +113,20 @@ def test_underwriting_memo_per_verdict():
     assert "credit" in allow_turn.response_md.lower()
 
 
+def test_block_memo_includes_attack_kill_chain():
+    """The compromised release memo cites the MITRE ATT&CK kill chain."""
+    md = handle_query("postmark-mcp@1.0.16").response_md
+    assert "MITRE ATT&CK" in md
+    assert "T1195.002" in md  # supply-chain compromise leads
+    assert "T1041" in md  # exfiltration closes the chain
+
+
+def test_clean_release_has_no_kill_chain():
+    """A clean release with no capability_deltas shows no attack-path line."""
+    md = handle_query("lodash@4.17.21").response_md
+    assert "MITRE ATT&CK" not in md
+
+
 def test_cli_single_message():
     proc = subprocess.run(
         [sys.executable, "-m", "chat.cli", "look up postmark-mcp@1.0.16"],
