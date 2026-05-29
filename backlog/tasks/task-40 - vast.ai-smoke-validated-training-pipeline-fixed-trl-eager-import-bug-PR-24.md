@@ -1,7 +1,7 @@
 ---
 id: TASK-40
 title: 'vast.ai smoke validated training pipeline; fixed trl eager-import bug (PR #24)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-29 18:06'
 labels: []
@@ -26,3 +26,14 @@ CREDS now available and saved locally in ~/keys.txt (NOT in git): Nextcloud (ade
 
 See docs/TEAM-HANDOVER.md for the full picture.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Result (2026-05-29 18:25 UTC) - GREEN
+
+Full rehearsal ran end to end on the vast.ai RTX 3090 and exited with {"ok": true}:
+
+- Abliteration (Leonardo stage 1): best refusal layer 23 (norm 46.26), orthogonalized 56 weight matrices across 28 layers, saved abliterated model.
+- SFT LoRA (Leonardo stage 2): trained 1 epoch (train_loss 0.8677), wrote adapter_model.safetensors (73.9 MB) + adapter_config.json + tokenizer to model_sft/.
+
+Both Leonardo stages are now proven on real GPU hardware. The trl eager-import fix (PR #24) was required to reach this. Instance destroyed after the run, no further billing.
+
+NOTE for the team: there is a duplicate TASK-40 id collision from parallel work (this task and "Auditor LLM-wiki with BM25 RAG"). Worth renumbering one of them when convenient.
