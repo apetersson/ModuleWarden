@@ -555,14 +555,21 @@ export async function registerDashboardRoutes(
           rj."id" as job_id, rj."status" as job_status, rj."auditContext", rj."trigger",
           pv."packageName", pv."version", pv."tarballHash", pv."repositoryUrl", pv."license",
           d."id" as decision_id, d."verdict", d."reasonSummary", d."scores", d."promptVersion", d."actorType", d."createdAt" as decision_created
-        FROM "AuditRun" ar
-        JOIN "ReviewJob" rj ON rj."id" = ar."reviewJobId"
+        FROM "AuditRun" requested_ar
+        JOIN "ReviewJob" rj ON rj."id" = requested_ar."reviewJobId"
+        LEFT JOIN LATERAL (
+          SELECT "id", "status", "errorMessage", "piSessionId", "piRunId", "createdAt", "startedAt", "completedAt"
+          FROM "AuditRun"
+          WHERE "reviewJobId" = rj."id"
+          ORDER BY "createdAt" DESC
+          LIMIT 1
+        ) ar ON true
         JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
         LEFT JOIN LATERAL (
           SELECT "id", "verdict", "reasonSummary", "scores", "promptVersion", "actorType", "createdAt"
           FROM "Decision" WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
         ) d ON true
-        WHERE ar."id" = $1
+        WHERE requested_ar."id" = $1
       `, id);
 
       if (rows.length === 0) {
@@ -573,6 +580,7 @@ export async function registerDashboardRoutes(
       if (!row) {
         return reply.status(404).send({ error: 'Audit run not found' });
       }
+      const currentRunId = String(row.run_id ?? id);
       const scoresRaw = row.scores ? String(row.scores) : '{}';
       const promotionStatus = await readPromotionStatus(
         prisma,
@@ -583,7 +591,7 @@ export async function registerDashboardRoutes(
       );
 
       const detail: PackageVersionDetail = {
-        auditRunId: String(row.run_id ?? id),
+        auditRunId: currentRunId,
         runStatus: String(row.run_status ?? ''),
         reviewJobId: String(row.job_id ?? ''),
         jobStatus: String(row.job_status ?? ''),
@@ -605,7 +613,7 @@ export async function registerDashboardRoutes(
         piRunId: row.piRunId ? String(row.piRunId) : null,
         modelProfile: null,
         promptPackVersions: row.promptVersion ? [String(row.promptVersion)] : [],
-        promptUsage: readPromptUsage(id, row.promptVersion),
+        promptUsage: readPromptUsage(currentRunId, row.promptVersion),
         evidenceArtifacts: [],
         scores: (() => { try { return JSON.parse(scoresRaw); } catch { return {}; } })(),
         decisionHistory: row.decision_id ? [{
@@ -615,14 +623,14 @@ export async function registerDashboardRoutes(
           actorType: String(row.actorType ?? ''),
           createdAt: String(row.decision_created ?? ''),
         }] : [],
-        agentStream: readAgentStream(id),
+        agentStream: readAgentStream(currentRunId),
       };
 
       // Fetch evidence artifacts
       const evidenceRows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
         SELECT "id", "artifactType", "name", "content", "filePath", "createdAt"
         FROM "EvidenceArtifact" WHERE "auditRunId" = $1 ORDER BY "createdAt" DESC
-      `, id);
+      `, currentRunId);
       detail.evidenceArtifacts = evidenceRows.map((e) => ({
         id: String(e.id),
         type: String(e.artifactType ?? ''),
