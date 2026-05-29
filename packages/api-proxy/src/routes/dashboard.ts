@@ -438,7 +438,7 @@ export async function registerDashboardRoutes(
       const jobStatus = String(row.job_status ?? '');
       const jobTrigger = String(row.trigger ?? '');
       const verdict = row.verdict ? String(row.verdict) : null;
-      const promotionStatus = row.tarball_artifact_id ? 'promoted' : 'none';
+      const promotionStatus = verdict === 'ALLOW' && row.tarball_artifact_id ? 'promoted' : 'none';
       const workflowColumn = assignColumn(jobStatus, verdict);
       const decisionId = row.decision_id ? String(row.decision_id) : null;
       const latestDecisionId = row.latest_decision_id ? String(row.latest_decision_id) : null;
