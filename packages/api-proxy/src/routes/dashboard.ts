@@ -11,6 +11,7 @@ import {
   type PromptCategorySetting,
 } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
+import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { checkAdmin } from '../middleware/auth.js';
 import { JOB_TYPES } from '@modulewarden/shared/types';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -585,8 +586,8 @@ export async function registerDashboardRoutes(
         runStatus: String(row.run_status ?? ''),
         reviewJobId: String(row.job_id ?? ''),
         jobStatus: String(row.job_status ?? ''),
-        canRetry: ['CRASHED', 'TIMED_OUT', 'CANCELLED'].includes(String(row.run_status ?? '')) ||
-          ['FAILED', 'DEAD_LETTER'].includes(String(row.job_status ?? '')),
+        canRetry: !['RUNNING', 'PENDING'].includes(String(row.run_status ?? '')) &&
+          !['RUNNING', 'QUEUED', 'PENDING'].includes(String(row.job_status ?? '')),
         canPromote: String(row.verdict ?? '') === 'ALLOW' && promotionStatus !== 'promoted',
         promotionStatus,
         packageName: String(row.packageName ?? 'unknown'),
@@ -657,6 +658,7 @@ export async function registerDashboardRoutes(
               id: true,
               auditContext: true,
               status: true,
+              packageVersionId: true,
               packageVersion: {
                 select: {
                   packageName: true,
@@ -671,35 +673,55 @@ export async function registerDashboardRoutes(
       });
 
       if (!run) return reply.status(404).send({ error: 'Audit run not found' });
-      const retryable = ['CRASHED', 'TIMED_OUT', 'CANCELLED'].includes(run.status) ||
-        ['FAILED', 'DEAD_LETTER'].includes(run.reviewJob.status);
-      if (!retryable) {
+      const currentlyActive = ['RUNNING', 'PENDING'].includes(run.status) ||
+        ['RUNNING', 'QUEUED', 'PENDING'].includes(run.reviewJob.status);
+      if (currentlyActive) {
         return reply.status(409).send({
-          error: 'Audit run is not retryable',
+          error: 'Audit run is already active',
           status: run.status,
           jobStatus: run.reviewJob.status,
         });
       }
 
-      await prisma.reviewJob.update({
-        where: { id: run.reviewJob.id },
-        data: { status: 'QUEUED', failureReason: null },
-      });
-
       const pv = run.reviewJob.packageVersion;
+      const failureRetry = ['CRASHED', 'TIMED_OUT', 'CANCELLED'].includes(run.status) ||
+        ['FAILED', 'DEAD_LETTER'].includes(run.reviewJob.status);
+      const reAuditContext = `re-audit:manual:${run.id}:${Date.now()}`;
+      const targetReviewJob = failureRetry
+        ? await prisma.reviewJob.update({
+            where: { id: run.reviewJob.id },
+            data: { status: 'QUEUED', failureReason: null },
+            select: { id: true, auditContext: true },
+          })
+        : await prisma.reviewJob.create({
+            data: {
+              packageVersionId: run.reviewJob.packageVersionId,
+              auditContext: reAuditContext,
+              trigger: 'RE_AUDIT',
+              status: 'QUEUED',
+              idempotencyKey: buildIdempotencyKey(
+                'package-review',
+                pv.packageName,
+                pv.version,
+                pv.tarballHash,
+                reAuditContext
+              ),
+            },
+            select: { id: true, auditContext: true },
+          });
       const pgBossJobId = await retryAuditRun({
-        reviewJobId: run.reviewJob.id,
+        reviewJobId: targetReviewJob.id,
         packageName: pv.packageName,
         packageVersion: pv.version,
         tarballHash: pv.tarballHash,
         predecessorHash: pv.predecessor?.tarballHash ?? null,
-        auditContext: run.reviewJob.auditContext,
+        auditContext: targetReviewJob.auditContext,
         retryOfAuditRunId: run.id,
       });
 
       if (!pgBossJobId) {
         await prisma.reviewJob.update({
-          where: { id: run.reviewJob.id },
+          where: { id: targetReviewJob.id },
           data: {
             status: 'FAILED',
             failureReason: `${new Date().toISOString()}: retry enqueue failed`,
@@ -711,8 +733,9 @@ export async function registerDashboardRoutes(
       return reply.status(202).send({
         status: 'queued',
         retryOfAuditRunId: run.id,
-        reviewJobId: run.reviewJob.id,
+        reviewJobId: targetReviewJob.id,
         pgBossJobId,
+        mode: failureRetry ? 'retry' : 're-audit',
       });
     }
   );

@@ -1200,10 +1200,12 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
         headers: authHeaders(adminToken),
       });
       if (resp.ok) {
-        const body = await resp.json().catch(() => null) as { pgBossJobId?: string } | null;
+        const body = await resp.json().catch(() => null) as { pgBossJobId?: string; mode?: 'retry' | 're-audit' } | null;
         setRetryMessage({
           type: 'success',
-          text: body?.pgBossJobId ? `Retry queued (${body.pgBossJobId}).` : 'Retry queued.',
+          text: body?.pgBossJobId
+            ? `${body.mode === 're-audit' ? 'Re-audit' : 'Retry'} queued (${body.pgBossJobId}).`
+            : `${body?.mode === 're-audit' ? 'Re-audit' : 'Retry'} queued.`,
         });
         await load();
       } else {
@@ -1215,6 +1217,16 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
     }
     setRetrySubmitting(false);
   };
+
+  const retryButtonLabel = (() => {
+    if (retrySubmitting) return 'Queueing...';
+    const failedRunStates = new Set(['CRASHED', 'TIMED_OUT', 'CANCELLED']);
+    const failedJobStates = new Set(['FAILED', 'DEAD_LETTER']);
+    if (failedRunStates.has(detail?.runStatus ?? '') || failedJobStates.has(detail?.jobStatus ?? '')) {
+      return 'Retry Audit';
+    }
+    return 'Re-run Audit';
+  })();
 
   const openEvidence = async (id: string) => {
     setLoadingEvidence(id);
@@ -1334,7 +1346,7 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
                     fontWeight: 600,
                   }}
                 >
-                  {retrySubmitting ? 'Retrying...' : 'Retry Audit'}
+                  {retryButtonLabel}
                 </button>
                 <span style={{ fontSize: '0.8rem', color: '#666' }}>
                   Run {detail.runStatus ?? 'unknown'} · job {detail.jobStatus ?? 'unknown'}
