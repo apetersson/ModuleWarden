@@ -23,10 +23,12 @@ set -euo pipefail
 
 MODELS_DIR="${MODELS_DIR:-./models}"
 
-DEC_BF16_REPO="llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved"
+# Canonical pre-abliterated checkpoint per CLAUDE.md. Shared by the auditor and Decepticon.
+DEC_BF16_REPO="huihui-ai/Huihui-Qwen3.6-27B-abliterated"
+AUDITOR_BASE_REPO="huihui-ai/Huihui-Qwen3.6-27B-abliterated"
+# Optional alternative: a heretic-v2 GGUF for local llama.cpp (different abliteration lineage)
 DEC_GGUF_REPO="llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF"
 DEC_GGUF_FILE="Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf"
-AUDITOR_BASE_REPO="Qwen/Qwen3.6-27B"
 
 want_bf16=0; want_gguf=0; want_base=0
 for a in "$@"; do
