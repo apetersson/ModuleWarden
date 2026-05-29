@@ -184,6 +184,29 @@ describe('Audit RPC Bridge Server', () => {
     expect(files.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('7b. write-evidence accepts JSON-RPC-style flattened findings payloads', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/tools/write-evidence',
+      headers: { authorization: `Bearer ${RPC_TOKEN}` },
+      body: {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'call',
+        params: {
+          name: 'cors-anywhere',
+          version: '0.4.4',
+          findings: [{ id: 'CVE-2020-36851', severity: 'critical' }],
+          summary: 'Known advisory found',
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as RpcToolResult;
+    expect(body.success).toBe(true);
+    expect(String((body.data as Record<string, unknown>).evidenceId)).toContain('cors-anywhere-0.4.4-findings');
+  });
+
   // ── submit-verdict (local write only) ───────────────────────
 
   it('8. submit-verdict writes verdict locally even when remote fails', async () => {
@@ -220,5 +243,32 @@ describe('Audit RPC Bridge Server', () => {
     );
     expect(verdictFile.verdict).toBe('allow');
     expect(typeof verdictFile.riskSummary).toBe('string');
+  });
+
+  it('8b. submit-verdict accepts JSON-RPC-style flattened verdict payloads', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/tools/submit-verdict',
+      headers: { authorization: `Bearer ${RPC_TOKEN}` },
+      body: {
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'call',
+        params: {
+          verdict: 'block',
+          riskSummary: 'Critical SSRF advisory',
+          riskScore: 9,
+          evidenceRefs: ['ev-cve'],
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const outputDir = join(workspacePath, 'output');
+    const verdictFile = JSON.parse(
+      (await import('node:fs')).readFileSync(join(outputDir, 'verdict.json'), 'utf-8')
+    );
+    expect(verdictFile.verdict).toBe('block');
+    expect(verdictFile.scores.risk).toBe(9);
+    expect(verdictFile.evidenceReferences).toEqual(['ev-cve']);
   });
 });

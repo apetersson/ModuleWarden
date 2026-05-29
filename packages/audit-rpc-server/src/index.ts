@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execSync, execFileSync } from 'node:child_process';
 import type {
+  AuditVerdict,
   PackageInfoResponse,
   PredecessorDiffResponse,
   SourceMetadataResponse,
@@ -66,6 +67,77 @@ function readPackageJson(): Record<string, unknown> | null {
   const path = join(pkgDir(), 'package.json');
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, 'utf-8'));
+}
+
+function unwrapToolBody<T>(body: unknown): { requestId: string; params: T } {
+  const record = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+  const nestedParams = record.params && typeof record.params === 'object'
+    ? record.params as Record<string, unknown>
+    : {};
+  const params = record.jsonrpc && nestedParams.params && typeof nestedParams.params === 'object'
+    ? nestedParams.params as Record<string, unknown>
+    : nestedParams;
+  return {
+    requestId: String(record.requestId ?? record.id ?? `req-${Date.now()}`),
+    params: (params && typeof params === 'object' ? params : {}) as T,
+  };
+}
+
+function normalizeEvidenceParams(params: Record<string, unknown>): WriteEvidenceParams {
+  const label = typeof params.label === 'string'
+    ? params.label
+    : typeof params.name === 'string' && typeof params.version === 'string'
+      ? `${params.name}-${params.version}-findings`
+      : `evidence-${Date.now()}`;
+  const description = typeof params.description === 'string'
+    ? params.description
+    : typeof params.summary === 'string'
+      ? params.summary
+      : 'Audit evidence';
+  const rawType = typeof params.type === 'string' ? params.type : 'other';
+  const validTypes = new Set(['static-analysis', 'sandbox-trace', 'web-search', 'pi-session-log', 'pi-session-artifact', 'other']);
+  return {
+    type: validTypes.has(rawType) ? rawType as WriteEvidenceParams['type'] : 'other',
+    label,
+    description,
+    data: (params.data && typeof params.data === 'object' ? params.data : params) as Record<string, unknown>,
+    filePaths: Array.isArray(params.filePaths)
+      ? params.filePaths.map(String)
+      : Array.isArray(params.evidence_files)
+        ? params.evidence_files.map(String)
+        : undefined,
+  };
+}
+
+function normalizeVerdictParams(params: Record<string, unknown>): SubmitVerdictParams {
+  const source = params.verdict && typeof params.verdict === 'object'
+    ? params.verdict as Record<string, unknown>
+    : params;
+  const rawVerdict = String(source.verdict ?? 'quarantine').toLowerCase();
+  const verdict = ['allow', 'block', 'quarantine'].includes(rawVerdict)
+    ? rawVerdict as AuditVerdict['verdict']
+    : 'quarantine';
+  const score = typeof source.riskScore === 'number' ? source.riskScore : undefined;
+
+  return {
+    verdict: {
+      verdict,
+      riskSummary: String(source.riskSummary ?? source.summary ?? ''),
+      capabilityDeltas: Array.isArray(source.capabilityDeltas) ? source.capabilityDeltas as AuditVerdict['capabilityDeltas'] : [],
+      intentMismatches: Array.isArray(source.intentMismatches) ? source.intentMismatches as AuditVerdict['intentMismatches'] : [],
+      exploitHypotheses: Array.isArray(source.exploitHypotheses) ? source.exploitHypotheses as AuditVerdict['exploitHypotheses'] : [],
+      scores: source.scores && typeof source.scores === 'object'
+        ? source.scores as Record<string, number>
+        : score === undefined ? {} : { risk: score },
+      evidenceReferences: Array.isArray(source.evidenceReferences)
+        ? source.evidenceReferences.map(String)
+        : Array.isArray(source.evidenceRefs)
+          ? source.evidenceRefs.map(String)
+          : [],
+      ...(typeof source.piSessionId === 'string' ? { piSessionId: source.piSessionId } : {}),
+      ...(typeof source.promptPackVersion === 'string' ? { promptPackVersion: source.promptPackVersion } : {}),
+    },
+  };
 }
 
 // ── Tool Implementations ────────────────────────────────────
@@ -170,6 +242,22 @@ function handleStaticChecks(requestId: string): RpcToolResult {
 
   // Use shared AST-based capability extraction (ARCH-03)
   const { findings: capFindings, summary } = extractCapabilities(packageDir);
+  const pkg = readPackageJson();
+  const scripts = pkg?.scripts && typeof pkg.scripts === 'object'
+    ? pkg.scripts as Record<string, string>
+    : {};
+  const installScripts = ['preinstall', 'install', 'postinstall', 'prepare']
+    .filter((name) => typeof scripts[name] === 'string');
+  if (installScripts.length > 0) {
+    capFindings.push({
+      category: 'install-time',
+      severity: 'high',
+      description: 'Lifecycle script executes during package installation',
+      files: ['package.json'],
+      evidence: installScripts.map((name) => `${name}: ${scripts[name]}`),
+    });
+    summary['install-time'] = 'high';
+  }
 
   const suspiciousPatterns: string[] = [];
   for (const f of capFindings) {
@@ -341,28 +429,39 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ── Tool Routes ──────────────────────────────────────────
 
   app.post<{ Body: { requestId: string } }>('/tools/package-info', async (request) =>
-    handlePackageInfo(request.body.requestId));
+    handlePackageInfo(unwrapToolBody<Record<string, never>>(request.body).requestId));
 
   app.post<{ Body: { requestId: string } }>('/tools/source-metadata', async (request) =>
-    handleSourceMetadata(request.body.requestId));
+    handleSourceMetadata(unwrapToolBody<Record<string, never>>(request.body).requestId));
 
   app.post<{ Body: { requestId: string } }>('/tools/static-checks', async (request) =>
-    handleStaticChecks(request.body.requestId));
+    handleStaticChecks(unwrapToolBody<Record<string, never>>(request.body).requestId));
 
-  app.post<{ Body: { requestId: string; params: SandboxExecuteParams } }>('/tools/sandbox-execute', async (request) =>
-    handleSandboxExecute(request.body.requestId, request.body.params));
+  app.post<{ Body: { requestId: string; params: SandboxExecuteParams } }>('/tools/sandbox-execute', async (request) => {
+    const { requestId, params } = unwrapToolBody<SandboxExecuteParams>(request.body);
+    return handleSandboxExecute(requestId, params);
+  });
 
   app.post<{ Body: { requestId: string; params: { predecessorVersion: string; predecessorHash: string } } }>(
-    '/tools/predecessor-diff', async (request) => handleProxyDiff(request.body.requestId, request.body.params));
+    '/tools/predecessor-diff', async (request) => {
+      const { requestId, params } = unwrapToolBody<{ predecessorVersion: string; predecessorHash: string }>(request.body);
+      return handleProxyDiff(requestId, params);
+    });
 
-  app.post<{ Body: { requestId: string; params: WebSearchParams } }>(
-    '/tools/web-search', async (request) => handleWebSearch(request.body.requestId, request.body.params));
+  app.post<{ Body: { requestId: string; params: WebSearchParams } }>('/tools/web-search', async (request) => {
+    const { requestId, params } = unwrapToolBody<WebSearchParams>(request.body);
+    return handleWebSearch(requestId, params);
+  });
 
-  app.post<{ Body: { requestId: string; params: WriteEvidenceParams } }>(
-    '/tools/write-evidence', async (request) => handleWriteEvidence(request.body.requestId, request.body.params));
+  app.post<{ Body: { requestId: string; params: WriteEvidenceParams } }>('/tools/write-evidence', async (request) => {
+    const { requestId, params } = unwrapToolBody<Record<string, unknown>>(request.body);
+    return handleWriteEvidence(requestId, normalizeEvidenceParams(params));
+  });
 
-  app.post<{ Body: { requestId: string; params: SubmitVerdictParams } }>(
-    '/tools/submit-verdict', async (request) => handleSubmitVerdict(request.body.requestId, request.body.params));
+  app.post<{ Body: { requestId: string; params: SubmitVerdictParams } }>('/tools/submit-verdict', async (request) => {
+    const { requestId, params } = unwrapToolBody<Record<string, unknown>>(request.body);
+    return handleSubmitVerdict(requestId, normalizeVerdictParams(params));
+  });
 
   return app;
 }

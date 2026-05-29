@@ -86,6 +86,19 @@ You have access to the following tools via the RPC bridge at http://127.0.0.1:${
 - **write-evidence** — Persist findings as evidence artifacts
 - **submit-verdict** — Submit your final structured verdict
 
+Call RPC tools with ModuleWarden's direct envelope shape, not JSON-RPC. Example:
+\`\`\`bash
+curl -s -X POST http://127.0.0.1:${RPC_PORT}/tools/write-evidence \\
+  -H "Authorization: Bearer $MW_RPC_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"requestId":"ev-1","params":{"type":"web-search","label":"known-advisory","description":"Known vulnerability review","data":{"finding":"...","sources":["..."]}}}'
+
+curl -s -X POST http://127.0.0.1:${RPC_PORT}/tools/submit-verdict \\
+  -H "Authorization: Bearer $MW_RPC_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"requestId":"verdict-1","params":{"verdict":{"verdict":"quarantine","riskSummary":"...","capabilityDeltas":[],"intentMismatches":[],"exploitHypotheses":[],"scores":{"risk":0.5},"evidenceReferences":["ev-known-advisory"]}}}'
+\`\`\`
+
 The container also includes command-line inspection helpers:
 - **prettier** — Format minified or bundled JavaScript into readable inspection copies
 - **js-beautify** — Alternative JavaScript beautifier for files Prettier cannot parse cleanly

@@ -434,9 +434,10 @@ export async function registerDashboardRoutes(
       const jobTrigger = String(row.trigger ?? '');
       const verdict = row.verdict ? String(row.verdict) : null;
       const promotionStatus = row.tarball_artifact_id ? 'promoted' : 'none';
-      const column = promotionStatus === 'promoted'
+      const workflowColumn = assignColumn(jobStatus, verdict);
+      const column = promotionStatus === 'promoted' && workflowColumn === 'allowed'
         ? 'promoted'
-        : assignColumn(jobStatus, verdict);
+        : workflowColumn;
 
       const card: AuditRunCard = {
         id: String(row.run_id || row.job_id),
