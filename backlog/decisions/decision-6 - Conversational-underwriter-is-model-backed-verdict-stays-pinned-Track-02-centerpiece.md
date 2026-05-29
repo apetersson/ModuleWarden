@@ -4,8 +4,13 @@ title: >-
   Conversational underwriter is model-backed; verdict stays pinned (Track 02
   centerpiece)
 date: '2026-05-29 09:05'
-status: accepted
+status: superseded
 ---
+> SUPERSEDED by decision-10 (Pivot to the Forecast track, 2026-05-29). The
+> conversational agent and memo machinery are reused as the agent layer, but the
+> UNIQA underwriter framing is no longer the headline. The technical content below
+> (verdict pinned, model narrates, deterministic memo fallback) remains valid.
+
 ## Context
 
 A "what are we missing to win" pass (workflow mw-win-gap: 3 recon agents +

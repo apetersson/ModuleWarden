@@ -4,7 +4,7 @@ title: >-
   Pivot to the Forecast track: forecast the version DELTA (not the cold package);
   deterministic delta-gate is the verdict authority, model narrates
 date: '2026-05-29 21:30'
-status: proposed
+status: accepted
 ---
 ## Context
 

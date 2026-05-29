@@ -109,16 +109,18 @@ displacement.
 
 ## Q2. What is your false positive rate?
 
-We measure `false_quarantine_block_rate` on the SecLens-R bench. The
-target on benign packages is under 5 percent quarantine and under 2
-percent block. The quarantine band exists explicitly to absorb model
-uncertainty: anything where confidence sits between 0.4 and 0.7 routes
-to admin review with mandatory rationale notes, captured in the
-Postgres supersedes pointer chain. The expected proportion of installs
-that hit quarantine is low single digits because the score distribution
-is bimodal. Most packages cluster near zero. The reviewer queue is
-tractable. We will show the exact numbers from Saturday's eval on Slide
-11 if you ask.
+Straight answer: the deterministic gate is the verdict authority, so
+the false-positive question is about the gate rules, not a model score.
+On the model side we are honest about what we measured. A static
+classifier on cold-package features floors at AUROC 0.54 on this corpus,
+because the affected and patched versions of the same package look
+almost identical, so we do not lean on a calibrated probability for the
+verdict. The quarantine band absorbs uncertainty: anything the gate
+cannot resolve routes to admin review with mandatory rationale notes,
+captured in the Postgres supersedes pointer chain. We would rather
+quarantine and route to a human than auto-allow on a weak score. We
+have not run a dedicated benign-false-positive bench yet; that is honest
+open work, not a number we will invent on stage.
 
 ---
 
@@ -156,13 +158,18 @@ queue.
 
 ## Q5. Why these thresholds, 0.4 and 0.7?
 
-Calibrated to the SecLens-R held-out test set. At p over 0.7, the
-empirical block precision sits in the target band. At p under 0.4, the
-empirical allow precision exceeds 98 percent. The 0.4 to 0.7 band is
-where calibration is uncertain enough that we route to human review.
-These are defaults; every customer can tune them. A bank might run at
-0.3 allow and 0.6 block, accepting more quarantine load. A startup
-might run at 0.5 and 0.8, accepting more risk for lower friction.
+Straight answer: they are design defaults, not numbers calibrated
+against a held-out set. We measured the static classifier and it floors
+at AUROC 0.54 on the cold package and 0.60 on the same-package delta, so
+a calibrated probability is not something we can honestly claim yet. The
+0.4 to 0.7 band is a routing policy: scores in the middle are exactly
+where we do not trust the model, so they go to human review rather than
+an automated allow or block. The verdict authority is the deterministic
+gate, not the score. Every customer can tune the band; a bank routes
+more to review, a startup accepts more risk for less friction. When the
+delta-embedding layer is measured (it is GPU-deferred, scaffold ready),
+we will calibrate the band against a held-out set and show the
+reliability diagram. Until then we do not present a calibrated number.
 
 ---
 
