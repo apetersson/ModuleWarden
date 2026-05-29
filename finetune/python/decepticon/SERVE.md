@@ -112,10 +112,18 @@ Preflight first, on the login node, no GPU needed:
     python -m finetune.python.decepticon.config_check
     # expect READY (model_endpoint is WARN until vLLM is up)
 
+Fetch the model into scratch from the login node (pinned; see MODELS.md):
+
+    MODELS_DIR=$SCRATCH/models finetune/python/decepticon/fetch-models.sh --decepticon-bf16
+
+The weights come straight from HuggingFace, not via a laptop or Nextcloud (the bf16
+is ~56 GB). A staging copy of `fetch-models.sh` also lives at
+`ZeroToOne_Data/models/` on Nextcloud if you prefer to grab it there.
+
 Serve with vLLM (OpenAI-compatible) inside a GPU job:
 
     python -m vllm.entrypoints.openai.api_server \
-        --model /leonardo_work/.../heretic-v2-bf16 \
+        --model $MODELS_DIR/decepticon-heretic-v2-bf16 \
         --served-model-name heretic-v2 \
         --host 0.0.0.0 --port 8081
 
