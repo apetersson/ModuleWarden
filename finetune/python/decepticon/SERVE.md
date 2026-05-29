@@ -97,6 +97,52 @@ The technique ids stay pinned by the deterministic mapper; the GGUF only narrate
 them. If the endpoint is not configured, the client raises rather than faking a
 narrative (no silent degrade).
 
+## On Leonardo HPC (Slurm + Apptainer + vLLM)
+
+Leonardo (CINECA) is Slurm-scheduled with A100 64 GB nodes and uses Apptainer, not
+Docker. On HPC the natural serving choice is vLLM on the bf16 safetensors, since
+the bf16 model is already present for the auditor fine-tune. You do not need the
+GGUF or ollama there.
+
+Model for vLLM: the bf16 repo, not the GGUF.
+`llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved`
+
+Preflight first, on the login node, no GPU needed:
+
+    python -m finetune.python.decepticon.config_check
+    # expect READY (model_endpoint is WARN until vLLM is up)
+
+Serve with vLLM (OpenAI-compatible) inside a GPU job:
+
+    python -m vllm.entrypoints.openai.api_server \
+        --model /leonardo_work/.../heretic-v2-bf16 \
+        --served-model-name heretic-v2 \
+        --host 0.0.0.0 --port 8081
+
+    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://$(hostname):8081/v1
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2
+
+A minimal Slurm job that serves, waits, preflights, then generates:
+
+    #!/bin/bash
+    #SBATCH --partition=boost_usr_prod
+    #SBATCH --gres=gpu:1
+    #SBATCH --time=00:30:00
+    module load python cuda
+    python -m vllm.entrypoints.openai.api_server \
+        --model "$MODEL_DIR" --served-model-name heretic-v2 \
+        --host 0.0.0.0 --port 8081 &
+    until curl -sf http://localhost:8081/v1/models >/dev/null; do sleep 5; done
+    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2
+    python -m finetune.python.decepticon.config_check   # now expect all PASS
+    python -m finetune.python.decepticon.adversary -n 200 --use-model \
+        --out finetune/corpus/hard-negatives.jsonl
+
+If you run vLLM from an Apptainer image, prefix with `apptainer exec --nv vllm.sif`.
+The deterministic core (coverage, adversary without `--use-model`) needs no GPU and
+runs on the login node; only `--use-model` enrichment needs the served model.
+
 ## Why no abliteration step here
 
 The GGUF is already abliterated (heretic-v2). Decepticon is offense-side narration
