@@ -95,9 +95,63 @@ def contains_smuggled_unicode(text: str) -> bool:
     return bool(_TAG_BLOCK.search(text) or _ZERO_WIDTH.search(text) or _VARIATION.search(text))
 
 
+# --- B5 secret redaction (BitGN-PAC reference, MIT; arXiv fit note 07 sec 2.2) ---
+#
+# Post-read redaction layer. The audit runner reads tarball source, READMEs and
+# changelogs that may carry real credentials from the package repo. Strip known
+# secret shapes BEFORE the text re-enters the auditing LLM context, so a leaked
+# token never lands in the audit log. High-precision patterns only: every regex
+# anchors on a vendor-specific prefix or structural marker to keep the
+# false-positive rate near zero on ordinary package source.
+#
+# Each tuple is (KIND, pattern). KIND is emitted in the replacement token so the
+# audit signal "a credential was present here" survives the redaction.
+_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # PEM private-key blocks (RSA, EC, OPENSSH, generic). Match the whole block
+    # including the BEGIN/END armor, across newlines.
+    (
+        "PEM_PRIVATE_KEY",
+        re.compile(
+            r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----.*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----",
+            re.DOTALL,
+        ),
+    ),
+    # Anthropic API keys: sk-ant-... (prefix is vendor-specific).
+    ("ANTHROPIC_KEY", re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}")),
+    # AWS access key id: AKIA + 16 uppercase-alnum.
+    ("AWS_ACCESS_KEY", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    # GitHub tokens: ghp_/gho_/ghs_/ghu_ + 36 chars.
+    ("GITHUB_TOKEN", re.compile(r"\bgh[posu]_[A-Za-z0-9]{36}\b")),
+    # JWT: three base64url segments, header begins eyJ and so does the payload.
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")),
+    # OpenAI-style keys: sk- followed by >=20 base62 chars. Checked AFTER the
+    # Anthropic pattern so sk-ant-... keeps its specific KIND label.
+    ("OPENAI_KEY", re.compile(r"\bsk-[A-Za-z0-9]{20,}\b")),
+)
+
+
+def redact_secrets(text: str) -> str:
+    """Replace high-confidence secret tokens in `text` with `[REDACTED:KIND]`.
+
+    Covers AWS access keys, GitHub tokens, Anthropic and OpenAI credentials,
+    JWTs, and PEM private-key blocks. Each pattern anchors on a vendor prefix or
+    structural marker, so it does not maul ordinary package source.
+
+    Idempotent: a second pass over already-redacted text is a no-op because the
+    replacement token contains none of the secret shapes. Never raises; a
+    non-string input is returned unchanged.
+    """
+    if not isinstance(text, str):
+        return text
+    for kind, pattern in _SECRET_PATTERNS:
+        text = pattern.sub(f"[REDACTED:{kind}]", text)
+    return text
+
+
 __all__ = [
     "normalize_field",
     "datamark_field",
     "normalize_dossier",
     "contains_smuggled_unicode",
+    "redact_secrets",
 ]
