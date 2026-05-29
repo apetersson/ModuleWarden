@@ -87,7 +87,7 @@ export async function registerTarballRoute(
       const versionData = upstream?.versions?.[version];
       const resolvedHash = versionData?.dist?.integrity ?? versionData?.dist?.shasum;
 
-      let pv: { id: string; tarballHash: string } | null = await prisma.packageVersion.findFirst({
+      let pv: { id: string; tarballHash: string; tarballArtifacts: { id: string }[] } | null = await prisma.packageVersion.findFirst({
         where: {
           packageName,
           version,
@@ -98,6 +98,10 @@ export async function registerTarballRoute(
         select: {
           id: true,
           tarballHash: true,
+          tarballArtifacts: {
+            select: { id: true },
+            take: 1,
+          },
         },
       });
 
@@ -126,6 +130,10 @@ export async function registerTarballRoute(
           select: {
             id: true,
             tarballHash: true,
+            tarballArtifacts: {
+              select: { id: true },
+              take: 1,
+            },
           },
         });
       }
@@ -135,7 +143,9 @@ export async function registerTarballRoute(
         // We know about this version — check its effective verdict
         const verdict = await getEffectiveVerdictByHash(packageName, version, effectiveHash);
 
-        if (verdict === 'ALLOW' && enabledProject?.graphState === 'READY') {
+        const isPromoted = Boolean(pv?.tarballArtifacts?.length);
+        const registryReady = !enabledProject || enabledProject.graphState === 'READY';
+        if (verdict === 'ALLOW' && (isPromoted || registryReady)) {
           // Proxy tarball from Verdaccio
           let tarballResponse: Response;
           try {
@@ -156,8 +166,15 @@ export async function registerTarballRoute(
               requestedVersion: version,
             } satisfies RegistryError);
           }
+          const headers = Object.fromEntries(tarballResponse.headers.entries());
+          // Node's fetch transparently handles encoded upstream responses; do
+          // not forward hop-by-hop/content-encoding metadata to npm clients.
+          delete headers['content-encoding'];
+          delete headers['content-length'];
+          delete headers['transfer-encoding'];
+          delete headers.vary;
           return reply
-            .headers(Object.fromEntries(tarballResponse.headers.entries()))
+            .headers(headers)
             .send(tarballResponse.body);
         }
 

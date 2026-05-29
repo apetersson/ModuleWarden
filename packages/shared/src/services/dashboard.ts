@@ -103,6 +103,8 @@ export interface PackageVersionDetail {
   reviewJobId?: string;
   jobStatus?: string;
   canRetry?: boolean;
+  canPromote?: boolean;
+  promotionStatus?: 'none' | 'pending' | 'promoted' | 'failed';
   packageName: string;
   version: string;
   tarballHash: string;
@@ -201,7 +203,7 @@ export interface EvidenceBundleDetail {
   type: string;
   name: string;
   /** Redacted content — safe for dashboard display */
-  content: Record<string, unknown>;
+  content: unknown;
   /** File path if stored */
   filePath?: string;
   createdAt: string;

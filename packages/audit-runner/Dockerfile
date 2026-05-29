@@ -37,8 +37,12 @@ RUN apk add --no-cache \
 # Enable corepack for pnpm
 RUN npm install -g corepack@latest && corepack enable && corepack prepare pnpm@latest --activate
 
-# Install PI as the agentic audit runtime
-RUN npm install -g @earendil-works/pi-coding-agent@latest
+# Install PI as the agentic audit runtime plus source-formatting helpers for
+# inspecting minified npm artifacts without changing the canonical evidence.
+RUN npm install -g \
+    @earendil-works/pi-coding-agent@latest \
+    prettier@3 \
+    js-beautify@1
 
 # Create workspace directory structure
 RUN mkdir -p /workspace/inputs /workspace/output /workspace/prepared-evidence && \

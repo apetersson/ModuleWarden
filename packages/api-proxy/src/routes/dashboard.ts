@@ -5,6 +5,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import { defaultConfig } from '@modulewarden/shared/config';
 import { checkAdmin } from '../middleware/auth.js';
 import { JOB_TYPES } from '@modulewarden/shared/types';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -30,6 +31,50 @@ type RetryAuditRun = (input: {
   auditContext: string;
   retryOfAuditRunId: string;
 }) => Promise<string | null>;
+
+type EnqueueVerdaccioPromotion = (input: {
+  decisionId: string;
+  packageName: string;
+  packageVersion: string;
+  tarballHash: string;
+}) => Promise<string | null>;
+
+async function readPromotionStatus(
+  prisma: ReturnType<typeof getPrisma>,
+  packageName: string,
+  packageVersion: string,
+  tarballHash: string,
+  decisionId: string | null
+): Promise<'none' | 'pending' | 'promoted' | 'failed'> {
+  const promoted = await prisma.tarballArtifact.findFirst({
+    where: {
+      packageVersion: {
+        packageName,
+        version: packageVersion,
+        registrySource: 'npm',
+        tarballHash,
+      },
+    },
+    select: { id: true },
+  });
+  if (promoted) return 'promoted';
+  if (!decisionId) return 'none';
+
+  const jobs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+    SELECT state
+    FROM "${defaultConfig().postgres.schema}"."job"
+    WHERE name = 'verdaccio-promotion'
+      AND data->>'decisionId' = $1
+    ORDER BY created_on DESC
+    LIMIT 1
+  `, decisionId);
+
+  const state = jobs[0]?.state ? String(jobs[0].state) : null;
+  if (!state) return 'none';
+  if (['created', 'active', 'retry'].includes(state)) return 'pending';
+  if (['failed', 'cancelled'].includes(state)) return 'failed';
+  return 'none';
+}
 
 function cardAge(createdAt: Date): number {
   return Math.floor((Date.now() - createdAt.getTime()) / 1000);
@@ -273,6 +318,25 @@ function findLiveWorkspace(root: string | undefined, auditRunId: string): string
   return null;
 }
 
+function readEvidenceFileContent(auditRunId: string, artifactName: string, filePath: unknown): { path: string; content: string } | null {
+  const directPath = filePath ? String(filePath) : '';
+  if (directPath && existsSync(directPath)) {
+    return { path: directPath, content: readFileSync(directPath, 'utf-8') };
+  }
+
+  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId);
+  const archiveDir = findSessionDir(process.env.MW_AUDIT_SESSION_ARCHIVE_ROOT, auditRunId);
+  for (const baseDir of [liveDir, archiveDir]) {
+    if (!baseDir) continue;
+    const archivedPath = join(baseDir, 'output', artifactName);
+    if (existsSync(archivedPath)) {
+      return { path: archivedPath, content: readFileSync(archivedPath, 'utf-8') };
+    }
+  }
+
+  return null;
+}
+
 function readAgentStream(auditRunId: string): AgentStream {
   const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId);
   const archiveDir = findSessionDir(process.env.MW_AUDIT_SESSION_ARCHIVE_ROOT, auditRunId);
@@ -314,7 +378,11 @@ function readAgentStream(auditRunId: string): AgentStream {
 /**
  * Register dashboard admin API routes.
  */
-export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRun?: RetryAuditRun): Promise<void> {
+export async function registerDashboardRoutes(
+  app: FastifyInstance,
+  retryAuditRun?: RetryAuditRun,
+  enqueueVerdaccioPromotion?: EnqueueVerdaccioPromotion,
+): Promise<void> {
   // ── GET /admin/dashboard ─────────────────────────────────────
 
   app.get('/admin/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -329,9 +397,11 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
         rj."updatedAt", rj."failureReason", rj."auditContext",
         pv."packageName", pv."version", pv."tarballHash",
         ar."id" as run_id, ar."status" as run_status, ar."errorMessage",
-        d."id" as decision_id, d."verdict", d."reasonSummary", d."promptVersion"
+        d."id" as decision_id, d."verdict", d."reasonSummary", d."promptVersion",
+        ta."id" as tarball_artifact_id
       FROM "ReviewJob" rj
       LEFT JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
+      LEFT JOIN "TarballArtifact" ta ON ta."packageVersionId" = pv."id"
       LEFT JOIN LATERAL (
         SELECT "id", "status", "errorMessage" FROM "AuditRun"
         WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
@@ -357,6 +427,10 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
       const jobStatus = String(row.job_status ?? '');
       const jobTrigger = String(row.trigger ?? '');
       const verdict = row.verdict ? String(row.verdict) : null;
+      const promotionStatus = row.tarball_artifact_id ? 'promoted' : 'none';
+      const column = promotionStatus === 'promoted'
+        ? 'promoted'
+        : assignColumn(jobStatus, verdict);
 
       const card: AuditRunCard = {
         id: String(row.run_id || row.job_id),
@@ -367,7 +441,7 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
           : jobTrigger === 'RE_AUDIT' ? 're-audit'
           : jobTrigger === 'MANUAL' ? 'admin' : 'preflight',
         jobState: jobStatus,
-        column: assignColumn(jobStatus, verdict),
+        column,
         riskSummary: row.reasonSummary ? String(row.reasonSummary) : row.errorMessage ? String(row.errorMessage) : null,
         createdAt: String(row.createdAt ?? new Date().toISOString()),
         updatedAt: String(row.updatedAt ?? new Date().toISOString()),
@@ -380,7 +454,7 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
         escalationStatus: 'none',
         verdict,
         decisionId: row.decision_id ? String(row.decision_id) : null,
-        promotionStatus: 'none',
+        promotionStatus,
         evidenceCount: 0,
       };
       columns[card.column].push(card);
@@ -493,6 +567,13 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
         return reply.status(404).send({ error: 'Audit run not found' });
       }
       const scoresRaw = row.scores ? String(row.scores) : '{}';
+      const promotionStatus = await readPromotionStatus(
+        prisma,
+        String(row.packageName ?? 'unknown'),
+        String(row.version ?? 'unknown'),
+        String(row.tarballHash ?? ''),
+        row.decision_id ? String(row.decision_id) : null,
+      );
 
       const detail: PackageVersionDetail = {
         auditRunId: String(row.run_id ?? id),
@@ -501,6 +582,8 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
         jobStatus: String(row.job_status ?? ''),
         canRetry: ['CRASHED', 'TIMED_OUT', 'CANCELLED'].includes(String(row.run_status ?? '')) ||
           ['FAILED', 'DEAD_LETTER'].includes(String(row.job_status ?? '')),
+        canPromote: String(row.verdict ?? '') === 'ALLOW' && promotionStatus !== 'promoted',
+        promotionStatus,
         packageName: String(row.packageName ?? 'unknown'),
         version: String(row.version ?? 'unknown'),
         tarballHash: String(row.tarballHash ?? ''),
@@ -629,6 +712,100 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
     }
   );
 
+  app.post<{ Params: { id: string } }>(
+    '/admin/audit-run/:id/promote',
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      if (!checkAdmin(request, reply)) return;
+      if (!enqueueVerdaccioPromotion) {
+        return reply.status(503).send({ error: 'Promotion queue is not available' });
+      }
+
+      const prisma = getPrisma();
+      const { id } = request.params;
+      const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        SELECT
+          ar."id" as run_id,
+          pv."packageName",
+          pv."version",
+          pv."tarballHash",
+          d."id" as decision_id,
+          d."verdict"
+        FROM "AuditRun" ar
+        JOIN "ReviewJob" rj ON rj."id" = ar."reviewJobId"
+        JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
+        LEFT JOIN LATERAL (
+          SELECT "id", "verdict"
+          FROM "Decision"
+          WHERE "reviewJobId" = rj."id"
+          ORDER BY "createdAt" DESC
+          LIMIT 1
+        ) d ON true
+        WHERE ar."id" = $1
+      `, id);
+
+      const row = rows[0];
+      if (!row) return reply.status(404).send({ error: 'Audit run not found' });
+      if (String(row.verdict ?? '') !== 'ALLOW' || !row.decision_id) {
+        return reply.status(409).send({ error: 'Only ALLOW decisions can be promoted' });
+      }
+
+      const promotionStatus = await readPromotionStatus(
+        prisma,
+        String(row.packageName),
+        String(row.version),
+        String(row.tarballHash),
+        String(row.decision_id),
+      );
+      if (promotionStatus === 'promoted') {
+        return reply.status(409).send({ error: 'Package is already promoted' });
+      }
+
+      const schema = defaultConfig().postgres.schema;
+      const existingJobs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+        SELECT id, state
+        FROM "${schema}"."job"
+        WHERE name = 'verdaccio-promotion'
+          AND data->>'decisionId' = $1
+        ORDER BY created_on DESC
+        LIMIT 1
+      `, String(row.decision_id));
+      const existingJob = existingJobs[0];
+      if (existingJob && ['created', 'active', 'retry'].includes(String(existingJob.state))) {
+        await prisma.$executeRawUnsafe(`
+          UPDATE "${schema}"."job"
+          SET state = 'created',
+              start_after = now(),
+              retry_count = 0,
+              output = NULL
+          WHERE id = $1::uuid
+        `, String(existingJob.id));
+        return reply.status(202).send({
+          status: 'requeued',
+          auditRunId: String(row.run_id),
+          decisionId: String(row.decision_id),
+          pgBossJobId: String(existingJob.id),
+        });
+      }
+
+      const pgBossJobId = await enqueueVerdaccioPromotion({
+        decisionId: String(row.decision_id),
+        packageName: String(row.packageName),
+        packageVersion: String(row.version),
+        tarballHash: String(row.tarballHash),
+      });
+      if (!pgBossJobId) {
+        return reply.status(500).send({ error: 'Promotion enqueue failed' });
+      }
+
+      return reply.status(202).send({
+        status: 'queued',
+        auditRunId: String(row.run_id),
+        decisionId: String(row.decision_id),
+        pgBossJobId,
+      });
+    }
+  );
+
   // ── GET /admin/evidence/:id ─────────────────────────────────
 
   app.get<{ Params: { id: string } }>(
@@ -655,7 +832,11 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
       if (!row) {
         return reply.status(404).send({ error: 'Evidence artifact not found' });
       }
-      const content = normalizeJsonContent(row.content);
+      const liveContent = readEvidenceFileContent(
+        String(row.audit_run_id),
+        String(row.name ?? ''),
+        row.filePath,
+      ) ?? normalizeJsonContent(row.content);
 
       /**
        * Recursively redact sensitive data from evidence content.
@@ -721,7 +902,7 @@ export async function registerDashboardRoutes(app: FastifyInstance, retryAuditRu
         return s;
       }
 
-      const redacted = redactSensitive(content);
+      const redacted = redactSensitive(liveContent);
 
       return reply.send({
         id: String(row.id),

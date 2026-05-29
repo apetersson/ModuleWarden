@@ -85,6 +85,25 @@ Decision standard:
 This prompt should catch "not obviously malware, but doing too much" cases. Treat unnecessary capability expansion as a product risk even when no known malicious signature is present.
 `),
 
+  prompt('core-known-vulnerability-and-advisory-review', 'CORE', `
+Audit the exact package name and version against current vulnerability intelligence before allowing it.
+
+You must use the web-search tool with source "advisories" for the package name, then write an evidence artifact summarizing the result. If the advisory lookup fails, times out, or returns ambiguous results, record that failure and apply conservative cold-start standards.
+
+Check for:
+- CVE, GHSA, OSV, npm advisory, Snyk, VulnCheck, Socket, maintainer issue, or security advisory matches for the exact package and version under audit
+- affected version ranges such as <=, <, introduced/fixed, last_affected, vulnerable branches, unpublished advisories, or aliases that map to the same issue
+- vulnerabilities that are about unsafe default behavior, misconfiguration, SSRF, permissive proxying/CORS, credential exposure, arbitrary file/network access, or dangerous examples, even when the package is legitimate and not malware
+- advisories published after the package release; a package can be historically popular and still be unsafe today
+
+Decision standard:
+- block when a reviewed or credible advisory says the exact version is affected by a critical/high vulnerability with no patched version or no safe default use
+- quarantine when an advisory may apply but the affected range, exploitability, or mitigation status is unclear
+- allow only when advisory evidence was checked, no relevant advisory applies to the exact version, and package behavior is otherwise acceptable
+
+Do not dismiss an advisory because the package's purpose is to perform the risky behavior. For infrastructure packages such as proxies, CORS relays, tunneling tools, request forwarders, credential helpers, or sandbox escape helpers, ask whether the default or common deployment creates an exploitable security boundary violation.
+`),
+
   prompt('pattern-maintainer-compromise-and-provenance', 'PATTERN_CHECK', `
 Look for signs that a legitimate package release may have been compromised rather than that the package name itself is fake.
 
@@ -153,6 +172,46 @@ Inspect for:
 - suppressing stdout/stderr or backgrounding processes
 
 Block if a package downloads or executes an unexplained remote payload. Quarantine if it contains dormant loader scaffolding or environment-gated payload behavior.
+`),
+
+  prompt('pattern-dual-use-proxy-ssrf-and-boundary-bypass', 'PATTERN_CHECK', `
+Review dual-use network infrastructure packages for security-boundary bypass, not only for malicious code.
+
+Packages that proxy, tunnel, relay CORS, forward HTTP requests, rewrite origins, bypass browser policy, or expose local/internal services can be unsafe even when the implementation is honest and documented.
+
+High-risk indicators:
+- unauthenticated open proxy behavior or examples that encourage public deployment without access control
+- forwarding arbitrary target URLs, methods, request bodies, or caller-controlled headers
+- ability to reach localhost, RFC1918 private networks, link-local addresses such as 169.254.169.254, cloud metadata services, Kubernetes/service-mesh endpoints, or internal admin APIs
+- CORS wildcard or origin-reflection behavior that lets browsers read responses from otherwise protected resources
+- support for unsafe methods such as PUT, PATCH, DELETE, CONNECT, or metadata-service token flows
+- allowlists, origin checks, or rate limits that are optional, disabled by default, bypassable, or only documented as operator responsibility
+
+Decision standard:
+- block when the exact package/version is affected by a credible SSRF/open-proxy/CORS-boundary advisory, especially critical/high CVE/GHSA/OSV records
+- quarantine when the package is intentionally dual-use and safe deployment depends on external configuration that is absent from the package defaults
+- allow only when risky forwarding behavior is tightly constrained by default, documented, and not covered by an applicable advisory
+
+Do not write "network behavior is expected for a proxy" as a reason to allow. Expected proxy behavior is the starting point; the audit must decide whether it is safely constrained.
+`),
+
+  prompt('pattern-minified-source-normalization', 'PATTERN_CHECK', `
+When a package ships minified, bundled, generated, or obfuscated JavaScript, create a readable inspection copy before deep review.
+
+The audit container includes these source-formatting helpers:
+- prettier
+- js-beautify
+
+Use them on copies of suspect files, never as replacements for the original package artifact. Good defaults:
+- mkdir -p /workspace/output/inspection/beautified
+- prettier --parser babel /workspace/inputs/package/path/to/file.js > /workspace/output/inspection/beautified/path_to_file.pretty.js
+- js-beautify /workspace/inputs/package/path/to/file.js -o /workspace/output/inspection/beautified/path_to_file.beautified.js
+
+Prefer source maps over generic beautification when .map files are present. Inspect sourceMappingURL comments, external .map files, embedded sourcesContent, original source paths, and whether source maps reconstruct modules that differ from the published tarball.
+
+Use beautified files to understand control flow, module boundaries, string construction, dynamic import/eval paths, environment gates, and hidden payload staging. Then verify every security-relevant finding against the original minified file and the exact npm tarball contents. Evidence must cite original package paths and may attach beautified inspection copies as supporting artifacts.
+
+Do not treat beautification as deobfuscation or proof of benign behavior. If code remains intentionally hard to understand after formatting, uses string-array decoders, packed eval, control-flow flattening, Unicode tricks, or generated payload assembly, record that as obfuscation evidence and prefer quarantine or block according to observed behavior.
 `),
 
   prompt('pattern-github-actions-and-repo-workflow-abuse', 'PATTERN_CHECK', `

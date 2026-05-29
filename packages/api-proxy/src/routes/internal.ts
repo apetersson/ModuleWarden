@@ -154,6 +154,44 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
           } catch (err) {
             logger.warn('Web search advisory fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
           }
+
+          try {
+            const resp = await fetch('https://api.osv.dev/v1/query', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                package: {
+                  name: query,
+                  ecosystem: 'npm',
+                },
+              }),
+            });
+            if (resp.ok) {
+              const osvData = await resp.json() as {
+                vulns?: Array<{
+                  id: string;
+                  summary?: string;
+                  details?: string;
+                  aliases?: string[];
+                  database_specific?: { severity?: string };
+                  references?: Array<{ url?: string }>;
+                }>;
+              };
+              for (const vuln of osvData.vulns ?? []) {
+                results.push({
+                  title: `[${vuln.database_specific?.severity ?? 'UNKNOWN'}] ${vuln.summary ?? vuln.id}`,
+                  url: vuln.references?.find((ref) => ref.url)?.url ?? `https://osv.dev/vulnerability/${vuln.id}`,
+                  snippet: [
+                    vuln.aliases?.length ? `Aliases: ${vuln.aliases.join(', ')}` : '',
+                    vuln.details ?? vuln.summary ?? `OSV advisory for ${query}`,
+                  ].filter(Boolean).join(' — ').slice(0, 1000),
+                  source: 'osv',
+                });
+              }
+            }
+          } catch (err) {
+            logger.warn('OSV advisory fetch failed', { query, error: err instanceof Error ? err.message : String(err) });
+          }
         }
 
         return reply.send({ results } satisfies WebSearchResponse);

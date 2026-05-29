@@ -311,8 +311,9 @@ from a custom audit-runner image.
 - Candidate patch/diff against the predecessor
 - Prepared evidence (metadata, dependency diff, capability delta)
 - Run-specific instructions (what to review, what to look for)
-- Audit tools (Node.js, npm, pnpm, yarn, git, ripgrep, jq, deobfuscation
-  helpers, static-rule tooling, network capture tools, PI runtime)
+- Audit tools (Node.js, npm, pnpm, yarn, git, ripgrep, jq, source
+  beautification helpers such as Prettier and js-beautify, static-rule
+  tooling, network capture tools, PI runtime)
 
 ### What Each Run Does NOT Get
 

@@ -86,9 +86,18 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
         return reply.status(404).send({ error: `${packageName} not found` });
       }
 
+      const upstreamVersions = Object.keys(upstream.versions);
+      const decisions = await getDecisionsForVersions(packageName, upstreamVersions);
+      const filtered = filterToApproved(upstream, decisions, baseUrl);
+
       // No project enabled — allow exact version resolution, but force the
       // install to hit ModuleWarden's tarball route where review is enqueued.
+      // If versions have already been approved/promoted in a project-less
+      // local demo, serve the approved metadata without stale warning text.
       if (!enabledProject) {
+        if (Object.keys(filtered.versions).length > 0) {
+          return reply.send(filtered);
+        }
         return reply.send(toPendingResolutionPackument(
           upstream,
           `[PENDING] Package ${packageName} has not been reviewed by ModuleWarden yet. ` +
@@ -110,12 +119,7 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
         ));
       }
 
-      // Collect decisions for all upstream versions (keyed by version + exact hash).
-      const upstreamVersions = Object.keys(upstream.versions);
-      const decisions = await getDecisionsForVersions(packageName, upstreamVersions);
-
       // Filter to approved-only
-      const filtered = filterToApproved(upstream, decisions, baseUrl);
       if (Object.keys(filtered.versions).length === 0) {
         return reply.send(toPendingResolutionPackument(
           upstream,

@@ -105,6 +105,8 @@ interface PackageDetail {
   reviewJobId?: string;
   jobStatus?: string;
   canRetry?: boolean;
+  canPromote?: boolean;
+  promotionStatus?: 'none' | 'pending' | 'promoted' | 'failed';
   packageName: string;
   version: string;
   tarballHash: string;
@@ -1053,10 +1055,12 @@ function EvaluationPage({ adminToken, onAuthRequired }: { adminToken: string; on
 function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminToken: string; onClose: () => void }) {
   const [detail, setDetail] = useState<PackageDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [evidenceContent, setEvidenceContent] = useState<Record<string, unknown> | null>(null);
+  const [evidenceContent, setEvidenceContent] = useState<unknown>(null);
   const [loadingEvidence, setLoadingEvidence] = useState<string | null>(null);
   const [retrySubmitting, setRetrySubmitting] = useState(false);
   const [retryMessage, setRetryMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [promoteSubmitting, setPromoteSubmitting] = useState(false);
+  const [promoteMessage, setPromoteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showOverride, setShowOverride] = useState(false);
   const [overrideTargetVerdict, setOverrideTargetVerdict] = useState<'ALLOW' | 'BLOCK' | 'QUARANTINE'>('ALLOW');
   const [overrideReason, setOverrideReason] = useState('');
@@ -1120,6 +1124,31 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
     setLoadingEvidence(null);
   };
 
+  const triggerPromotion = async () => {
+    setPromoteSubmitting(true);
+    setPromoteMessage(null);
+    try {
+      const resp = await fetch(`${API_BASE}/admin/audit-run/${runId}/promote`, {
+        method: 'POST',
+        headers: authHeaders(adminToken),
+      });
+      if (resp.ok) {
+        const body = await resp.json().catch(() => null) as { pgBossJobId?: string } | null;
+        setPromoteMessage({
+          type: 'success',
+          text: body?.pgBossJobId ? `Promotion queued (${body.pgBossJobId}).` : 'Promotion queued.',
+        });
+        await load();
+      } else {
+        const errBody = await resp.text().catch(() => 'Unknown error');
+        setPromoteMessage({ type: 'error', text: `Promote failed (${resp.status}): ${errBody}` });
+      }
+    } catch (err) {
+      setPromoteMessage({ type: 'error', text: `Network error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    setPromoteSubmitting(false);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 8, maxWidth: 800, width: '90%', maxHeight: '80vh', overflow: 'auto', padding: '1.5rem' }} onClick={(e) => e.stopPropagation()}>
@@ -1146,6 +1175,45 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
             {detail.riskSummary && (
               <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff3e0', borderRadius: 4, fontSize: '0.9rem' }}>
                 <strong>Risk Summary:</strong> {detail.riskSummary}
+              </div>
+            )}
+
+            {(detail.canRetry || detail.canPromote || detail.promotionStatus === 'pending' || promoteMessage) && (
+              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {detail.canPromote && (
+                  <button
+                    onClick={triggerPromotion}
+                    disabled={promoteSubmitting}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      background: promoteSubmitting ? '#ccc' : '#2e7d32',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: promoteSubmitting ? 'not-allowed' : 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {promoteSubmitting ? 'Queueing...' : detail.promotionStatus === 'pending' ? 'Retry Promotion' : 'Promote to Verdaccio'}
+                  </button>
+                )}
+                {detail.promotionStatus && detail.promotionStatus !== 'none' && (
+                  <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                    Promotion: {detail.promotionStatus}
+                  </span>
+                )}
+                {promoteMessage && (
+                  <span style={{
+                    padding: '0.35rem 0.55rem',
+                    borderRadius: 4,
+                    fontSize: '0.8rem',
+                    background: promoteMessage.type === 'success' ? '#e8f5e9' : '#ffebee',
+                    color: promoteMessage.type === 'success' ? '#2e7d32' : '#c62828',
+                  }}>
+                    {promoteMessage.text}
+                  </span>
+                )}
               </div>
             )}
 
@@ -1486,7 +1554,7 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
                   Sensitive fields (prompts, secrets, tokens, API keys) are redacted from this view for security.
                 </div>
                 <pre style={{ fontSize: '0.8rem', overflow: 'auto', maxHeight: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                  {JSON.stringify(evidenceContent, null, 2)}
+                  {typeof evidenceContent === 'string' ? evidenceContent : JSON.stringify(evidenceContent, null, 2)}
                 </pre>
               </div>
             )}

@@ -85,6 +85,10 @@ You have access to the following tools via the RPC bridge at http://127.0.0.1:${
 - **write-evidence** — Persist findings as evidence artifacts
 - **submit-verdict** — Submit your final structured verdict
 
+The container also includes command-line inspection helpers:
+- **prettier** — Format minified or bundled JavaScript into readable inspection copies
+- **js-beautify** — Alternative JavaScript beautifier for files Prettier cannot parse cleanly
+
 You also have full filesystem access to explore the unpacked package under:
 \`/workspace/inputs/package/\`
 

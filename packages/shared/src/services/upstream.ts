@@ -1,5 +1,6 @@
 import type { NpmPackument } from '@modulewarden/shared/npm-types';
 import { createHash } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 const NPM_REGISTRY = 'https://registry.npmjs.org';
 
@@ -54,11 +55,6 @@ export async function fetchUpstreamTarball(
   }
 }
 
-/**
-/**
- * Stream a tarball from upstream into a Verdaccio instance.
- * Verifies the tarball integrity hash before promoting (H-2).
- */
 export async function promoteTarballToVerdaccio(
   verdaccioUrl: string,
   packageName: string,
@@ -99,23 +95,60 @@ export async function promoteTarballToVerdaccio(
     );
   }
 
-  // Hash verified — promote to Verdaccio
+  // Hash verified — publish to Verdaccio using the npm registry document API.
   const unscopedName = packageName.startsWith('@') ? packageName.split('/')[1] : packageName;
   const filename = `${unscopedName}-${packageVersion}.tgz`;
-  const putUrl = `${verdaccioUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`;
+  const publishUrl = `${verdaccioUrl}/${encodeURIComponent(packageName)}`;
+  const shasum = createHash('sha1').update(buf).digest('hex');
+  const packument = await fetchUpstreamPackument(packageName);
+  const upstreamVersion = packument?.versions?.[packageVersion] ?? {
+    name: packageName,
+    version: packageVersion,
+    dist: { tarball: tarballUrl, integrity, shasum },
+  };
+  const verdaccioTarballUrl = `${verdaccioUrl}/${encodeURIComponent(packageName)}/-/${encodeURIComponent(filename)}`;
+  const versionDocument = {
+    ...upstreamVersion,
+    name: packageName,
+    version: packageVersion,
+    dist: {
+      ...(upstreamVersion.dist ?? {}),
+      tarball: verdaccioTarballUrl,
+      integrity,
+      shasum,
+    },
+  };
+  const publishDocument = {
+    _id: packageName,
+    name: packageName,
+    description: packument?.description ?? '',
+    'dist-tags': { latest: packageVersion },
+    versions: {
+      [packageVersion]: versionDocument,
+    },
+    _attachments: {
+      [filename]: {
+        content_type: tarball.contentType,
+        data: Buffer.from(buf).toString('base64'),
+        length: totalLen,
+      },
+    },
+  };
 
-  const response = await fetch(putUrl, {
+  const response = await fetch(publishUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': tarball.contentType,
-      'Content-Length': String(totalLen),
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${verdaccioToken}`,
     },
-    body: buf,
+    body: JSON.stringify(publishDocument),
   });
 
   if (!response.ok) {
     const body = await response.text().catch(() => '(empty)');
+    if (response.status === 409 && body.toLowerCase().includes('already present')) {
+      return;
+    }
     throw new Error(
       `Verdaccio promotion failed for ${packageName}@${packageVersion}: ` +
         `${response.status} ${body.slice(0, 200)}`

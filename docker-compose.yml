@@ -44,6 +44,7 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
+      MW_VERDACCIO_TOKEN: ${MW_VERDACCIO_TOKEN:-}
       MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env to point at an OpenAI-compatible /v1 endpoint}
       MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env to the endpoint credential}
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env to a model slug (e.g. deepseek-chat)}
@@ -75,6 +76,7 @@ services:
       MW_POSTGRES_PASSWORD: modulewarden
       MW_VERDACCIO_HOST: verdaccio
       MW_VERDACCIO_PORT: "4873"
+      MW_VERDACCIO_TOKEN: ${MW_VERDACCIO_TOKEN:-}
       MW_MODEL_ENDPOINT_BASE_URL: ${MW_MODEL_ENDPOINT_BASE_URL:?MW_MODEL_ENDPOINT_BASE_URL is required — set it in .env}
       MW_MODEL_ENDPOINT_API_KEY: ${MW_MODEL_ENDPOINT_API_KEY:?MW_MODEL_ENDPOINT_API_KEY is required — set it in .env}
       MW_MODEL_ENDPOINT_MODEL: ${MW_MODEL_ENDPOINT_MODEL:?MW_MODEL_ENDPOINT_MODEL is required — set it in .env}

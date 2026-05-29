@@ -63,6 +63,25 @@ async function retryAuditContainerExec(data: {
   }
 }
 
+async function enqueueVerdaccioPromotionLight(data: {
+  decisionId: string;
+  packageName: string;
+  packageVersion: string;
+  tarballHash: string;
+}): Promise<string | null> {
+  try {
+    const queue = await getQueue();
+    return await queue.enqueueVerdaccioPromotion(
+      data.decisionId,
+      data.packageName,
+      data.packageVersion,
+      data.tarballHash,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function buildServer() {
   const config = defaultConfig();
   const prisma = getPrisma();
@@ -135,7 +154,7 @@ export async function buildServer() {
 
   // ── Dashboard admin endpoints ────────────────────────────────
 
-  await registerDashboardRoutes(app, retryAuditContainerExec);
+  await registerDashboardRoutes(app, retryAuditContainerExec, enqueueVerdaccioPromotionLight);
 
   // ── Health check ──────────────────────────────────────────────
 
