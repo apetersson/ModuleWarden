@@ -20,7 +20,9 @@
     "seed:prompt-packs": "pnpm --filter @modulewarden/prisma-client seed:prompt-packs",
     "compose:build": "docker compose build",
     "compose:build:runner": "docker compose build audit-runner",
-    "finetune:scrape": "node finetune/scripts/scrape-cases.mjs"
+    "finetune:scrape": "node finetune/scripts/scrape-cases.mjs",
+    "finetune:download-raw-bundles": "node finetune/scripts/download-raw-bundles.mjs",
+    "finetune:recover-github-bundles": "node finetune/scripts/recover-github-bundles.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
