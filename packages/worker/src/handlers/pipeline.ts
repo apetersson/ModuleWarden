@@ -150,12 +150,10 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
  */
 export async function registerPipelineUnblockHandler(queue: JobQueue): Promise<void> {
   await queue.work('audit-pipeline-unblock', async (job) => {
-    const { pipelineId, stepId, packageName, packageVersion } = job.data;
+    const { pipelineId, stepId } = job.data;
     const prisma = getPrisma();
 
     // 1. Find all steps in the same pipeline that depend on the completed step
-    const completedStepIdentity = `${packageName}@${packageVersion}`;
-
     const pipeline = await prisma.auditPipeline.findUnique({
       where: { id: pipelineId },
       select: {

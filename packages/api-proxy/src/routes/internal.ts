@@ -359,6 +359,28 @@ export async function registerInternalRoutes(app: FastifyInstance, queue?: JobQu
             error: err instanceof Error ? err.message : String(err),
           });
         }
+
+        // Cascade to pipeline: if this ReviewJob belongs to a pipeline step,
+        // enqueue audit-pipeline-unblock to check downstream dependencies
+        try {
+          const step = await prisma.auditPipelineStep.findFirst({
+            where: { reviewJobId: reviewJob.id },
+            select: { id: true, pipelineId: true, packageName: true, packageVersion: true },
+          });
+          if (step) {
+            await queue.send('audit-pipeline-unblock', {
+              pipelineId: step.pipelineId,
+              stepId: step.id,
+              packageName: step.packageName,
+              packageVersion: step.packageVersion,
+            });
+          }
+        } catch (pipelineErr) {
+          logger.warn('Failed to enqueue pipeline unblock from verdict endpoint', {
+            reviewJobId: reviewJob.id,
+            error: pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr),
+          });
+        }
       }
 
       await prisma.auditRun.update({

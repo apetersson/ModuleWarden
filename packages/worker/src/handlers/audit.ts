@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import type { Prisma } from '@modulewarden/prisma-client';
 import { buildEvidenceBundle } from '@modulewarden/shared/services/evidence-bundle';
 import type { CapabilityCategory } from '@modulewarden/shared/services/capability-extract';
+import { triggerPipelineUnblock } from './pipeline.js';
 
 function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex');
@@ -351,6 +352,10 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
                   reviewJob.packageVersion.tarballHash
                 );
               }
+
+              // Cascade to pipeline: if this ReviewJob is part of an audit
+              // pipeline step, trigger pipeline-unblock to check downstream
+              await triggerPipelineUnblock(reviewJob.id, parsed.verdict, queue);
             }
           }
         } catch (err) {

@@ -1,5 +1,6 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { fetchUpstreamPackument } from '@modulewarden/shared/services/upstream';
+import { logger } from '@modulewarden/shared/services/logger';
 import type { JobQueue } from '../jobs/queue.js';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 
@@ -153,6 +154,55 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
 
     if (reviewJobStatus === 'RUNNING') {
       return;
+    }
+
+    // ── Pipeline eligibility check ────────────────────────────────
+    // If this ReviewJob is part of an audit pipeline, check that the
+    // pipeline step is READY before proceeding. This ensures topological
+    // ordering: leaf deps are audited before their dependents.
+    //
+    // The auditContext follows the format:
+    //   <prefix>:pipeline:<pipelineId>:step:<stepId>
+    // or for backfilled/legacy jobs we fall back to a direct lookup.
+    let pipelineStep = await prisma.auditPipelineStep.findFirst({
+      where: { reviewJobId },
+      select: { id: true, status: true },
+    });
+
+    // If not found by reviewJobId, try parsing the audit context
+    if (!pipelineStep) {
+      const stepMatch = auditContext.match(/step:([a-f0-9-]+)$/);
+      if (stepMatch?.[1]) {
+        pipelineStep = await prisma.auditPipelineStep.findUnique({
+          where: { id: stepMatch[1] },
+          select: { id: true, status: true },
+        });
+      }
+    }
+
+    if (pipelineStep) {
+      // Store the reviewJobId on the step for later pipeline-unblock lookup
+      await prisma.auditPipelineStep.update({
+        where: { id: pipelineStep.id },
+        data: {
+          reviewJobId,
+          status: 'RUNNING',
+        },
+      });
+
+      if (pipelineStep.status !== 'READY' && pipelineStep.status !== 'RUNNING') {
+        // Step is not ready to be audited — its dependencies haven't
+        // completed yet. Return without enqueuing audit-container-exec.
+        // The pipeline-unblock handler will re-enqueue this step when
+        // all dependencies are ALLOWED.
+        logger.info('Pipeline step not READY, deferring audit', {
+          stepId: pipelineStep.id,
+          packageName,
+          packageVersion,
+          stepStatus: pipelineStep.status,
+        });
+        return;
+      }
     }
 
     await queue.enqueueAuditContainerExec(
