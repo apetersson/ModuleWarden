@@ -1,5 +1,38 @@
 # ModuleWarden Changelog
 
+## 2026-05-29 (Saturday - injection hardening + activation steering)
+
+Audit-LLM injection defense, defense in depth with the deterministic gate.
+
+### Security / model hardening
+
+- Ingestion normalize at `data/ingestion_hardening.py`, wired into
+  `corpus_walker`: strips invisible-unicode smuggling (U+E0000-E007F tag
+  block, zero-width, variation selectors) from untrusted package free-text
+  before tokenization. Always on. Spotlighting datamark helper included.
+- Adversarial injection-hardening SFT generator at
+  `data/injection_hardening.py` (payload catalog `data/injection_payloads.py`):
+  counterfactual records carry a T1606 injection but keep the structural gold
+  verdict. CLI appends to the corpus at a 10 to 20 percent rate (StruQ/SecAlign).
+- Injection-robustness metric at `eval/injection_robustness.py`: verdict-flip
+  rate, ASR, and severity-weighted WAVS. Measured, not assumed (decision-4).
+- Activation-steering harness at `steering/` (`activation_steering.py`,
+  `contrastive_prompts.py`): computes a security-skeptical steering vector and
+  adds it to the residual stream at inference (arXiv:2308.10248). Architecture-
+  agnostic, gpt2-tested; point at the Qwen checkpoint and gate on the
+  robustness metric. Run on the HF inference path, not vLLM.
+
+### Tests
+
+- `tests/test_injection_hardening.py` (9) and `tests/test_activation_steering.py`
+  (4) added; full finetune suite green.
+
+### Decisions
+
+- Steering resources triaged: gemini-cli model-steering and ExploitBench
+  skipped as off-domain; SIMS (arXiv:2507.08967) noted as the advanced
+  steering variant for future work. See backlog TASK-33.
+
 ## 2026-05-28 (Friday — Zero-One Hack Vienna pitch prep)
 
 What landed in the Friday-night build window before the Saturday

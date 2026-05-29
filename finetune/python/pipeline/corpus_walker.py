@@ -50,6 +50,7 @@ import httpx
 from .dossier_builder import build_dossier, serialize_version_pair
 from .report_template import build_report
 from .sft_pair_builder import build_sft_record
+from ..data.ingestion_hardening import normalize_dossier
 from .version_pair_extractor import (
     DEFAULT_REGISTRY,
     DEFAULT_REQUEST_TIMEOUT,
@@ -155,6 +156,11 @@ async def _process_one(
 
     try:
         dossier = build_dossier(scraped_case, pair)
+        # Ingestion-time injection defense: strip invisible-unicode smuggling
+        # (U+E0000-E007F tag block, zero-width, variation selectors) from the
+        # untrusted package free-text before it reaches the model. Structural
+        # fields are untouched. See data/ingestion_hardening.py.
+        dossier = normalize_dossier(dossier)
         report = build_report(dossier, scraped_case=scraped_case)
         split = _split_for_package(package)
         source = _CASE_TYPE_TO_SOURCE[case_type]
