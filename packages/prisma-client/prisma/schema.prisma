@@ -461,3 +461,58 @@ enum LabelType {
   INCIDENT_OUTCOME
   EVALUATION_RESULT
 }
+
+// ── Audit Pipelines (DAG-linearised audit ordering) ─────────────────
+// Each pipeline represents one root package's ordered audit of its full
+// transitive dependency tree. Steps are processed in topological order
+// (leaf deps first, root last). A step only enters RUNNING when all its
+// dependencies have been ALLOWED.
+
+model AuditPipeline {
+  id                 String   @id @default(uuid())
+  rootPackageName    String
+  rootPackageVersion String
+  tarballHash        String
+  totalSteps         Int
+  status             AuditPipelineStatus @default(PENDING)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  steps AuditPipelineStep[]
+}
+
+enum AuditPipelineStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model AuditPipelineStep {
+  id              String   @id @default(uuid())
+  pipelineId      String
+  pipeline        AuditPipeline @relation(fields: [pipelineId], references: [id])
+  packageName     String
+  packageVersion  String
+  tarballHash     String
+  depth           Int
+  dependsOn       String   @default("")
+  linearOrder     Int
+  status          AuditStepStatus @default(PENDING)
+  reviewJobId     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([pipelineId, linearOrder])
+  @@index([pipelineId, status])
+}
+
+enum AuditStepStatus {
+  PENDING
+  READY
+  RUNNING
+  ALLOWED
+  BLOCKED
+  QUARANTINED
+  FAILED
+}

@@ -13,6 +13,8 @@ export const JOB_TYPES: Record<string, JobType> = {
   EVIDENCE_POST_PROCESS: 'evidence-post-process',
   VERDACCIO_PROMOTION: 'verdaccio-promotion',
   PROJECT_READY: 'project-ready',
+  AUDIT_PIPELINE_SCHEDULE: 'audit-pipeline-schedule',
+  AUDIT_PIPELINE_UNBLOCK: 'audit-pipeline-unblock',
 } as const;
 
 export type JobType =
@@ -23,7 +25,9 @@ export type JobType =
   | 're-audit-campaign'
   | 'project-ready'
   | 'evidence-post-process'
-  | 'verdaccio-promotion';
+  | 'verdaccio-promotion'
+  | 'audit-pipeline-schedule'
+  | 'audit-pipeline-unblock';
 
 export interface PackageIdentity {
   name: string;
@@ -105,6 +109,18 @@ export interface JobPayloads {
     packageName: string;
     packageVersion: string;
     tarballHash: string;
+  };
+  'audit-pipeline-schedule': {
+    packageName: string;
+    packageVersion: string;
+    tarballHash: string;
+    auditContext: string;
+  };
+  'audit-pipeline-unblock': {
+    pipelineId: string;
+    stepId: string;
+    packageName: string;
+    packageVersion: string;
   };
 }
 

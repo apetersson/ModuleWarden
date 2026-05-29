@@ -10,7 +10,7 @@ export { JOB_TYPES } from '@modulewarden/shared/types';
  */
 export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
   concurrency: {
-    'package-review': 4,
+    'package-review': 2,
     'upstream-subscription-poll': 2,
     'audit-container-exec': 2,
     'model-escalation': 1,
@@ -18,6 +18,8 @@ export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
     'evidence-post-process': 4,
     'verdaccio-promotion': 4,
     'project-ready': 1,
+    'audit-pipeline-schedule': 1,
+    'audit-pipeline-unblock': 1,
   },
   retryPolicy: {
     maxRetries: 3,
@@ -96,6 +98,16 @@ export const JOB_RETRY_CONFIG: Record<
     maxRetries: 5,
     timeoutMs: 30_000,  // 30 sec
     backoffMs: 5_000,
+  },
+  'audit-pipeline-schedule': {
+    maxRetries: 2,
+    timeoutMs: 120_000,  // 2 min (DAG resolution for large trees)
+    backoffMs: 15_000,
+  },
+  'audit-pipeline-unblock': {
+    maxRetries: 2,
+    timeoutMs: 60_000,   // 1 min (fast DB cascade)
+    backoffMs: 10_000,
   },
 };
 
