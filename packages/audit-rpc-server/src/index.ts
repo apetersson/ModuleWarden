@@ -14,7 +14,6 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { execSync, execFileSync } from 'node:child_process';
 import type {
   AuditVerdict,
@@ -482,7 +481,8 @@ async function main(): Promise<void> {
 }
 
 // Only start when run directly (not imported for tests)
-const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+const isMainModule = process.argv[1]?.endsWith('/audit-rpc-server/dist/index.js') ||
+  process.argv[1]?.endsWith('/audit-rpc-server/dist/bundle.js');
 if (isMainModule) {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main();
