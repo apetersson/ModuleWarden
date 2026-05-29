@@ -404,6 +404,7 @@ export async function registerDashboardRoutes(
         pv."packageName", pv."version", pv."tarballHash",
         ar."id" as run_id, ar."status" as run_status, ar."errorMessage",
         d."id" as decision_id, d."verdict", d."reasonSummary", d."promptVersion",
+        latest_d."id" as latest_decision_id,
         ta."id" as tarball_artifact_id
       FROM "ReviewJob" rj
       LEFT JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
@@ -416,6 +417,10 @@ export async function registerDashboardRoutes(
         SELECT "id", "verdict", "reasonSummary", "promptVersion" FROM "Decision"
         WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
       ) d ON true
+      LEFT JOIN LATERAL (
+        SELECT "id" FROM "Decision"
+        WHERE "packageVersionId" = pv."id" ORDER BY "createdAt" DESC, "id" DESC LIMIT 1
+      ) latest_d ON true
       ORDER BY rj."createdAt" DESC
       LIMIT 200
     `);
@@ -435,9 +440,14 @@ export async function registerDashboardRoutes(
       const verdict = row.verdict ? String(row.verdict) : null;
       const promotionStatus = row.tarball_artifact_id ? 'promoted' : 'none';
       const workflowColumn = assignColumn(jobStatus, verdict);
-      const column = promotionStatus === 'promoted' && workflowColumn === 'allowed'
-        ? 'promoted'
-        : workflowColumn;
+      const decisionId = row.decision_id ? String(row.decision_id) : null;
+      const latestDecisionId = row.latest_decision_id ? String(row.latest_decision_id) : null;
+      const isSuperseded = Boolean(latestDecisionId && latestDecisionId !== decisionId);
+      const column = isSuperseded
+        ? 'superseded'
+        : promotionStatus === 'promoted' && workflowColumn === 'allowed'
+          ? 'promoted'
+          : workflowColumn;
 
       const card: AuditRunCard = {
         id: String(row.run_id || row.job_id),
@@ -460,7 +470,7 @@ export async function registerDashboardRoutes(
         needsAttention: jobStatus === 'FAILED' || jobStatus === 'DEAD_LETTER' || jobStatus === 'CRASHED',
         escalationStatus: 'none',
         verdict,
-        decisionId: row.decision_id ? String(row.decision_id) : null,
+        decisionId,
         promotionStatus,
         evidenceCount: 0,
       };
