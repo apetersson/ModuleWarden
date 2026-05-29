@@ -37,6 +37,28 @@ DEFAULT_IN = REPO_ROOT / "finetune" / "corpus" / "sft-records.jsonl"
 DEFAULT_OUT = REPO_ROOT / "finetune" / "corpus" / "sft-records.attck.jsonl"
 
 
+def _insert_kill_chain_early(report: dict[str, Any], kc: dict[str, Any]) -> dict[str, Any]:
+    """Insert kill_chain_narrative early in the report, right after risk_level
+    (else after verdict, else first).
+
+    Appending it last buried it ~76% through a long report (~1100 tokens in),
+    past the eval/serving generation budget, so the model never reached it and
+    kill_chain_emitted scored 0%. Placing it near the top lets the model emit
+    verdict + attack path in the first ~120 tokens. JSON object keys are
+    unordered, so this does not change the audit_report schema, only the
+    emission reachability of the chain.
+    """
+    anchor = "risk_level" if "risk_level" in report else ("verdict" if "verdict" in report else None)
+    if anchor is None:
+        return {"kill_chain_narrative": kc, **report}
+    out: dict[str, Any] = {}
+    for key, value in report.items():
+        out[key] = value
+        if key == anchor:
+            out["kill_chain_narrative"] = kc
+    return out
+
+
 def augment_record(rec: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     """Return (augmented_record, changed). changed=False when no chain applies."""
     msgs = rec.get("messages") or []
@@ -56,7 +78,7 @@ def augment_record(rec: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         return rec, False
     if not isinstance(report, dict):
         return rec, False
-    report["kill_chain_narrative"] = kc
+    report = _insert_kill_chain_early(report, kc)
     new_msgs = list(msgs)
     new_msgs[-1] = {**msgs[-1], "content": json.dumps(report, ensure_ascii=False)}
     new_rec = {**rec, "messages": new_msgs}
