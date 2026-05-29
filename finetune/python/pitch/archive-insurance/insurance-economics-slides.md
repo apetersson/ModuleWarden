@@ -1,16 +1,18 @@
 # Insurance Economics Slides
 
-Two-slide insert for the pitch deck. Sits between Slide 4 (Architecture) and the live demo. Andreas presents both. Total speaker time about 50 seconds. Pulls all numbers from `pitch/underwriter-economics.md`, which carries the citations.
+A secondary use case, not the headline track. ModuleWarden's headline pitch is the FORECAST track with Sybilion: probabilistic forecasting and the agent layer that acts on it. This page covers one downstream application of that forecast, cyber-risk pricing. It shows what the agent layer does once the forecast exists. Read it as "here is one thing you can do with a calibrated supply-chain forecast", not "we are the insurance-track entry."
+
+Two-slide insert for the deck. Sits after the architecture slide, ahead of the live demo. Andreas presents both. Total speaker time about 50 seconds. Pulls all numbers from `pitch/underwriter-economics.md`, which carries the citations.
 
 ---
 
 ## Slide A: The math, one customer
 
-**Speaker note (about 30 seconds):** "Take a real underwriting profile. An 18M EUR Austrian SME, around 80 developers, JavaScript and Python stack. Their cyber premium today sits at 142k a year. The underwriter's expected loss ratio on the account is 41 percent, anchored to NAIC and Munich Re 2024 figures. After ModuleWarden is deployed, every install routes through the gate, and every decision ships with a control evidence memo. Apply Coalition's published control-class credit of 12.5 percent, plus the reduction in supply chain exposure that Verizon and Sonatype both pin at the install layer. Year 1 premium drops to 121k. Loss ratio drops to 27 to 30 percent. The customer renews and UNIQA picks up 11 to 14 percentage points of margin on the account."
+**Speaker note (about 30 seconds):** "Take a real underwriting profile. An 18M EUR Austrian SME, around 80 developers, JavaScript and Python stack. Their cyber premium today sits at 142k a year. The underwriter's expected loss ratio on the account is 41 percent, anchored to NAIC and Munich Re 2024 figures. After ModuleWarden is deployed, every install routes through the gate, and every decision ships with a control evidence memo. Apply Coalition's published control-class credit of 12.5 percent, plus the reduction in supply chain exposure that Verizon and Sonatype both pin at the install layer. Year 1 premium drops to 121k. Loss ratio drops to 27 to 30 percent. The customer renews and the carrier picks up 11 to 14 percentage points of margin on the account."
 
 **Visual layout:**
 
-Two columns separated by a wide arrow pointing right.
+Two columns. The left is pre-ModuleWarden, the right is post-ModuleWarden, with a wide right-pointing chevron between them.
 
 | Pre-ModuleWarden (left column)              | Post-ModuleWarden (right column)              |
 | ------------------------------------- | --------------------------------------- |
@@ -19,7 +21,7 @@ Two columns separated by a wide arrow pointing right.
 | Supply chain exposure: uncontrolled   | Supply chain exposure: gated, attested  |
 | Evidence on renewal: asserted         | Evidence on renewal: queryable          |
 
-Bottom strip below the arrow:
+Bottom strip below the chevron:
 
 **Margin uplift: +11 to +14 percentage points per account**
 
@@ -33,7 +35,7 @@ Bottom strip below the arrow:
 
 ---
 
-## Slide B: Why UNIQA wins too
+## Slide B: Why a cyber insurer wins too
 
 **Speaker note (about 20 seconds):** "Three things change for the carrier. The at-risk account renews instead of churning to a cheaper insurer. The margin on the account goes up by 11 to 14 points on the eligible segment, and 2 to 4 points across the full book once you weight for eligibility. And the same control class scales. Every JavaScript-heavy account in the CEE book is addressable with the same memo template, the same evidence schema, and the same actuarial tier. One control class, hundreds of accounts."
 
@@ -60,7 +62,7 @@ These two slides sit between Slide 4 (Architecture) and Slide 5 (The model). The
 3. Slide 3: The agent
 4. Slide 4: Architecture
 5. **Slide A: The math, one customer** (new)
-6. **Slide B: Why UNIQA wins too** (new)
+6. **Slide B: Why a cyber insurer wins too** (new)
 7. Slide 5: The model (renumber to Slide 7)
 8. ... and so on
 

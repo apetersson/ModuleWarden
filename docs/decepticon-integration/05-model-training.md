@@ -105,7 +105,7 @@ The concrete integration is adding a `kill_chain_narrative` block to each SFT re
 }
 ```
 
-This trains the fine-tuned model to emit underwriter-grade kill-chain narratives alongside the verdict - directly addressing the UNIQA insurance track requirement for explainable risk reasoning.
+This trains the fine-tuned model to emit kill-chain narratives alongside the verdict - the explainable risk reasoning the Forecast track wants from the agent layer that acts on the forecast. The same narrative reads as underwriter-grade in the downstream cyber-risk-pricing application.
 
 ### How Decepticon data generates the `kill_chain_narrative` field
 

@@ -1,9 +1,10 @@
 # Hackathon Build Log: Zero-One Hack Vienna 2026
 
-This is a short narrative of what landed during the build window for the
-UNIQA Insurance Track at Zero-One Hack Vienna 2026. The intent is to give
-judges a reproducible map of the pipeline and the design decisions that
-shaped it under time pressure.
+This is a short narrative of what landed during the build window at Zero-One
+Hack Vienna 2026. The project pivoted from the Track-02 UNIQA insurance framing
+to the Forecast track (partner Sybilion); see decision-10. The intent is to give
+judges a reproducible map of the pipeline and the design decisions that shaped it
+under time pressure.
 
 ## What ships
 

@@ -1,8 +1,14 @@
-# Track 02 Fit Analysis: Decepticon x ModuleWarden
-## Zero-One Hack Vienna 2026 - UNIQA "Conversational AI and model integration"
+# Forecast Track Fit Analysis: Decepticon x ModuleWarden
+## Zero-One Hack Vienna 2026 - Sybilion FORECAST track "probabilistic forecasting and the agent layer that acts on it"
 
-**Document scope:** How Decepticon integration maximises Track 02 fit.
+**Document scope:** How Decepticon integration maximises Forecast-track fit.
 **What this is not:** A build plan (see TRACK02-DESIGN.md) or architecture spec (see decepticon-modulewarden-integration.md).
+
+**Product one-liner:** ModuleWarden forecasts the probability that a dependency a developer is about to pull into the company codebase is a supply-chain attack vector, and an agent acts on it at submission time. We forecast the version DELTA, not the cold package. The threat model is internal: the lazy submitter who pulls a typo-squat without checking, and the disgruntled submitter who pulls a poisoned bump on purpose.
+
+**Primary fit (Sybilion / FORECAST):** the deterministic 5-rule DELTA-gate is the verdict authority; the model narrates the forecast. The honest finding that anchors this: a static classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA pairs, benign = first-patched release). The signal is in the DELTA, not the package. That is exactly why gate-decides-and-model-narrates is the right architecture, not a hedge.
+
+**Secondary reframe (downstream application):** the conversational underwriter + Control Evidence Memo is the agent layer that acts on the forecast. It is a downstream consumer of the forecast, not the primary track entry. UNIQA-style underwriting language is retained as one way the agent acts; it is no longer the headline.
 
 ---
 
@@ -69,17 +75,31 @@ architecture. This analysis grounds those designs against the actual chat/ codeb
 
 ## External Findings
 
-### UNIQA Track 02 bar: "conversational AI and model integration across digital insurance products"
+### Sybilion FORECAST bar: "probabilistic forecasting and the agent layer that acts on it"
 
 The judging signal is two-part:
-1. **Conversational AI**: a usable natural-language interface to an insurance task,
-   not a chatbot wrapper. The underwriter must be able to ask a business question
-   and get a decision-grade answer.
-2. **Model integration**: a real trained or fine-tuned model doing non-trivial work
-   in the product. Not a prompt to GPT-4; a model that was shaped for this domain.
+1. **Probabilistic forecast**: a real model that outputs a probability over a future
+   or unseen event, not a binary stamp. Here, p(this version delta introduces a
+   supply-chain attack vector). The forecast must be honest about its own limits.
+2. **An agent that acts on the forecast**: the forecast has to drive a decision at
+   submission time, not just sit on a dashboard. ModuleWarden's agent blocks the
+   install, writes the memo, and narrates the verdict.
 
-The "real, trained model" bar explicitly signals skepticism of pure-prompt demos.
-Evidence of training (loss curves, SFT pairs, adapter weights) is required.
+The forecast suite exists in code: `eval/forecast_calibration.py` (calibration on
+this corpus), `serving/dependency_forecast.py` (the forecast head), and
+`serving/acting_agent.py` (the agent that acts at submission time).
+
+The honest cold-package floor is load-bearing here, not a weakness to bury. A static
+classifier on the COLD package scores AUROC 0.54 on this corpus. That is near-random.
+It is the empirical reason we forecast the DELTA between a version and its predecessor,
+and the reason the deterministic gate, not the model, holds verdict authority.
+
+### Secondary: UNIQA underwriting as a downstream application
+
+The conversational underwriter is no longer the primary track entry. It is one way
+the agent layer acts on the forecast: it translates a forecasted DELTA risk into
+loss-path and premium-loading language a cyber-policy underwriter recognizes. The
+substance stays; the framing demotes it from headline to application.
 
 ### Why multi-agent framing satisfies "model integration" honestly
 
@@ -90,9 +110,11 @@ specialist model roles (Recon → Exploitation → Analyst), each contributing a
 structured output that the next stage consumes. This is a real architecture claim,
 not a marketing one, and it is demonstrated by the Decepticon SDK.
 
-The QLoRA fine-tune on the 26-pattern attack catalog satisfies the "trained model"
-bar for the gate and narration path. Even a short training run with logged loss
-curves and sample outputs is sufficient evidence.
+The QLoRA fine-tune on the 26-pattern attack catalog is the narrator that explains
+the forecast. It does not hold verdict authority. The honest fine-tune numbers
+(verdict-match 0 to 46.7 percent on validation, 73.9 percent on test, block-recall
+0 percent on the 0.5B) are stated as-is. The gate catches the severe cases; the
+model narrates them.
 
 ### Insurance framing for kill-chain narratives
 
@@ -114,7 +136,7 @@ of the deterministic memo.
 
 ## Analysis
 
-### The single best conversational flow for Track 02
+### The single best conversational flow for the Forecast track
 
 **The "kill-chain underwriting query" flow.**
 
@@ -152,9 +174,22 @@ already in the `capability_deltas` and `dynamic_observations` fields of the
 shim using the same structured prompt) maps those fields to MITRE techniques and
 returns a kill-chain string that replaces the generic LLM narration.
 
-### How this satisfies "conversational AI + model integration" honestly
+### How this satisfies "probabilistic forecast + an agent that acts" honestly
 
-**Conversational AI (honest claim):**
+**Probabilistic forecast (honest claim):**
+- The forecast head (`serving/dependency_forecast.py`) outputs p(this version delta
+  is an attack vector), calibrated on this corpus via `eval/forecast_calibration.py`.
+- The cold-package floor (AUROC 0.54) is reported up front. The forecast is on the
+  DELTA, where the signal actually is, not on the cold package.
+
+**An agent that acts on the forecast (honest claim):**
+- `serving/acting_agent.py` is the agent that takes the forecast and acts at
+  submission time: it blocks the install, writes the Control Evidence Memo, and
+  hands the pinned verdict to the narrator.
+- The deterministic 5-rule gate is the verdict authority. The forecast informs it;
+  the agent enforces it. The model never overrides the verdict.
+
+**Conversational AI as the downstream application (honest claim):**
 - The Streamlit chat UI exists. The agent routing and Control Evidence Memo are
   working. The system responds to natural-language queries about insurance risk.
 - The `_detect_intent()` router currently handles `lookup`, `gate`, `list`, `explain`,
@@ -179,8 +214,12 @@ returns a kill-chain string that replaces the generic LLM narration.
 **What cannot be claimed honestly:**
 - No live Decepticon sandbox execution on real npm packages during the demo.
   Sandbox execution is safety-gated (see Safety Flags below).
-- The "27B model" mentioned in some planning docs does not exist. The fine-tune
-  is small QLoRA; state this as "domain-adapted model" not "27B reasoning engine."
+- No headline accuracy that was not measured on THIS corpus. No AUROC 0.90, no
+  borrowed F1, no calibrated/conformal 98 percent. The measured cold-package floor
+  is AUROC 0.54; the fine-tune numbers are verdict-match 0 to 46.7/73.9 percent and
+  block-recall 0 percent. Those are the only numbers we cite.
+- The fine-tune is a small QLoRA narrator, not a "27B reasoning engine." State it as
+  "domain-adapted narrator model."
 - Decepticon's 16 agents are not all running per query. At most 1-2 agents
   (Analyst + optionally Recon for pcap parsing) are in the demo path. The
   "16-agent swarm" is a narrated future capability.
@@ -305,9 +344,10 @@ These are real extensions that can be described accurately as the next phase:
   local Ollama or direct OpenAI call to simulate the Analyst agent, label it
   as "Analyst role (local shim)" in the evidence panel, not "Decepticon Analyst."
   The architecture is honest; the implementation degree must be too.
-- **Do not claim p(loss) figures are actuarially grounded.** The simulation
-  outcomes (0.34 -> 0.02 p(loss), premium loading delta) in TRACK02-DESIGN.md
-  are illustrative. Frame as "estimated from simulation" not "actuarially validated."
+- **Do not claim p(loss) figures are actuarially grounded.** Any premium-loading or
+  p(loss) outcome in the planning docs is illustrative, not measured on this corpus.
+  Frame as "estimated from simulation" not "actuarially validated," and do not put a
+  specific number on a slide unless it came from `eval/forecast_calibration.py`.
 
 ---
 

@@ -7,6 +7,13 @@ drives the H100 training plus 4-arm evaluation matrix described in
 
 ## Why this exists
 
+This pipeline trains the narrating model behind the forecast. The
+deterministic delta-gate decides; the model narrates the version-DELTA
+forecast. So the training target is the change between a last-known-good
+version and the one being pulled, not the cold package in isolation
+(a static classifier on the cold package floors at AUROC 0.54 on this
+corpus, which is why the gate decides and the model narrates).
+
 `finetune/scripts/scrape-cases.mjs` produces normalized
 `modulewarden.scraped_case.v1` records. Those records describe what the
 auditor should know about a package version, not what the model should
@@ -61,10 +68,10 @@ finetune/python/
 │   ├── metrics.py                  7 metrics from finetune/README.md
 │   ├── pi_harness_wrapper.py       Node subprocess to packages/audit-runner
 │   └── results/                    matrix-{timestamp}.json outputs
-├── pitch/                          hackathon submission materials
-│   ├── underwriter-economics.md    NAIC/Coalition/Verizon-anchored economics
-│   ├── insurance-economics-slides.md
-│   ├── slide-deck.md               12-slide ModuleWarden deck
+├── pitch/                          Zero-One Hack FORECAST submission materials
+│   ├── underwriter-economics.md    downstream application: NAIC/Coalition/Verizon-anchored economics
+│   ├── insurance-economics-slides.md   downstream application of the forecast
+│   ├── slide-deck.md               12-slide ModuleWarden FORECAST deck
 │   └── README.md
 └── tests/                          schema + builder smoke tests
 ```
