@@ -117,6 +117,8 @@ interface PackageDetail {
   verdict: string | null;
   riskSummary: string | null;
   piSessionId: string | null;
+  auditWorkspaceId: string | null;
+  auditWorkspaceName: string | null;
   promptPackVersions?: string[];
   promptUsage?: PromptUsage;
   evidenceArtifacts: EvidenceArtifact[];
@@ -1357,6 +1359,14 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
               <div><strong>Hash:</strong> <code style={{ fontSize: '0.8rem' }}>{detail.tarballHash.slice(0, 24)}...</code></div>
               <div><strong>Verdict:</strong> <span style={{ color: statusColor(detail.verdict), fontWeight: 600 }}>{detail.verdict ?? 'Pending'}</span></div>
               <div><strong>PI Session:</strong> {detail.piSessionId ?? 'N/A'}</div>
+              <div>
+                <strong>Audit workspace:</strong>{' '}
+                {detail.auditWorkspaceId ? (
+                  <span title={detail.auditWorkspaceName ?? detail.auditWorkspaceId}>
+                    <code style={{ fontSize: '0.8rem' }}>{detail.auditWorkspaceId}</code>
+                  </span>
+                ) : 'N/A'}
+              </div>
               <div><strong>Risk:</strong> {detail.riskSummary ?? 'N/A'}</div>
             </div>
 

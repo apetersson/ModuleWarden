@@ -133,6 +133,10 @@ export interface PackageVersionDetail {
   /** PI run metadata */
   piSessionId: string | null;
   piRunId: string | null;
+  /** Run-specific audit workspace slug, e.g. mw-audit-ccPcLH -> ccPcLH */
+  auditWorkspaceId: string | null;
+  /** Full workspace/archive directory basename, e.g. mw-audit-ccPcLH */
+  auditWorkspaceName: string | null;
   /** Model profile */
   modelProfile: string | null;
   /** Prompt pack versions (names only, not content) */

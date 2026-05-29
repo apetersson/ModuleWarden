@@ -15,7 +15,7 @@ import { buildIdempotencyKey } from '@modulewarden/shared/constants';
 import { checkAdmin } from '../middleware/auth.js';
 import { JOB_TYPES } from '@modulewarden/shared/types';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type {
   AgentStream,
@@ -157,15 +157,31 @@ function coalesceStreamEntries(entries: AgentStreamEntry[]): AgentStreamEntry[] 
     }
   }
 
+  const lifecycleTypes = new Set(['message_start', 'message_update', 'message_end', 'turn_end']);
+  const seenLifecyclePayloads = new Set<string>();
   return result.filter((entry, index, all) => {
     const previous = all[index - 1];
-    return !(previous &&
-      previous.type === entry.type &&
+    const payloadKey = (entry.text || entry.errorMessage) && lifecycleTypes.has(entry.type)
+      ? JSON.stringify({
+        role: entry.role ?? '',
+        timestamp: entry.timestamp ?? '',
+        text: entry.text ?? '',
+        errorMessage: entry.errorMessage ?? '',
+      })
+      : null;
+    if (payloadKey) {
+      if (seenLifecyclePayloads.has(payloadKey)) return false;
+      seenLifecyclePayloads.add(payloadKey);
+    }
+    if (!previous) return true;
+    const sameContent =
       previous.role === entry.role &&
       previous.timestamp === entry.timestamp &&
       previous.text === entry.text &&
-      previous.summary === entry.summary &&
-      previous.errorMessage === entry.errorMessage);
+      previous.errorMessage === entry.errorMessage;
+    if (!sameContent) return true;
+    if (previous.type === entry.type) return false;
+    return !(previous.type === 'message_update' && entry.type === 'message_end');
   });
 }
 
@@ -203,8 +219,8 @@ function parsePromptList(promptText: string, label: string): string[] {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean);
 }
 
-function readPromptUsage(auditRunId: string, promptVersion: unknown): PromptUsage {
-  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId);
+function readPromptUsage(auditRunId: string, promptVersion: unknown, packageName?: string, packageVersion?: string): PromptUsage {
+  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId, packageName, packageVersion);
   const archiveDir = findSessionDir(process.env.MW_AUDIT_SESSION_ARCHIVE_ROOT, auditRunId);
   const baseDir = liveDir ?? archiveDir;
   const promptVersions = parsePromptVersion(promptVersion);
@@ -310,8 +326,9 @@ function findSessionDir(root: string | undefined, auditRunId: string): string | 
   return null;
 }
 
-function findLiveWorkspace(root: string | undefined, auditRunId: string): string | null {
+function findLiveWorkspace(root: string | undefined, auditRunId: string, packageName?: string, packageVersion?: string): string | null {
   if (!root || !existsSync(root)) return null;
+  const packageMatches: Array<{ path: string; updatedAt: number }> = [];
   for (const name of readdirSync(root)) {
     const path = join(root, name);
     const configPath = join(path, 'run-config.json');
@@ -319,9 +336,28 @@ function findLiveWorkspace(root: string | undefined, auditRunId: string): string
       if (!statSync(path).isDirectory() || !existsSync(configPath)) continue;
       const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
       if (config.auditRunId === auditRunId) return path;
+      if (packageName && packageVersion &&
+        config.packageName === packageName &&
+        config.packageVersion === packageVersion) {
+        packageMatches.push({ path, updatedAt: statSync(configPath).mtimeMs });
+      }
     } catch { /* ignore */ }
   }
+  packageMatches.sort((a, b) => b.updatedAt - a.updatedAt);
+  if (packageMatches[0]) return packageMatches[0].path;
   return null;
+}
+
+function auditWorkspaceInfo(auditRunId: string, packageName?: string, packageVersion?: string): { auditWorkspaceId: string | null; auditWorkspaceName: string | null } {
+  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId, packageName, packageVersion);
+  const archiveDir = findSessionDir(process.env.MW_AUDIT_SESSION_ARCHIVE_ROOT, auditRunId);
+  const baseDir = liveDir ?? archiveDir;
+  if (!baseDir) return { auditWorkspaceId: null, auditWorkspaceName: null };
+  const auditWorkspaceName = basename(baseDir);
+  const auditWorkspaceId = auditWorkspaceName.startsWith('mw-audit-')
+    ? auditWorkspaceName.slice('mw-audit-'.length)
+    : auditWorkspaceName;
+  return { auditWorkspaceId, auditWorkspaceName };
 }
 
 function readEvidenceFileContent(auditRunId: string, artifactName: string, filePath: unknown): { path: string; content: string } | null {
@@ -343,8 +379,8 @@ function readEvidenceFileContent(auditRunId: string, artifactName: string, fileP
   return null;
 }
 
-function readAgentStream(auditRunId: string): AgentStream {
-  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId);
+function readAgentStream(auditRunId: string, packageName?: string, packageVersion?: string): AgentStream {
+  const liveDir = findLiveWorkspace(process.env.MW_AUDIT_WORKSPACE_ROOT, auditRunId, packageName, packageVersion);
   const archiveDir = findSessionDir(process.env.MW_AUDIT_SESSION_ARCHIVE_ROOT, auditRunId);
   const baseDir = liveDir ?? archiveDir;
   const source: AgentStream['source'] = liveDir ? 'live-workspace' : archiveDir ? 'session-archive' : 'none';
@@ -585,6 +621,9 @@ export async function registerDashboardRoutes(
       const currentRunId = String(row.run_id ?? id);
       const scoresRaw = row.scores ? String(row.scores) : '{}';
       const verdict = row.verdict ? String(row.verdict) : null;
+      const packageName = String(row.packageName ?? 'unknown');
+      const packageVersion = String(row.version ?? 'unknown');
+      const workspaceInfo = auditWorkspaceInfo(currentRunId, packageName, packageVersion);
       const promotionStatus = verdict === 'ALLOW'
         ? await readPromotionStatus(
           prisma,
@@ -604,8 +643,8 @@ export async function registerDashboardRoutes(
           !['RUNNING', 'QUEUED', 'PENDING'].includes(String(row.job_status ?? '')),
         canPromote: verdict === 'ALLOW' && promotionStatus !== 'promoted',
         promotionStatus,
-        packageName: String(row.packageName ?? 'unknown'),
-        version: String(row.version ?? 'unknown'),
+        packageName,
+        version: packageVersion,
         tarballHash: String(row.tarballHash ?? ''),
         predecessorVersion: null,
         predecessorHash: null,
@@ -616,9 +655,11 @@ export async function registerDashboardRoutes(
         lifecycleScripts: [],
         piSessionId: row.piSessionId ? String(row.piSessionId) : null,
         piRunId: row.piRunId ? String(row.piRunId) : null,
+        auditWorkspaceId: workspaceInfo.auditWorkspaceId,
+        auditWorkspaceName: workspaceInfo.auditWorkspaceName,
         modelProfile: null,
         promptPackVersions: row.promptVersion ? [String(row.promptVersion)] : [],
-        promptUsage: readPromptUsage(currentRunId, row.promptVersion),
+        promptUsage: readPromptUsage(currentRunId, row.promptVersion, packageName, packageVersion),
         evidenceArtifacts: [],
         scores: (() => { try { return JSON.parse(scoresRaw); } catch { return {}; } })(),
         decisionHistory: row.decision_id ? [{
@@ -628,7 +669,7 @@ export async function registerDashboardRoutes(
           actorType: String(row.actorType ?? ''),
           createdAt: String(row.decision_created ?? ''),
         }] : [],
-        agentStream: readAgentStream(currentRunId),
+        agentStream: readAgentStream(currentRunId, packageName, packageVersion),
       };
 
       // Fetch evidence artifacts
