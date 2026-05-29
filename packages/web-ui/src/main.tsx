@@ -67,12 +67,15 @@ interface DashboardData {
   columns: Record<string, AuditRunCard[]>;
   summary: {
     total: number;
+    currentTotal: number;
     queued: number;
     running: number;
     blocked: number;
     quarantined: number;
     allowed: number;
+    promoted: number;
     failed: number;
+    superseded: number;
     needsAttention: number;
   };
   refreshedAt: string;
@@ -314,6 +317,14 @@ function DashboardPage({
     });
   }, [selectedCards, searchQuery, sortBy, matchesSearch]);
 
+  const completedCurrent = dashboard
+    ? dashboard.summary.allowed + dashboard.summary.promoted + dashboard.summary.blocked + dashboard.summary.quarantined + dashboard.summary.failed
+    : 0;
+  const progressTotal = dashboard?.summary.currentTotal ?? 0;
+  const completionPercent = progressTotal > 0
+    ? Math.round((completedCurrent / progressTotal) * 100)
+    : 0;
+
   const filteredColumns = useMemo(() => {
     if (!dashboard || !searchQuery) return dashboard?.columns;
     const result: Record<string, AuditRunCard[]> = {};
@@ -487,7 +498,7 @@ function DashboardPage({
       {/* Lockfile Import Progress */}
       {dashboard && (
         <div style={{ marginTop: '1.5rem', padding: '0.75rem', border: '1px solid #e0e0e0', borderRadius: 8, background: '#fafafa' }}>
-          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Lockfile Import Progress</h3>
+          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Current Package Review Progress</h3>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#1565c0' }} />
@@ -502,6 +513,10 @@ function DashboardPage({
               <span style={{ fontSize: '0.85rem' }}>Allowed: {dashboard.summary.allowed}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#1b5e20' }} />
+              <span style={{ fontSize: '0.85rem' }}>Promoted: {dashboard.summary.promoted}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#c62828' }} />
               <span style={{ fontSize: '0.85rem' }}>Blocked: {dashboard.summary.blocked}</span>
             </div>
@@ -513,8 +528,14 @@ function DashboardPage({
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#b71c1c' }} />
               <span style={{ fontSize: '0.85rem' }}>Failed: {dashboard.summary.failed}</span>
             </div>
+            {dashboard.summary.superseded > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#546e7a' }} />
+                <span style={{ fontSize: '0.85rem' }}>Superseded history: {dashboard.summary.superseded}</span>
+              </div>
+            )}
           </div>
-          {dashboard.summary.total > 0 && (
+          {progressTotal > 0 && (
             <div style={{ marginTop: '0.5rem' }}>
               <div style={{
                 height: 8,
@@ -525,15 +546,15 @@ function DashboardPage({
               }}>
                 <div style={{
                   height: '100%',
-                  width: `${((dashboard.summary.allowed + dashboard.summary.blocked + dashboard.summary.quarantined + dashboard.summary.failed) / dashboard.summary.total) * 100}%`,
+                  width: `${completionPercent}%`,
                   background: 'linear-gradient(90deg, #2e7d32, #c62828)',
                   borderRadius: 4,
                   transition: 'width 0.5s ease',
                 }} />
               </div>
               <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.2rem' }}>
-                {Math.round(((dashboard.summary.allowed + dashboard.summary.blocked + dashboard.summary.quarantined + dashboard.summary.failed) / dashboard.summary.total) * 100)}% complete
-                ({dashboard.summary.allowed + dashboard.summary.blocked + dashboard.summary.quarantined + dashboard.summary.failed} / {dashboard.summary.total} packages)
+                {completionPercent}% complete
+                ({completedCurrent} / {progressTotal} current package states)
               </div>
             </div>
           )}

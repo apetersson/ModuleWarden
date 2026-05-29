@@ -71,13 +71,18 @@ export interface DashboardState {
   columns: Record<KanbanColumn, AuditRunCard[]>;
   /** Summary counts */
   summary: {
+    /** Total visible cards, including superseded history */
     total: number;
+    /** Current workflow cards, excluding superseded history */
+    currentTotal: number;
     queued: number;
     running: number;
     blocked: number;
     quarantined: number;
     allowed: number;
+    promoted: number;
     failed: number;
+    superseded: number;
     needsAttention: number;
   };
   /** Timestamp of this snapshot */
