@@ -409,6 +409,26 @@ right behavior for the rest.
 
 ---
 
+## Q21. Your model's verdict-match is 46.7 to 73.9 percent. What is the trivial baseline, and what about block-recall?
+
+Honest answer, lead with it. The trivial baseline is "always quarantine":
+safe but useless because it stops all development, and on a held-out set
+that is mostly quarantine it scores high for free. So verdict-match alone is
+not the headline. The metric that matters for insurance is block-recall:
+does it catch the severe class. On the held-out test split our 0.5B model's
+block-recall is 0 percent, it caught 0 of 5 blocks. We do not hide that. It
+is exactly why the deterministic 5-rule gate, not the model, is the verdict
+authority: the gate independently flagged the compromised release
+(postmark-mcp-1.0.16, release-age plus install-scripts plus source-match
+fails) and the report escalated it to block. The model is the narrator. The
+real result is the lift from fine-tuning, base 0 percent to fine-tuned 73.9
+percent verdict reproduction, which proves the data and pipeline work end to
+end on a small model. Block-recall is the metric we scale the model on, and
+the 27B Leonardo run is where it earns it. The number is not the product;
+the gate plus the trained pipeline is.
+
+---
+
 ## Q&A escalation matrix
 
 When a judge asks something we cannot answer cleanly, do not bluff.

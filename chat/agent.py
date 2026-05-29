@@ -493,17 +493,65 @@ def _render_help() -> str:
     )
 
 
+def _render_live_advisory(pkg: str) -> str:
+    """Live GHSA + OSSF check for an arbitrary package (read-only metadata).
+
+    Gated by MW_LIVE_ADVISORIES=1 so the test suite stays offline by default;
+    the Streamlit app and CLI enable it. Fail-soft: returns "" on any error so
+    the chat never breaks on a network hiccup.
+    """
+    if os.environ.get("MW_LIVE_ADVISORIES") != "1":
+        return ""
+    try:
+        from chat import live_advisories
+
+        res = live_advisories.live_check(pkg)
+    except Exception:
+        return ""
+    ghsa = res.get("ghsa", {})
+    ossf = res.get("ossf", {})
+    lines = [
+        f"**Live advisory check for `{pkg}`** "
+        f"(GitHub Advisory DB + OSSF malicious-packages, queried just now):"
+    ]
+    if ghsa.get("available"):
+        if ghsa.get("count"):
+            sev = ghsa.get("max_severity") or "n/a"
+            mal = ghsa.get("malware_count", 0)
+            ids = ", ".join(a["ghsa_id"] for a in ghsa.get("advisories", [])[:5] if a.get("ghsa_id"))
+            mal_note = f", {mal} flagged malware-type" if mal else ""
+            id_note = f" ({ids})" if ids else ""
+            lines.append(f"- GHSA: {ghsa['count']} advisory record(s), highest severity {sev}{mal_note}{id_note}.")
+        else:
+            lines.append("- GHSA: no advisories on record for this package.")
+    else:
+        lines.append("- GHSA: live check unavailable right now.")
+    if ossf.get("available"):
+        if ossf.get("malicious"):
+            reports = ", ".join(ossf.get("reports", [])[:3])
+            lines.append(f"- OSSF malicious-packages: FLAGGED ({len(ossf.get('reports', []))} report(s): {reports}).")
+        else:
+            lines.append("- OSSF malicious-packages: not flagged.")
+    else:
+        lines.append("- OSSF: live check unavailable right now.")
+    return "\n".join(lines)
+
+
 def _render_unknown(facts: dict[str, Any]) -> str:
     pkg = facts.get("package")
     ver = facts.get("version")
     if pkg and ver:
-        return (
-            f"I do not have an audit dossier for `{pkg}@{ver}` yet. "
-            f"In the production pipeline, ModuleWarden would queue the "
-            f"audit and return a verdict within seconds. For this demo, "
-            f"I can show you the verdict for any of these incidents:\n\n"
+        base = (
+            f"I do not have a pre-audited dossier for `{pkg}@{ver}` in this "
+            f"demo set. In the production pipeline, ModuleWarden would queue "
+            f"the audit and return a verdict within seconds. The verdicts I "
+            f"can walk in full are:\n\n"
             f"{_render_list()}"
         )
+        live = _render_live_advisory(pkg)
+        if live:
+            return f"{live}\n\n{base}"
+        return base
     return _render_help()
 
 
