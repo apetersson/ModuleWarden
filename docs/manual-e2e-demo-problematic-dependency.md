@@ -120,16 +120,19 @@ cd "$DEMO_DIR"
 
 pnpm init
 
+# pnpm init may add a devEngines.packageManager block like:
+#   "version": "^11.0.8"
+# Current pnpm rejects that range when it later reads package.json, so remove
+# the block from this throwaway demo project before running any more pnpm
+# commands.
+node -e "const fs=require('fs'); const p='package.json'; const pkg=JSON.parse(fs.readFileSync(p,'utf8')); delete pkg.devEngines; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
+
 # Keep the registry override scoped to this demo project only.
 # Do not use `pnpm config set` or `npm config set` here; those can mutate
 # user/global config. Package managers read this local .npmrc from DEMO_DIR.
 cat > .npmrc <<'EOF'
 registry=http://localhost:8080/
 EOF
-
-# Some pnpm versions may add a devEngines.packageManager block with a non-exact
-# version such as "^11.0.8". If later pnpm/npm commands reject that metadata,
-# remove the devEngines block from this throwaway demo package.json.
 
 cat > index.js <<'EOF'
 console.log("ModuleWarden demo app");
