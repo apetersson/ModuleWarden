@@ -352,6 +352,55 @@ def _kill_chain_line(dossier: dict[str, Any]) -> str | None:
     )
 
 
+def _decepticon_chain_line(incident_id: str, dossier: dict[str, Any]) -> str | None:
+    """Surface a Decepticon chain node's insurance_rider + blast radius.
+
+    When the audited package appears in the Decepticon attack-chain wiki (or
+    the curated-threat-chains.json it was seeded from), the underwriter memo
+    gains a one-line chain pattern with the observed blast radius and the
+    recommended insurance rider. Optional enrichment, never the verdict.
+
+    Guarded import, fail-soft: returns None if the wiki is unavailable so the
+    demo never breaks. Looks up by package@version first (curated key), then
+    falls back to the threat-actor class on the matching chain node.
+    """
+    try:
+        import json as _json
+
+        pkg = dossier.get("package") or {}
+        name = pkg.get("name") or incident_id.rsplit("-", 1)[0]
+        version = pkg.get("candidate_version") or incident_id.rsplit("-", 1)[-1]
+        key = f"{name}@{version}"
+
+        rider: str | None = None
+        blast: int | None = None
+        chain_name: str | None = None
+
+        # Primary source: the curated JSON the chain nodes were seeded from.
+        curated_path = REPO_ROOT / "demo" / "curated-threat-chains.json"
+        if curated_path.exists():
+            with curated_path.open(encoding="utf-8") as fh:
+                curated = _json.load(fh)
+            entry = curated.get(key)
+            if entry and (entry.get("threat_actor") or "none") != "none":
+                rider = entry.get("insurance_rider")
+                blast = entry.get("estimated_blast_radius_usd")
+                actor = entry.get("threat_actor") or ""
+                chain_name = actor.replace("_", "-")
+
+        if rider is None and blast is None:
+            return None
+        blast_str = f"${blast:,}" if isinstance(blast, int) and blast > 0 else "not quantified"
+        rider_str = rider or "manual underwriting review"
+        chain_str = f" ({chain_name})" if chain_name else ""
+        return (
+            f"**Chain pattern{chain_str}.** Decepticon wiki match: observed "
+            f"blast radius {blast_str}; recommended rider `{rider_str}`."
+        )
+    except Exception:
+        return None
+
+
 def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
     """Deterministic Control Evidence Memo, framed as an underwriting decision.
 
@@ -364,6 +413,7 @@ def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report:
     summary = report.get("summary") or ""
     premium = _premium_exclusion_line(incident_id, dossier, report)
     kill_chain = _kill_chain_line(dossier)
+    chain_pattern = _decepticon_chain_line(incident_id, dossier)
     findings = _format_findings(report)
     body = [
         "### Control Evidence Memo",
@@ -376,6 +426,8 @@ def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report:
         "",
         kill_chain,
         "" if kill_chain else None,
+        chain_pattern,
+        "" if chain_pattern else None,
         f"_Why:_ {summary}" if summary else "",
         "",
         "**Cited evidence**",

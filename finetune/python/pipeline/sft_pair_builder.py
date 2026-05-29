@@ -21,6 +21,7 @@ _VALID_SOURCES = (
     "dogfood_dependency",
     "synthetic_teacher",
     "manual_golden",
+    "wiki_derived",
 )
 
 _VALID_SPLITS = ("train", "validation", "test")

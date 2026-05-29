@@ -42,3 +42,6 @@ finetune/corpus/scraped-cases-*.jsonl
 finetune/corpus/sft-records.attck.jsonl
 finetune/python/training/adapters/
 # Note: finetune-metrics*.json are committed as pitch evidence (the model card).
+
+__pycache__/
+*.pyc
