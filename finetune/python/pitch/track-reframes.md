@@ -158,13 +158,18 @@ decision.
   probability that adopting it will result in a security incident within
   12 months." That is genuinely a forecasting question and connects to
   Sybilion's domain language.
-- Slide 2 emphasize: conformal prediction. This is the slide that wins
-  or loses the methodology judge. Show the math: split conformal
-  calibration, marginal coverage guarantee, validity under
-  exchangeability. Acknowledge the limitation that exchangeability
-  breaks under distribution shift.
-- Slide 6 lead with: the calibration plot and the per-pattern breakdown.
-  AUROC second.
+- Slide 2 emphasize: the honest measurement, not a calibration claim we
+  cannot back. Lead with the three measured numbers (0.54 cold-package
+  floor, 0.60 same-package delta, 0.98 standalone-malware but size-driven)
+  and the reason the signal is in the version delta, which is why the
+  deterministic delta-gate is the verdict authority. We have a
+  split-conformal implementation in the calibrate driver, but on a 0.54
+  classifier its coverage is uninformative, so we do NOT pitch conformal
+  as a win. Say that plainly; a methodology judge rewards the honesty.
+- Slide 6 lead with: the floor-and-ceiling measurement and the delta
+  finding. Show the reliability diagram only with the caveat that the
+  underlying static classifier is weak; the real probabilistic layer is
+  the delta embedding (GPU-deferred, scaffold ready).
 - Slide 12 rewrite: ask becomes "research collaboration on conformal
   methods for time-series supply-chain risk forecasting. Our model is
   a tractable instance; your industrial domain is the harder version."
