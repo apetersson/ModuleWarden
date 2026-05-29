@@ -1,23 +1,137 @@
-# Track Reframes: ModuleWarden for UNIQA, Infineon, Sybilion
+# Track Reframes: ModuleWarden for Sybilion, UNIQA, Infineon
 
 Each track gets one page. The core pitch does not change. What changes is
 the framing on slides 1, 8, and 12, and the buzzwords we drop into slides
 3 and 4. Pick the right reframe at Case Reveal Friday night.
 
-Prior on track fit, in descending order: UNIQA, Infineon, Sybilion.
+Prior on track fit, in descending order: Sybilion, UNIQA, Infineon.
 Reasoning at the bottom.
+
+The product one-liner, unchanged across tracks: ModuleWarden forecasts the
+probability that a dependency a developer is about to pull into the company
+codebase is a supply-chain attack vector, and an agent acts on it at
+submission time. The threat model is internal: the lazy submitter who pulls
+an unaudited package because Copilot suggested it, and the disgruntled
+submitter who slips a poisoned version into a PR on purpose.
 
 ---
 
-## UNIQA Insurance ("AI in Insurance") - PRIMARY TARGET
+## Sybilion Forecasting ("Zero-One Hack FORECAST") - PRIMARY TARGET
 
-**One-line value prop:** "ModuleWarden is the twelfth section of UNIQA's
-underwriting questionnaire. The other eleven do not ask whether the
-policyholder gates npm installs."
+**One-line value prop:** "ModuleWarden forecasts the probability that the
+dependency version a developer is about to add to the company codebase is a
+supply-chain attack vector, and an agent acts on that forecast at submission
+time. Probabilistic forecasting, and the agent layer that acts on it."
+
+**The forecasting object is the version DELTA, not the cold package.** This
+is the load-bearing point for this track. ModuleWarden does not forecast
+"is package X dangerous" in the abstract. It forecasts "is the change between
+the version already in the lockfile and the version the developer just asked
+for a supply-chain attack vector." The deterministic DELTA-gate is the verdict
+authority; the model narrates the forecast, it never decides. That split is
+not a stylistic choice. It falls directly out of the data: a static classifier
+on the COLD package floors at AUROC 0.54 on this corpus (GHSA pairs, benign =
+the first-patched release). The signal is in the delta. So the architecture is
+gate-decides, model-narrates, because that is where the honest signal lives.
 
 **Sponsor-domain buzzwords to drop in:**
-- "Actuarial" (use it when describing the score: "actuarial probability
-  of a malicious payload")
+- "Probabilistic forecasting" (the literal track name; the gate emits a
+  probability over the delta, not a yes/no on the package)
+- "Calibration" (the forecast is only useful if the probability means what
+  it says; we report the honest calibration, including where it is poor)
+- "Agent layer" (the agent acts on the forecast at submission time: block,
+  quarantine, or admit with an evidence memo)
+- "Operational decision-making under uncertainty" (the academic framing of
+  the submit-time gate)
+- "Distribution shift" (acknowledge it: net-new attack patterns are out of
+  distribution, and we say so rather than claim coverage we did not measure)
+
+**Likely judge profile:** Two very different judges to satisfy. A
+methodology-rigor judge will probe whether the probability is honestly
+calibrated and whether the AUROC floor is a real finding or a setup artifact.
+A commercial-credibility judge wants to know whether the forecast actually
+changes what a developer or a security admin does at submission time.
+
+They care about: forecast honesty (does the reported number match the
+held-out result, no borrowed headline accuracy), the delta framing (why the
+cold-package floor is the reason for the architecture, not an embarrassment),
+and the agent action (a forecast nobody acts on is a chart, not a control).
+
+**Slide swaps:**
+- Slide 1 lead: frame the npm supply-chain problem as a submit-time
+  forecasting problem. "A developer is about to pull a dependency version
+  into the company codebase. Forecast the probability that this specific
+  version delta is a supply-chain attack vector, then have an agent act on
+  the forecast before the tarball lands." Keep the postmark-mcp timeline,
+  but the framing is forecast-then-act, not scan-after-install.
+- Slide 2 lead: the honest finding. A static classifier on the cold package
+  is AUROC 0.54 on this corpus. That is barely above a coin flip, and it is
+  WHY we forecast the delta and why the deterministic gate, not the model,
+  holds verdict authority. This slide wins or loses the methodology judge.
+  Do not bury it. Lead with it.
+- Slide 3 emphasize: gate-decides, model-narrates. The deterministic
+  DELTA-gate is the forecast's verdict authority. The fine-tuned model
+  produces the narrated report and a probability, but it never has block
+  authority. Frame the agent layer here: the agent acts on the gate verdict
+  at submission time.
+- Slide 4 emphasize: the AuditDossier-AuditReport contract is how the
+  forecast stays honest. Every cited finding maps to an evidence id in the
+  dossier; invented references are zero by construction. The forecast is
+  auditable, not a black-box score.
+- Slide 6 reframe: this is the downstream application slide. The
+  conversational agent plus the evidence memo is "the agent layer that acts
+  on the forecast." The insurance/underwriting economics live here as one
+  worked application of acting on the forecast, not as the headline.
+- Slide 11 lead with the honest numbers: base model produces no parseable
+  verdict (0 percent), fine-tuned reproduces the gold verdict 46.7 to 73.9
+  percent depending on split, block-recall is 0 percent on the held-out
+  blocks, and the deterministic gate is what catches the severe cases. The
+  lift from fine-tuning proves the data and pipeline work end to end; the
+  model is the narrator, the gate is the authority.
+- Slide 12 rewrite: ask becomes a forecasting research collaboration. "Our
+  delta-gate is a tractable instance of submit-time risk forecasting with an
+  agent acting on the forecast. The honest signal is in the delta, not the
+  cold object. We want to collaborate on the harder forecasting surfaces in
+  your domain."
+
+**Track-specific risks:**
+- A methodology judge will press on the AUROC 0.54 floor: "is that a real
+  finding or did you set the benchmark up to fail?" The honest answer is
+  that benign is defined as the first-patched release of the same package,
+  so the classifier is being asked to separate a malicious version from its
+  own clean sibling on cold features alone. That is hard on purpose, and it
+  is exactly the regime where the delta carries the signal. Concede it is a
+  hard setup; that is the point, not a bug.
+- "Why is the model not the forecaster if it is the thing that scores?" The
+  answer is the data: the model narrates and emits a probability, but
+  block-recall on the held-out severe cases is 0 percent, so the
+  deterministic delta-gate has to hold verdict authority. We do not let a
+  0-percent-recall narrator decide. That is the discipline the honest number
+  forces.
+- The commercial judge will ask the practical question: does anyone act on
+  the forecast? Yes. The agent layer acts at submission time: block,
+  quarantine to admin review, or admit with an evidence memo. The insurance
+  application on Slide 6 is one worked example of a downstream actor (an
+  underwriter) consuming the forecast and the memo. Drop into that example
+  if the commercial judge wants a concrete buyer.
+
+---
+
+## UNIQA Insurance ("AI in Insurance") - FALLBACK
+
+UNIQA is a fallback reframe, not the entry. The insurance economics are a
+downstream application of acting on the forecast, not the headline. Use this
+page only if the case briefs point at an insurance track.
+
+**One-line value prop:** "ModuleWarden forecasts the probability that a
+dependency version is a supply-chain attack vector. One downstream actor who
+acts on that forecast is a cyber underwriter: the install-layer control class
+that none of the eleven sections of UNIQA's questionnaire currently ask
+about. ModuleWarden is the twelfth section."
+
+**Sponsor-domain buzzwords to drop in:**
+- "Actuarial" (use it when describing the forecast: "actuarial-style
+  probability over the version delta")
 - "Underwriting control" (frame ModuleWarden as a control class, not a
   competing product)
 - "Cyber risk quantification" (the term of art UNIQA's cyber product
@@ -34,10 +148,10 @@ policyholder gates npm installs."
 - (Backup) Barbara Liebich-Steiner CDO, Malte Bartels Data and AI
   Platform Engineer.
 
-They care about: methodological rigor (calibration plot must look right),
-explainability (every score ships with an evidence list), regulatory
-framing (Solvency II treats unquantified risk poorly), claims-process
-fit (evidence must drop into a claim file without translation).
+They care about: forecast honesty (the reported number must match the
+held-out result), explainability (every forecast ships with an evidence
+list), regulatory framing (Solvency II treats unquantified risk poorly),
+claims-process fit (evidence must drop into a claim file without translation).
 
 They do NOT care about ML novelty for its own sake.
 
@@ -46,11 +160,12 @@ They do NOT care about ML novelty for its own sake.
   of them ask whether your policyholder gates npm installs. Verizon DBIR
   puts 74 percent of breaches on the human element. AI-assisted coding
   amplifies the insider vector. ModuleWarden is the twelfth section."
-- Slide 4 emphasize: the three-layer stack. Deterministic gate, our
+- Slide 4 emphasize: the three-layer stack. Deterministic delta-gate, our
   fine-tuned model in an isolated Docker container, DeepSeek V3 second
   opinion on the QUARANTINE band. This is the reinsurance pattern.
-- Slide 6 emphasize: the calibration plot. Lead with it instead of the
-  AUROC. Underwriters trust calibration more than discrimination.
+- Slide 6 emphasize: the forecast feeds the underwriting application. Lead
+  with the evidence memo and the control-class credit, not a borrowed
+  accuracy headline. Underwriters trust an auditable forecast they can act on.
 - Slide 8 rewrite: top roadmap item becomes "underwriting questionnaire
   integration as the twelfth section." PyPI moves to row two.
 - Slide 12 rewrite: structured 6-to-8 week pilot with UNIQA cyber
@@ -65,7 +180,7 @@ They do NOT care about ML novelty for its own sake.
   position as a research collaboration that feeds into a future
   production system.
 - "Why npm and not the whole IT estate?" is a real question. Answer:
-  we picked a tractable scope to prove the methodology. The methodology
+  we picked a tractable scope to prove the forecasting methodology. It
   generalizes to any quantifiable risk signal a carrier wants to
   underwrite against (PyPI Q3, Cargo Q4, RubyGems 2027).
 - "Do you replace T-Systems Austria / Schoenherr / Pantarhei?" is a
@@ -84,10 +199,13 @@ They do NOT care about ML novelty for its own sake.
 
 ## Infineon Industry ("AI in Industry") - FALLBACK
 
+A second fallback. Use only if the briefs point at an industrial track.
+
 **One-line value prop:** "Industrial OT and embedded systems pull software
-from package registries too. ModuleWarden is the install gate for the OT
-software supply chain, where a compromised dependency takes down a fab
-line, not a web app."
+from package registries too. ModuleWarden forecasts the probability that a
+dependency version is a supply-chain attack vector and acts on it at the
+install gate, where a compromised dependency takes down a fab line, not a
+web app."
 
 **Sponsor-domain buzzwords to drop in:**
 - "OT security" (operational technology)
@@ -133,87 +251,47 @@ skeptical of consumer-grade tooling repackaged for industrial use.
 
 ---
 
-## Sybilion Forecasting ("AI in Forecasting") - LONG REACH
-
-**One-line value prop:** "ModuleWarden is a worked example of calibrated
-probabilistic classification in a high-stakes operational decision. The
-same methodology, conformal prediction over fine-tuned transformers,
-applies to industrial procurement risk forecasting."
-
-**Sponsor-domain buzzwords to drop in:**
-- "Conformal prediction" (drop it early and often)
-- "Probabilistic forecasting" (the literal track name)
-- "Operational decision-making under uncertainty" (the academic framing
-  of the procurement problem)
-
-**Likely judge profile:** Two very different judges to satisfy. A
-methodology-rigor judge will probe conformal coverage guarantees and
-exchangeability assumptions. A commercial-credibility judge wants to
-know whether the tool actually helps a procurement officer make a
-decision.
-
-**Slide swaps:**
-- Slide 1 rewrite (hardest): frame npm supply chain attacks as a
-  forecasting problem: "given a candidate dependency, forecast the
-  probability that adopting it will result in a security incident within
-  12 months." That is genuinely a forecasting question and connects to
-  Sybilion's domain language.
-- Slide 2 emphasize: the honest measurement, not a calibration claim we
-  cannot back. Lead with the three measured numbers (0.54 cold-package
-  floor, 0.60 same-package delta, 0.98 standalone-malware but size-driven)
-  and the reason the signal is in the version delta, which is why the
-  deterministic delta-gate is the verdict authority. We have a
-  split-conformal implementation in the calibrate driver, but on a 0.54
-  classifier its coverage is uninformative, so we do NOT pitch conformal
-  as a win. Say that plainly; a methodology judge rewards the honesty.
-- Slide 6 lead with: the floor-and-ceiling measurement and the delta
-  finding. Show the reliability diagram only with the caveat that the
-  underlying static classifier is weak; the real probabilistic layer is
-  the delta embedding (GPU-deferred, scaffold ready).
-- Slide 12 rewrite: ask becomes "research collaboration on conformal
-  methods for time-series supply-chain risk forecasting. Our model is
-  a tractable instance; your industrial domain is the harder version."
-
-**Track-specific risks:**
-- The biggest risk is that Sybilion judges see npm-security as off-topic
-  for industrial procurement. The reframe above is honest but stretched.
-  If a judge presses on relevance, the right move is to concede the gap
-  and pivot to methodology transfer: "the model is npm. The methodology
-  is general. Here is the formal mapping."
-- The methodology judge will probe the calibration claim hard. Coverage
-  validity, distribution shift, exchangeability. The escalation matrix
-  in `q-and-a-prep.md` covers this: concede the open question, point at
-  the mitigation, do not bluff.
-- The commercial judge will ask the practical question. The right
-  answer is to drop into the UNIQA reframe: cyber-insurance underwriting
-  is a real adjacent market with real budget, and the bridge from the
-  demo to that market is clear.
-
----
-
 ## How to pick the track Friday night
 
 After Case Reveal at 20:30 Friday:
 
-1. Read all three briefs. Score each on three axes: domain fit, judge
+1. Read all the briefs. Score each on three axes: domain fit, judge
    fit, demo fit.
-2. Domain fit: how far is the reframe stretch? UNIQA is short, Infineon
-   is medium, Sybilion is long.
+2. Domain fit: how far is the reframe stretch? Sybilion forecast is the
+   native frame (the gate IS a forecaster), UNIQA is a downstream
+   application, Infineon is a registry swap.
 3. Judge fit: which judges are in the room for each track, and how well
    does our pitch land for them?
-4. Demo fit: does the live postmark-mcp demo translate? UNIQA yes
-   (cyber risk is the demo). Infineon yes if we cast it as OT supply
-   chain. Sybilion only metaphorically.
+4. Demo fit: does the live postmark-mcp demo translate? Sybilion yes (the
+   demo IS the forecast firing on a real delta). UNIQA yes (the underwriter
+   acts on the forecast). Infineon yes if we cast it as OT supply chain.
 5. If two tracks tie on the above, pick the one with the smallest prize
-   spread. EUR 2K vs EUR 1K is much closer than EUR 0 vs EUR 500.
+   spread.
 
-Default pick if briefs do not change the picture: UNIQA Insurance,
-Infineon as fallback, Sybilion only if the briefs explicitly mention
-software risk forecasting (unlikely).
+Default pick if briefs do not change the picture: Sybilion FORECAST,
+UNIQA as fallback, Infineon as a second fallback.
+
+---
+
+## Sybilion-specific framing notes
+
+- The forecasting object is the version DELTA. Say this early and keep
+  saying it. The cold-package classifier floors at AUROC 0.54 on this
+  corpus; the delta is where the signal lives.
+- The agent layer is not decoration. It is the half of the value prop that
+  turns a forecast into an action: block, quarantine, or admit with an
+  evidence memo, at submission time.
+- Do NOT quote any headline accuracy not measured on this corpus. No
+  borrowed AUROC, no third-party F1, no calibrated-coverage percentage we
+  did not produce. The honest floor (0.54 cold) plus the honest fine-tune
+  lift (0 to 46.7-to-73.9 verdict-match, 0 block-recall) is the credibility,
+  not a polished number.
 
 ---
 
 ## UNIQA-specific intelligence (verified May 2026)
+
+Kept for the fallback reframe.
 
 - **Cyber product name:** Cyberversicherung (no separate brand)
 - **SME cap:** EUR 100k per insured

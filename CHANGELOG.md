@@ -63,7 +63,9 @@ layer that adapts after the checkpoint is frozen, with no retrain.
 
 - The guardrail encodes decision-4 at the steering layer: a vector that buys
   robustness by hurting clean accuracy is refused and the refusal is recorded,
-  not discovered in production. See backlog TASK for the adaptive layer.
+  not discovered in production. The pitch line for the FORECAST track: the
+  control cannot be talked out of a block. See backlog TASK for the adaptive
+  layer.
 
 ## 2026-05-29 (Saturday - injection hardening + activation steering)
 
@@ -98,7 +100,7 @@ Audit-LLM injection defense, defense in depth with the deterministic gate.
   skipped as off-domain; SIMS (arXiv:2507.08967) noted as the advanced
   steering variant for future work. See backlog TASK-33.
 
-## 2026-05-28 (Friday — Zero-One Hack Vienna pitch prep)
+## 2026-05-28 (Friday - Zero-One Hack Vienna pitch prep)
 
 What landed in the Friday-night build window before the Saturday
 training run and Sunday 13:30 pitch. Listed in reverse-chronological
@@ -140,16 +142,18 @@ order so the newest material is at the top.
 ### Pitch
 
 - Three new pitch angles integrated into `slide-deck.md`: insider
-  AI-assisted threat surface (Verizon DBIR 74 percent), three-layer
-  architecture (deterministic gate + MW fine-tuned 27B in Docker +
-  DeepSeek V3 second opinion on QUARANTINE band), structured pilot
-  asks (6-8 week pilot, product-design partnership, outcome funding)
-- Underwriter view scaffolded in `packages/web-ui/src/underwriter/`
-  with six panels (PortfolioSummary, CorrelatedExposure,
-  IncidentReplays, PricingDelta, RealLossAnchor, InsiderRiskPanel)
-  and a 50-row Austrian SME mock portfolio
-- Q10a entry on Decepticon (PurpleAILAB) for the offense-vs-defense
-  judge question
+  threat surface for the lazy and the disgruntled submitter (Verizon
+  DBIR 74 percent), three-layer architecture (deterministic delta-gate
+  + MW fine-tuned 27B in Docker + DeepSeek V3 second opinion on
+  QUARANTINE band), structured pilot asks (6-8 week pilot,
+  product-design partnership, outcome funding)
+- Underwriter view scaffolded in `packages/web-ui/src/underwriter/` as
+  a downstream application of the forecast (the agent layer that acts
+  on it), with six panels (PortfolioSummary, CorrelatedExposure,
+  IncidentReplays, PricingDelta, RealLossAnchor, InsiderRiskPanel) and
+  a 50-row Austrian SME mock portfolio
+- Q10a entry on Decepticon (PurpleAILAB) ATT&CK mapper for the
+  offense-vs-defense judge question
 - Saturday-runbook + preflight + video-script + Q&A + track-reframes
   ported from apiary
 

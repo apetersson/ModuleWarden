@@ -1,20 +1,27 @@
 # ModuleWarden
 
-Private agentic version-diff gate for npm packages.
+Zero-One Hack FORECAST track. Partner: Sybilion (probabilistic forecasting and the agent layer that acts on it).
 
-ModuleWarden intercepts npm install requests, fetches upstream package metadata, audits version changes using static analysis and (optionally) PI agentic review, then serves only approved package versions. It catches compromised-package versions before they reach developers.
+ModuleWarden forecasts the probability that a dependency a developer is about to pull into the company codebase is a supply-chain attack vector, and an agent acts on it at submission time.
+
+The forecast runs on the version DELTA, not the cold package. ModuleWarden intercepts npm install requests, fetches upstream package metadata, audits the change between the last-known-good version and the one being pulled, then an agent acts on the verdict (allow, block, quarantine). A deterministic gate decides; the model narrates.
 
 ## Threat Model
 
-ModuleWarden defends against one primary attack: **a legitimate popular package maintainer or maintainer account is compromised and publishes a malicious new version that should not spread into the organization.**
+The threat is INTERNAL. Two submitters put the codebase at risk:
+
+- **The lazy submitter**: pulls an open-source dependency without understanding the risk the new version carries.
+- **The disgruntled submitter**: deliberately introduces a compromised version.
+
+In both cases the same primary attack lands: **a new package version that should not spread into the organization is pulled into the company codebase.** This includes a legitimate popular package whose maintainer account is compromised and publishes a malicious update.
 
 Non-goals:
 - Generic package sovereignty or "replace npm"
 - Auditing every package in the registry like a human reviewer
 - Preventing novel zero-day exploits in benign packages
-- Malicious package *authors* (first publish) — only *version updates* to packages already in the dependency graph
+- Malicious package *authors* (first publish) only *version updates* to packages already in the dependency graph
 
-The defensible thesis: *private, agentic, version-diff review of package updates in the organization's used dependency graph.* A version diff against a last-known-good predecessor is a bounded, reviewable change. Static heuristics catch the obvious patterns. Agentic review catches behavioral changes, capability creep, and intent mismatches.
+The defensible thesis: *private, agentic forecasting of the version DELTA for package updates in the organization's used dependency graph.* A version diff against a last-known-good predecessor is a bounded, reviewable change. This is also the empirical reason the architecture is gate-decides, model-narrates: a static classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA advisory pairs, benign = first-patched release), because the signal is in the version DELTA, not the package in isolation. The deterministic gate reads the delta (added lifecycle scripts, capability deltas, obfuscation, advisory match between versions) and is the verdict authority. The model narrates the forecast, it never decides.
 
 ## Architecture Overview
 
@@ -104,10 +111,12 @@ ls demo/outputs/                                                     # 3 memos
 
 See [`demo/README.md`](demo/README.md) for the full demo recipe.
 
-## Conversational Underwriter Assistant
+## The Agent Layer That Acts on the Forecast
 
-Same audit pipeline, conversational wrapper aimed at a cyber-policy
-underwriter or claims analyst:
+Same forecast pipeline, a conversational agent that acts on the verdict.
+One downstream application of the forecast is cyber-policy underwriting:
+the same agent can answer a cyber-policy underwriter or claims analyst
+and produce an audit memo:
 
 ```bash
 # Headless CLI (no UI deps)

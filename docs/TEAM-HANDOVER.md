@@ -14,7 +14,7 @@ ModuleWarden is a self-hosted npm registry proxy that acts as a dependency firew
 
 The gate runs 5 deterministic rules: release-age >= 14 days, install-script blocking, SRI checksum, source-match, and allowlist. Whatever the gate decides is final. The model receives the pinned verdict and writes the human-readable explanation around it. If the model hallucinates or gets prompt-injected, the verdict it is describing does not change. This is the single design decision the whole project hangs on.
 
-### Chat: the conversational underwriter (Track 02 centerpiece)
+### Chat: the agent layer that acts on the forecast
 
 `chat/app.py` is a Streamlit underwriter (plus a CLI) that answers package questions in plain language with the gate verdict pinned. It talks to any OpenAI-compatible endpoint via `MW_MODEL_ENDPOINT_BASE_URL/_API_KEY/_MODEL` or `OPENAI_*`, and falls back to a deterministic Control Evidence Memo when no endpoint is set, so the demo never goes dark. A judge can type any package name and get a grounded answer.
 
@@ -26,7 +26,7 @@ All three are measured on one metric: verdict-flip rate / ASR on held-out novel 
 - **Served-path spotlight + instruction hierarchy** (`finetune/python/serving/prompt_defense.py`). Always on, no residual hooks, ships on the served model under a versioned `PromptDefensePolicy`. Runs on vLLM or llama.cpp.
 - **Conditional activation steering** (`finetune/python/steering/conditional.py`, CAST detector-gated, vectors in `registry.py`). HF path. Adapts to new attack families by regenerating a steering vector, no retraining.
 
-The adaptive thesis for UNIQA: the model is fine-tuned once, but layers 2 and 3 update without re-certifying a new model.
+The adaptive thesis: the model is fine-tuned once, but layers 2 and 3 update without re-certifying a new model.
 
 ### MITRE ATT&CK kill-chain mapper
 
@@ -122,7 +122,7 @@ Day 1, 29 May. Three buckets below. Most training work is parked behind the 21:3
 
 ### Demo and UI polish
 
-- **TASK-6 - web-ui recharts underwriter view**. The chart-backed verdict view is what a UNIQA underwriter recognizes as their own workflow.
+- **TASK-6 - web-ui recharts risk view**. The chart-backed forecast view shows the per-dependency risk and the submission-level probability a reviewer acts on. The same view doubles as the underwriter workflow in the downstream cyber-risk-pricing application.
 - **TASK-7 - 60-sec backup demo video**. If the live chat endpoint flakes during the pitch, the recorded run is the fallback that still lands the story.
 - **TASK-13 - Seed 20 benign npm packages**. Judges will type real package names; benign seeds keep the gate from looking like it only ever says BLOCK.
 - **TASK-16 - Select golden cases**. A curated set of clean PASS and severe BLOCK cases makes the deterministic-gate-vs-narrator split legible in 90 seconds.
@@ -136,5 +136,5 @@ Day 1, 29 May. Three buckets below. Most training work is parked behind the 21:3
 ### If you only do three things tonight
 
 1. **TASK-3 rehearsal smoke** - prove the training pipeline works before 21:30, so the Leonardo creds drop straight into a launch instead of a debug session.
-2. **TASK-30.x remove the model API key from Docker env** - cheapest fix, worst-case blast radius, and it is a Track 02 security project.
+2. **TASK-30.x remove the model API key from Docker env** - cheapest fix, worst-case blast radius, and it is the kind of supply-chain hygiene the forecast itself is about.
 3. **TASK-7 record the 60-sec backup video** - insurance against a flaky live demo, and it forces us to rehearse the 90-second story tonight rather than Sunday morning.
