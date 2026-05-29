@@ -96,3 +96,26 @@ reach the model. `_flatten_and_calibrate.py` lifts those to scalar cap_* columns
 drops provenance (advisory_ids/case_ids) before training. Even with the richest
 features correctly exposed, the floor is 0.54 - the limitation is the corpus/feature
 match, confirmed not a vectorization bug.
+
+## Update 2026-05-30: malware split + paired-delta measured
+
+Two more regimes measured on the same npm-CDN-pulled corpus (CPU, held-out):
+
+- Malware vs clean (282 surviving CWE-506 embedded-malicious-code packages vs 397
+  clean benign libraries): AUROC 0.98, PR-AUC 0.99, Brier 0.03, precision 0.98 at
+  recall 0.93. BUT file_count drives 0.79 of importance, so it is largely a size
+  signal (droppers are tiny). Real for standalone-malware detection, not for malware
+  injected into an existing normal-sized package. Evidence: eval/malware-split/.
+- Paired-delta (594 matched same-package pairs, vulnerable vs first_patched): the
+  feature DELTA scores AUROC 0.60, above the 0.54 cold cve_diff floor and far above
+  the 0.25 absolute-feature baseline on the same matched pairs (absolute features are
+  anti-informative because the patch ADDS code). Differencing helps and the delta
+  thesis holds directionally, but static-feature deltas top out weak (0.60).
+  Evidence: eval/paired-delta/. Scripts: _malware_split_build.py,
+  _paired_delta_build.py, _paired_delta_train.py.
+
+Combined verdict: the deterministic delta-gate stays the verdict authority. The
+static forecast is a weak prior (0.60 at best on the hard case). A real probabilistic
+layer needs a code EMBEDDING of the version delta (TASK-48), not static features.
+Three honest numbers - 0.54 floor, 0.60 delta lift, 0.98 standalone-malware ceiling -
+beat any single borrowed AUROC.

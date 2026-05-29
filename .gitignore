@@ -45,3 +45,17 @@ finetune/python/training/adapters/
 
 __pycache__/
 *.pyc
+
+# Local npm-CDN subset corpora + downloaded tarballs (regenerable via
+# finetune/scripts/_subset_corpus_build.py etc.; npm registry + Nextcloud are
+# canonical). The raw-*/ dirs hold live-malware blobs and must never be committed.
+finetune/corpus/artifact-index-full.jsonl
+finetune/corpus/local-artifact-index.jsonl
+finetune/corpus/local-malware-index.jsonl
+finetune/corpus/local-paired-index.jsonl
+finetune/corpus/tarball-features.jsonl
+finetune/corpus/tarball-features-malware.jsonl
+finetune/corpus/tarball-features-paired.jsonl
+finetune/corpus/raw/
+finetune/corpus/raw-malware/
+finetune/corpus/raw-paired/
