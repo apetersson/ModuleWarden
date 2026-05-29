@@ -95,6 +95,8 @@ export async function buildServer() {
 
   await app.register(cors, {
     origin: process.env.MW_WEB_UI_ORIGIN ?? 'http://localhost:3000',
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
     credentials: false,
   });
 

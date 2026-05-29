@@ -646,22 +646,38 @@ interface PromptPack {
   createdAt: string;
 }
 
+interface PromptCategorySetting {
+  category: 'CORE' | 'PATTERN_CHECK' | 'ESCALATION' | 'CUSTOM_ADMIN';
+  enabled: boolean;
+}
+
 function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAuthRequired: () => void }) {
   const [prompts, setPrompts] = useState<PromptPack[]>([]);
+  const [settings, setSettings] = useState<PromptCategorySetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     async function doFetch() {
+      setLoading(true);
+      setError(null);
+      setSaveMessage(null);
       try {
-        const resp = await fetch(`${API_BASE}/admin/prompts`, { headers: authHeaders(adminToken) });
-        if (resp.ok) {
-          setPrompts(await resp.json() as PromptPack[]);
-        } else if (resp.status === 401 || resp.status === 403) {
+        const [promptsResp, settingsResp] = await Promise.all([
+          fetch(`${API_BASE}/admin/prompts`, { headers: authHeaders(adminToken) }),
+          fetch(`${API_BASE}/admin/prompt-settings`, { headers: authHeaders(adminToken) }),
+        ]);
+        if (promptsResp.ok && settingsResp.ok) {
+          setPrompts(await promptsResp.json() as PromptPack[]);
+          const body = await settingsResp.json() as { defaultCategories: PromptCategorySetting[] };
+          setSettings(body.defaultCategories);
+        } else if (promptsResp.status === 401 || promptsResp.status === 403 || settingsResp.status === 401 || settingsResp.status === 403) {
           onAuthRequired();
           setError('AUTH_REQUIRED');
         } else {
-          setError(`Prompts API: ${resp.status}`);
+          setError(`Prompts API: ${promptsResp.status}; Settings API: ${settingsResp.status}`);
         }
       } catch (err) {
         setError(`API unavailable: ${err instanceof Error ? err.message : String(err)}`);
@@ -707,6 +723,42 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
 
   const corePrompts = prompts.filter((p) => p.category === 'CORE' || p.category === 'PATTERN_CHECK');
   const customPrompts = prompts.filter((p) => p.category === 'CUSTOM_ADMIN' || p.category === 'ESCALATION');
+  const enabledCategories = new Set(settings.filter((setting) => setting.enabled).map((setting) => setting.category));
+
+  function toggleCategory(category: PromptCategorySetting['category']) {
+    setSaveMessage(null);
+    setSettings((current) => current.map((setting) => (
+      setting.category === category ? { ...setting, enabled: !setting.enabled } : setting
+    )));
+  }
+
+  async function saveSettings() {
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const resp = await fetch(`${API_BASE}/admin/prompt-settings`, {
+        method: 'PUT',
+        headers: {
+          ...authHeaders(adminToken),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ defaultCategories: settings }),
+      });
+      if (resp.ok) {
+        const body = await resp.json() as { defaultCategories: PromptCategorySetting[] };
+        setSettings(body.defaultCategories);
+        setSaveMessage({ type: 'success', text: 'Default prompt grouping saved.' });
+      } else if (resp.status === 401 || resp.status === 403) {
+        onAuthRequired();
+        setSaveMessage({ type: 'error', text: 'Admin token required.' });
+      } else {
+        setSaveMessage({ type: 'error', text: `Save failed (${resp.status}).` });
+      }
+    } catch (err) {
+      setSaveMessage({ type: 'error', text: `Network error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    setSaving(false);
+  }
 
   function renderTable(rows: PromptPack[]) {
     return (
@@ -735,6 +787,9 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
                 }}>
                   {p.category}
                 </span>
+                {!enabledCategories.has(p.category as PromptCategorySetting['category']) && (
+                  <span style={{ marginLeft: '0.4rem', color: '#777', fontSize: '0.75rem' }}>disabled by default</span>
+                )}
               </td>
               <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(p.createdAt).toLocaleString()}</td>
             </tr>
@@ -748,6 +803,52 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
     <div>
       <h2>Prompt Packs</h2>
       <p style={{ color: '#666', fontSize: '0.9rem' }}>{prompts.length} total prompt packs</p>
+
+      <section style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ddd', borderRadius: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', margin: 0 }}>Default Audit Prompt Groups</h3>
+            <p style={{ color: '#666', fontSize: '0.85rem', margin: '0.3rem 0 0' }}>
+              These groups are included in new package audits by default.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={saveSettings}
+            disabled={saving}
+            style={{
+              padding: '0.45rem 0.8rem',
+              border: '1px solid #777',
+              borderRadius: 4,
+              background: saving ? '#eee' : '#f7f7f7',
+              cursor: saving ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {saving ? 'Saving...' : 'Save Groups'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+          {settings.map((setting) => (
+            <label key={setting.category} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.9rem' }}>
+              <input
+                type="checkbox"
+                checked={setting.enabled}
+                onChange={() => toggleCategory(setting.category)}
+              />
+              <span>{setting.category}</span>
+            </label>
+          ))}
+        </div>
+        {saveMessage && (
+          <p style={{
+            margin: '0.75rem 0 0',
+            color: saveMessage.type === 'success' ? '#2e7d32' : '#c62828',
+            fontSize: '0.85rem',
+          }}>
+            {saveMessage.text}
+          </p>
+        )}
+      </section>
 
       {customPrompts.length > 0 && (
         <div style={{ marginTop: '1.5rem' }}>
@@ -1600,7 +1701,7 @@ function App() {
   const [page, setPage] = useState<PageKey>(() => pageFromHash());
   const [detailRunId, setDetailRunId] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
-  const [adminToken, setAdminToken] = useState('');
+  const [adminToken, setAdminToken] = useState(() => window.localStorage.getItem('mw.adminToken') ?? '');
   const [tokenDraft, setTokenDraft] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
 
@@ -1701,7 +1802,13 @@ function App() {
               />
               <button
                 onClick={() => {
-                  setAdminToken(tokenDraft.trim());
+                  const nextToken = tokenDraft.trim();
+                  setAdminToken(nextToken);
+                  if (nextToken) {
+                    window.localStorage.setItem('mw.adminToken', nextToken);
+                  } else {
+                    window.localStorage.removeItem('mw.adminToken');
+                  }
                   setShowTokenInput(false);
                 }}
                 style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}

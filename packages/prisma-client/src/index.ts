@@ -35,6 +35,7 @@ export type {
   TarballArtifact,
   ReviewJob,
   AuditRun,
+  AppSetting,
   PromptPack,
   ModelProfile,
   EvidenceArtifact,

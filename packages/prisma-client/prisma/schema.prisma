@@ -13,6 +13,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Application Settings ─────────────────────────────────────────
+model AppSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ── Projects ──────────────────────────────────────────────────────
 model Project {
   id            String   @id @default(uuid())

@@ -5,6 +5,11 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getPrisma } from '@modulewarden/prisma-client';
+import {
+  getDefaultPromptCategorySettings,
+  updateDefaultPromptCategorySettings,
+  type PromptCategorySetting,
+} from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
 import { checkAdmin } from '../middleware/auth.js';
 import { JOB_TYPES } from '@modulewarden/shared/types';
@@ -958,6 +963,37 @@ export async function registerDashboardRoutes(
     });
     return reply.send(prompts);
   });
+
+  app.get('/admin/prompt-settings', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!checkAdmin(request, reply)) return;
+
+    return reply.send({
+      defaultCategories: await getDefaultPromptCategorySettings(),
+    });
+  });
+
+  app.put<{ Body: { defaultCategories?: PromptCategorySetting[] } }>(
+    '/admin/prompt-settings',
+    async (request: FastifyRequest<{ Body: { defaultCategories?: PromptCategorySetting[] } }>, reply: FastifyReply) => {
+      if (!checkAdmin(request, reply)) return;
+
+      const categories = request.body.defaultCategories;
+      if (!Array.isArray(categories)) {
+        return reply.status(400).send({ error: 'defaultCategories must be an array' });
+      }
+
+      const allowed = new Set(['CORE', 'PATTERN_CHECK', 'ESCALATION', 'CUSTOM_ADMIN']);
+      for (const setting of categories) {
+        if (!setting || !allowed.has(String(setting.category)) || typeof setting.enabled !== 'boolean') {
+          return reply.status(400).send({ error: 'Invalid prompt category setting' });
+        }
+      }
+
+      return reply.send({
+        defaultCategories: await updateDefaultPromptCategorySettings(categories),
+      });
+    }
+  );
 
   // ── GET /admin/evaluation — List evaluation corpus results ──
 
