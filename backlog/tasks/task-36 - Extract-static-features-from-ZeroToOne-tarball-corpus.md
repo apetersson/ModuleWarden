@@ -1,10 +1,14 @@
 ---
 id: TASK-36
 title: Extract static features from the ZeroToOne tarball corpus
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-29 19:45'
-labels: [corpus, finetune, safety]
+updated_date: '2026-05-29 21:48'
+labels:
+  - corpus
+  - finetune
+  - safety
 dependencies: []
 ordinal: 52000
 ---
@@ -18,3 +22,9 @@ Leverage: HIGH. ~30 min to scan all 6,587. Foundation for tasks 37-39.
 
 SAFETY (vulnerable bucket is live malware): never `tarfile.extractall`; never shell out to node/npm; static read only; add `--local-corpus-only`; skip `.partial` files. See `docs/winning-research/03-corpus-fit.md` and `04-safe-feature-extraction.md`.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Run 2026-05-29 on three subsets pulled from the npm CDN (no Nextcloud collision, static read-only, never extracted or executed): cve_diff 800, malware-vs-clean 679, matched pairs in flight. Output tarball-features*.jsonl. Driver finetune/scripts/_subset_corpus_build.py.
+<!-- SECTION:FINAL_SUMMARY:END -->
