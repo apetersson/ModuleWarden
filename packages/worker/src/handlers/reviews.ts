@@ -181,20 +181,16 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
     }
 
     if (pipelineStep) {
-      // Store the reviewJobId on the step for later pipeline-unblock lookup
-      await prisma.auditPipelineStep.update({
-        where: { id: pipelineStep.id },
-        data: {
-          reviewJobId,
-          status: 'RUNNING',
-        },
-      });
-
-      if (pipelineStep.status !== 'READY' && pipelineStep.status !== 'RUNNING') {
-        // Step is not ready to be audited — its dependencies haven't
-        // completed yet. Return without enqueuing audit-container-exec.
-        // The pipeline-unblock handler will re-enqueue this step when
-        // all dependencies are ALLOWED.
+      // Check eligibility FIRST before mutating state.
+      if (pipelineStep.status !== 'READY') {
+        // Step is not ready — dependencies haven't completed yet.
+        // Store reviewJobId for traceability but keep existing status
+        // so the pipeline-unblock handler can find and flip this step
+        // when all dependencies are ALLOWED.
+        await prisma.auditPipelineStep.update({
+          where: { id: pipelineStep.id },
+          data: { reviewJobId },
+        });
         logger.info('Pipeline step not READY, deferring audit', {
           stepId: pipelineStep.id,
           packageName,
@@ -203,6 +199,15 @@ export async function registerPackageReviewHandler(queue: JobQueue): Promise<voi
         });
         return;
       }
+
+      // Eligible: flip to RUNNING and proceed
+      await prisma.auditPipelineStep.update({
+        where: { id: pipelineStep.id },
+        data: {
+          reviewJobId,
+          status: 'RUNNING',
+        },
+      });
     }
 
     await queue.enqueueAuditContainerExec(

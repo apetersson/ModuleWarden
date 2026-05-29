@@ -140,20 +140,35 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
 /**
  * Register the `audit-pipeline-unblock` handler.
  *
- * Triggered when a pipeline step completes with ALLOW. It:
- * 1. Finds all steps in the same pipeline that depend on the completed step
- * 2. For each candidate, checks if ALL dependencies are now ALLOWED
- * 3. If a candidate's deps are all ALLOWED: flips it to READY, enqueues
- *    a package-review for it
- * 4. If the completed step was the root step AND all steps are done:
- *    marks the pipeline as COMPLETED
+ * Triggered when ANY pipeline step completes (ALLOW, BLOCK, QUARANTINE, FAILED).
+ *
+ * For ALLOW:
+ *  - Finds downstream steps waiting on this one
+ *  - If ALL their deps are ALLOWED, flips them to READY and enqueues package-review
+ *
+ * For BLOCKED/FAILED/QUARANTINED:
+ *  - Marks all downstream steps as BLOCKED (transitive cascade)
+ *  - Eventually marks the pipeline as FAILED if root is blocked
  */
 export async function registerPipelineUnblockHandler(queue: JobQueue): Promise<void> {
   await queue.work('audit-pipeline-unblock', async (job) => {
     const { pipelineId, stepId } = job.data;
     const prisma = getPrisma();
 
-    // 1. Find all steps in the same pipeline that depend on the completed step
+    // 1. Find the completed step to know its verdict
+    const completedStep = stepId
+      ? await prisma.auditPipelineStep.findUnique({
+          where: { id: stepId },
+          select: { status: true, dependsOn: true },
+        })
+      : null;
+
+    if (!completedStep) {
+      logger.warn('Completed step not found for unblock', { pipelineId, stepId });
+      return;
+    }
+
+    // 2. Load all pending + ready steps for this pipeline
     const pipeline = await prisma.auditPipeline.findUnique({
       where: { id: pipelineId },
       select: {
@@ -161,7 +176,7 @@ export async function registerPipelineUnblockHandler(queue: JobQueue): Promise<v
         rootPackageName: true,
         status: true,
         steps: {
-          where: { status: 'PENDING' as any }, // Steps still waiting for deps
+          where: { status: { in: ['PENDING', 'READY'] as any } },
           orderBy: { linearOrder: 'asc' },
           select: {
             id: true,
@@ -180,128 +195,133 @@ export async function registerPipelineUnblockHandler(queue: JobQueue): Promise<v
       return;
     }
 
-    if (pipeline.status !== 'IN_PROGRESS') {
-      return; // Pipeline already completed or failed
+    if (pipeline.status !== 'IN_PROGRESS') return;
+
+    // 3. Batch-check dependency verdicts for all pending/ready steps
+    const allDepIds = new Set<string>();
+    for (const step of pipeline.steps) {
+      const deps = step.dependsOn ? step.dependsOn.split(',').filter(Boolean) : [];
+      for (const d of deps) allDepIds.add(d);
     }
 
-    // 2. Check each pending step to see if it can become READY
+    const depVerdicts = await batchCheckDepVerdicts([...allDepIds], prisma);
+    // depVerdicts: package@version -> 'ALLOW' | 'BLOCK' | 'QUARANTINE' | 'PENDING'
+
+    // 4. Evaluate each step
     let newlyReady = 0;
+    let newlyBlocked = 0;
 
     for (const step of pipeline.steps) {
-      if (step.status !== 'PENDING') continue;
-
-      // Parse the dependsOn list
       const dependsOn = step.dependsOn
         ? step.dependsOn.split(',').filter(Boolean)
         : [];
 
-      if (dependsOn.length === 0) continue; // Should already be READY, but skip
+      if (dependsOn.length === 0) {
+        // Leaf dep — should already be READY; flip if still PENDING
+        if (step.status === 'PENDING') {
+          await flipStepToReady(step, pipeline.id, queue, prisma);
+          newlyReady++;
+        }
+        continue;
+      }
 
-      // Check if all dependencies are now ALLOWED
-      const allDepsAllowed = await checkAllDepsAllowed(dependsOn, prisma);
+      // Check dependencies
+      let hasBlockedDep = false;
+      let allAllowed = true;
 
-      if (!allDepsAllowed) continue;
+      for (const depId of dependsOn) {
+        const verdict = depVerdicts.get(depId);
+        if (!verdict || verdict === 'PENDING') {
+          allAllowed = false;
+        } else if (verdict === 'BLOCK' || verdict === 'QUARANTINE') {
+          hasBlockedDep = true;
+          allAllowed = false;
+        }
+        // verdict === 'ALLOW' counts as satisfied
+      }
 
-      // All deps are ALLOWED — flip this step to READY
-      await prisma.auditPipelineStep.update({
-        where: { id: step.id },
-        data: { status: 'READY' },
-      });
-
-      // Enqueue a package-review for this step
-      const stepAuditContext = `pipeline:${pipeline.id}:step:${step.id}`;
-      const idempotencyKey = buildIdempotencyKey(
-        'package-review',
-        step.packageName,
-        step.packageVersion,
-        step.tarballHash,
-        stepAuditContext,
-      );
-
-      try {
-        await queue.send('package-review', {
-          packageName: step.packageName,
-          packageVersion: step.packageVersion,
-          tarballHash: step.tarballHash,
-          auditContext: stepAuditContext,
-          rawAuditContext: stepAuditContext,
-          idempotencyKey,
+      if (hasBlockedDep) {
+        // Transitively block this step
+        await prisma.auditPipelineStep.update({
+          where: { id: step.id },
+          data: { status: 'BLOCKED' },
         });
+        newlyBlocked++;
+        logger.info('Pipeline step BLOCKED due to blocked dependency', {
+          pipelineId,
+          stepId: step.id,
+          packageName: step.packageName,
+        });
+      } else if (allAllowed && step.status === 'PENDING') {
+        await flipStepToReady(step, pipeline.id, queue, prisma);
         newlyReady++;
-        logger.info('Pipeline step unblocked to READY', {
-          pipelineId,
-          stepId: step.id,
-          packageName: step.packageName,
-          packageVersion: step.packageVersion,
-        });
-      } catch (err) {
-        logger.warn('Failed to enqueue package-review for unblocked step', {
-          pipelineId,
-          stepId: step.id,
-          packageName: step.packageName,
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
     }
 
-    // 3. Check if the entire pipeline is now complete
-    if (newlyReady === 0 && stepId) {
-      // No new steps were unblocked — check if this was the last step
-      const remainingPending = await prisma.auditPipelineStep.count({
+    // 5. Check if pipeline is fully done or fully blocked
+    if (newlyReady === 0 && newlyBlocked === 0) {
+      const remainingActive = await prisma.auditPipelineStep.count({
         where: {
           pipelineId,
           status: { in: ['PENDING', 'READY', 'RUNNING'] as any },
         },
       });
 
-      if (remainingPending === 0) {
-        await prisma.auditPipeline.update({
-          where: { id: pipelineId },
-          data: { status: 'COMPLETED' },
+      if (remainingActive === 0) {
+        const blockedCount = await prisma.auditPipelineStep.count({
+          where: { pipelineId, status: 'BLOCKED' as any },
         });
-        logger.info('Audit pipeline completed', {
-          pipelineId,
-          rootPackage: pipeline.rootPackageName,
-        });
+        if (blockedCount > 0) {
+          await prisma.auditPipeline.update({
+            where: { id: pipelineId },
+            data: { status: 'FAILED' },
+          });
+          logger.info('Audit pipeline FAILED due to blocked dependencies', {
+            pipelineId,
+            rootPackage: pipeline.rootPackageName,
+            blockedSteps: blockedCount,
+          });
+        } else {
+          await prisma.auditPipeline.update({
+            where: { id: pipelineId },
+            data: { status: 'COMPLETED' },
+          });
+          logger.info('Audit pipeline COMPLETED', {
+            pipelineId,
+            rootPackage: pipeline.rootPackageName,
+          });
+        }
       }
     }
 
-    if (newlyReady > 0) {
+    if (newlyReady > 0 || newlyBlocked > 0) {
       logger.info('Pipeline unblock cascade', {
         pipelineId,
         newlyReadySteps: newlyReady,
+        newlyBlockedSteps: newlyBlocked,
       });
     }
   });
 }
 
 /**
- * Trigger pipeline-unblock after a decision is created.
- *
- * Looks up the ReviewJob's associated pipeline step (via the audit context or
- * ReviewJob ID stored on the step). If a step is found and the verdict is ALLOW,
- * enqueues an audit-pipeline-unblock job to cascade readiness to dependents.
- *
- * Safe to call from both the audit-container-exec handler and the internal RPC
- * verdict endpoint. Returns without action if no pipeline is associated.
+ * Trigger pipeline-unblock after any decision is created.
+ * Always fires regardless of verdict so that blocked deps cascade too.
  */
 export async function triggerPipelineUnblock(
   reviewJobId: string,
   verdict: string,
   queue: JobQueue
 ): Promise<void> {
-  if (verdict !== 'ALLOW') return;
-
   try {
     const prisma = getPrisma();
 
-    // Find a pipeline step that references this reviewJobId
     const step = await prisma.auditPipelineStep.findFirst({
       where: { reviewJobId },
       select: { id: true, pipelineId: true, packageName: true, packageVersion: true },
     });
 
-    if (!step) return; // Not a pipeline-managed review
+    if (!step) return;
 
     await queue.send('audit-pipeline-unblock', {
       pipelineId: step.pipelineId,
@@ -310,10 +330,10 @@ export async function triggerPipelineUnblock(
       packageVersion: step.packageVersion,
     });
 
-    logger.info('Pipeline unblock enqueued after ALLOW', {
+    logger.info('Pipeline unblock enqueued', {
       pipelineId: step.pipelineId,
       stepId: step.id,
-      packageName: step.packageName,
+      verdict,
     });
   } catch (err) {
     logger.warn('Failed to enqueue pipeline unblock', {
@@ -324,44 +344,124 @@ export async function triggerPipelineUnblock(
 }
 
 /**
- * Check whether all dependency identities (package@version) have an ALLOW
- * decision in the database.
+ * Batch-check verdicts for a list of dependency identities (package@version).
+ * Returns a Map<package@version, 'ALLOW'|'BLOCK'|'QUARANTINE'|'PENDING'>.
+ * Eliminates N+1 query patterns for steps with many dependencies.
  */
-async function checkAllDepsAllowed(
-  dependsOn: string[],
+async function batchCheckDepVerdicts(
+  depIds: string[],
   prisma: ReturnType<typeof getPrisma>
-): Promise<boolean> {
-  for (const depId of dependsOn) {
-    // Parse package@version
-    const atIndex = depId.lastIndexOf('@');
-    if (atIndex < 0) continue;
-    const depName = depId.slice(0, atIndex);
-    const depVersion = depId.slice(atIndex + 1);
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (depIds.length === 0) return result;
 
-    // Find the PackageVersion record
-    const pv = await prisma.packageVersion.findFirst({
+  // Parse (name, version) pairs
+  const packageVersions: Array<{ name: string; version: string; key: string }> = [];
+  for (const depId of depIds) {
+    const atIndex = depId.lastIndexOf('@');
+    if (atIndex < 0) {
+      result.set(depId, 'PENDING');
+      continue;
+    }
+    packageVersions.push({
+      name: depId.slice(0, atIndex),
+      version: depId.slice(atIndex + 1),
+      key: depId,
+    });
+  }
+
+  if (packageVersions.length === 0) return result;
+
+  // Batch-find PackageVersion records
+  const pvMap = new Map<string, string>();
+  for (const pv of packageVersions) {
+    const record = await prisma.packageVersion.findFirst({
       where: {
-        packageName: depName,
-        version: depVersion,
+        packageName: pv.name,
+        version: pv.version,
         registrySource: 'npm',
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     });
-
-    if (!pv) return false;
-
-    // Check for an ALLOW decision
-    const decision = await prisma.decision.findFirst({
-      where: {
-        packageVersionId: pv.id,
-        verdict: 'ALLOW',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!decision) return false;
+    if (record) pvMap.set(pv.key, record.id);
   }
 
-  return true;
+  if (pvMap.size === 0) {
+    for (const pv of packageVersions) result.set(pv.key, 'PENDING');
+    return result;
+  }
+
+  // Batch-find latest decisions for all package version IDs
+  const pvIds = [...pvMap.values()];
+  const decisions = await prisma.decision.findMany({
+    where: { packageVersionId: { in: pvIds } },
+    orderBy: { createdAt: 'desc' },
+    select: { packageVersionId: true, verdict: true },
+  });
+
+  // Keep only the latest per packageVersionId
+  const latestDecisions = new Map<string, string>();
+  for (const d of decisions) {
+    if (!latestDecisions.has(d.packageVersionId)) {
+      latestDecisions.set(d.packageVersionId, d.verdict);
+    }
+  }
+
+  for (const [key, pvId] of pvMap) {
+    result.set(key, latestDecisions.get(pvId) ?? 'PENDING');
+  }
+
+  for (const pv of packageVersions) {
+    if (!result.has(pv.key)) result.set(pv.key, 'PENDING');
+  }
+
+  return result;
+}
+
+/**
+ * Helper: flip a pipeline step to READY and enqueue its package-review.
+ */
+async function flipStepToReady(
+  step: {
+    id: string;
+    packageName: string;
+    packageVersion: string;
+    tarballHash: string;
+  },
+  pipelineId: string,
+  queue: JobQueue,
+  prisma: ReturnType<typeof getPrisma>
+): Promise<void> {
+  await prisma.auditPipelineStep.update({
+    where: { id: step.id },
+    data: { status: 'READY' },
+  });
+
+  const stepAuditContext = `pipeline:${pipelineId}:step:${step.id}`;
+  const idempotencyKey = buildIdempotencyKey(
+    'package-review',
+    step.packageName,
+    step.packageVersion,
+    step.tarballHash,
+    stepAuditContext,
+  );
+
+  try {
+    await queue.send('package-review', {
+      packageName: step.packageName,
+      packageVersion: step.packageVersion,
+      tarballHash: step.tarballHash,
+      auditContext: stepAuditContext,
+      rawAuditContext: stepAuditContext,
+      idempotencyKey,
+    });
+  } catch (err) {
+    logger.warn('Failed to enqueue package-review for unblocked step', {
+      pipelineId,
+      stepId: step.id,
+      packageName: step.packageName,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
