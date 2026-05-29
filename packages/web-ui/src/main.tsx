@@ -620,12 +620,12 @@ function DashboardPage({
       {/* Queue stats */}
       {queueStats.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
-          <h3>Queue Status</h3>
+          <h3>Worker Queue Backlog</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd' }}>
                 <th style={{ padding: '0.4rem', textAlign: 'left' }}>Queue</th>
-                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Pending</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Waiting</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Running</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Completed</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Failed</th>
@@ -1903,7 +1903,7 @@ function QueuePage({ adminToken, onAuthRequired }: { adminToken: string; onAuthR
 
   return (
     <div>
-      <h2>Queue Status</h2>
+      <h2>Worker Queue Backlog</h2>
       {loading ? (
         <p style={{ color: '#666' }}>Loading...</p>
       ) : authRequired ? (
@@ -1915,7 +1915,7 @@ function QueuePage({ adminToken, onAuthRequired }: { adminToken: string; onAuthR
           <thead>
             <tr style={{ borderBottom: '2px solid #ddd' }}>
               <th style={{ padding: '0.5rem', textAlign: 'left' }}>Queue</th>
-              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Waiting</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Running</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Completed</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Failed</th>
