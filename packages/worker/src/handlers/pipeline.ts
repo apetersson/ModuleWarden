@@ -36,6 +36,33 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
     const { packageName, packageVersion, tarballHash, auditContext } = job.data;
     const prisma = getPrisma();
 
+    // 0. Use an advisory lock to coordinate pipeline creation.
+    //    Since pnpm resolves all transitive deps simultaneously, the
+    //    packument endpoint may fire audit-pipeline-schedule for 40+
+    //    packages at once. The lock ensures only ONE handler creates
+    //    a pipeline; all others check if their package is already
+    //    covered and skip.
+    const LOCK_ID = 20260529; // deterministic lock ID for pipeline creation
+    await prisma.$executeRawUnsafe('SELECT pg_advisory_xact_lock($1)', LOCK_ID);
+
+    // After acquiring the lock, re-check: is this package already covered?
+    const existingStep = await prisma.auditPipelineStep.findFirst({
+      where: {
+        packageName,
+        packageVersion,
+        pipeline: { status: { in: ['IN_PROGRESS', 'COMPLETED'] } as any },
+      },
+      select: { id: true, pipelineId: true },
+    });
+    if (existingStep) {
+      logger.info('Package already covered by pipeline, skipping', {
+        packageName,
+        packageVersion,
+        existingPipelineId: existingStep.pipelineId,
+      });
+      return;
+    }
+
     // 1. Resolve the full dependency DAG
     const dag = await resolveDependencyDag(packageName, packageVersion, fetchUpstreamPackument);
 
