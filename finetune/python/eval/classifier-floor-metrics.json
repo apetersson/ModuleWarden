@@ -1,0 +1,110 @@
+{
+  "backend": "sklearn.GradientBoostingClassifier",
+  "n_total": 800,
+  "n_train": 480,
+  "n_calib": 160,
+  "n_test": 160,
+  "n_benign": 400,
+  "n_malicious": 400,
+  "n_features": 16,
+  "features": [
+    "cap_credential_or_env_access",
+    "cap_dynamic_code_execution",
+    "cap_filesystem_sensitive_access",
+    "cap_lifecycle_script",
+    "cap_native_or_wasm",
+    "cap_network_access",
+    "cap_obfuscation",
+    "cap_process_execution",
+    "capability_delta_count",
+    "entropy",
+    "file_count",
+    "has_install_script",
+    "lifecycle_hook_count",
+    "pj_dep_count",
+    "pj_dev_dep_count",
+    "pj_has_install_script"
+  ],
+  "auroc": 0.538671875,
+  "pr_auc": 0.605280780256276,
+  "brier": 0.30593545440501624,
+  "ece": 0.23102468990453562,
+  "op_threshold_0.5": {
+    "threshold": 0.5,
+    "tp": 41,
+    "fp": 40,
+    "fn": 39,
+    "tn": 40,
+    "precision": 0.5061728395061729,
+    "recall": 0.5125,
+    "fpr": 0.5
+  },
+  "op_high_precision": {
+    "threshold": 0.98,
+    "tp": 3,
+    "fp": 0,
+    "fn": 77,
+    "tn": 80,
+    "precision": 1.0,
+    "recall": 0.0375,
+    "fpr": 0.0
+  },
+  "conformal_90": {
+    "alpha": 0.1,
+    "target_coverage": 0.9,
+    "empirical_coverage": 0.85625,
+    "avg_set_size": 1.69375,
+    "q_hat": 0.825011695913286,
+    "n_cal": 160
+  },
+  "top_features": [
+    [
+      "entropy",
+      0.43546001506010706
+    ],
+    [
+      "file_count",
+      0.2077784585416511
+    ],
+    [
+      "pj_dev_dep_count",
+      0.13647106843542223
+    ],
+    [
+      "pj_dep_count",
+      0.10427761155289939
+    ],
+    [
+      "capability_delta_count",
+      0.04705978118667445
+    ],
+    [
+      "cap_dynamic_code_execution",
+      0.014644546580417046
+    ],
+    [
+      "cap_credential_or_env_access",
+      0.010295157053347881
+    ],
+    [
+      "cap_process_execution",
+      0.009458229097742604
+    ],
+    [
+      "cap_native_or_wasm",
+      0.009262393743246495
+    ],
+    [
+      "cap_filesystem_sensitive_access",
+      0.005628223763369876
+    ],
+    [
+      "pj_has_install_script",
+      0.004722403166132883
+    ],
+    [
+      "cap_lifecycle_script",
+      0.00433188757350137
+    ]
+  ]
+}

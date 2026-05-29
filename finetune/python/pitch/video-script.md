@@ -142,8 +142,10 @@ questionnaire."
   never the demo laptop.
 - Any judge or sponsor logo. We do not have permission and it makes the
   video unshippable after the event.
-- The exact AUROC if it lands below 0.85. Replace with "calibrated catch
-  rate on the SecLens-R bench" and show the per-class breakdown instead.
+- Do NOT hide or dress up the AUROC. Show the real measured numbers (0.54
+  cold-package floor, 0.60 same-package delta, 0.98 standalone-malware
+  with the size caveat) and explain why the delta-gate, not a score, is
+  the verdict authority. Honesty about the floor is the credibility win.
 
 **Fallback if the gate is down at record time:**
 

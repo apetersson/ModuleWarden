@@ -1,0 +1,107 @@
+{
+  "n_pairs": 594,
+  "paired_delta": {
+    "tag": "paired_delta",
+    "backend": "sklearn.GradientBoostingClassifier",
+    "n": 594,
+    "n_test": 119,
+    "auroc": 0.6024590163934427,
+    "pr_auc": 0.6196997759555232,
+    "brier": 0.2905297800191595,
+    "ece": 0.2251671590603814,
+    "conformal_90": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.8739495798319328,
+      "avg_set_size": 1.6302521008403361,
+      "q_hat": 0.8417488629586817,
+      "n_cal": 119
+    },
+    "top_features": [
+      [
+        "entropy",
+        0.5574595047149802
+      ],
+      [
+        "file_count",
+        0.25702654909800804
+      ],
+      [
+        "pj_dev_dep_count",
+        0.0808224559754374
+      ],
+      [
+        "pj_dep_count",
+        0.05327101650357339
+      ],
+      [
+        "capability_delta_count",
+        0.018918657024814583
+      ],
+      [
+        "cap_obfuscation",
+        0.017173561273146537
+      ],
+      [
+        "cap_process_execution",
+        0.01322437070700779
+      ],
+      [
+        "cap_native_or_wasm",
+        0.0017151104378926919
+      ]
+    ]
+  },
+  "cold_baseline": {
+    "tag": "cold_baseline_same_packages",
+    "backend": "sklearn.GradientBoostingClassifier",
+    "n": 1188,
+    "n_test": 238,
+    "auroc": 0.2459218981710331,
+    "pr_auc": 0.35992708208689045,
+    "brier": 0.3858341910804391,
+    "ece": 0.36826107402537994,
+    "conformal_90": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.9369747899159664,
+      "avg_set_size": 1.9285714285714286,
+      "q_hat": 0.8485366956491857,
+      "n_cal": 238
+    },
+    "top_features": [
+      [
+        "entropy",
+        0.5134237204891373
+      ],
+      [
+        "file_count",
+        0.19693377890345964
+      ],
+      [
+        "pj_dep_count",
+        0.12207906010517326
+      ],
+      [
+        "pj_dev_dep_count",
+        0.10667547454388866
+      ],
+      [
+        "capability_delta_count",
+        0.021152613770579087
+      ],
+      [
+        "cap_credential_or_env_access",
+        0.009294910236727029
+      ],
+      [
+        "cap_process_execution",
+        0.008403530885572904
+      ],
+      [
+        "cap_filesystem_sensitive_access",
+        0.004484209672659416
+      ]
+    ]
+  }
+}

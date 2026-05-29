@@ -186,8 +186,15 @@ async def run_walker(
     max_tarball_bytes: int,
     request_timeout: float,
     manifest_path: Path | None,
+    hard_negatives: int = 0,
+    hard_negatives_seed: int = 7,
 ) -> dict[str, Any]:
-    """Run the walker and return a manifest summary dict."""
+    """Run the walker and return a manifest summary dict.
+
+    When ``hard_negatives`` > 0, append that many Decepticon adversarial hard
+    negatives to the output AFTER the real cases, in the train split only, so the
+    synthetic rows never reach the validation/test eval.
+    """
     scraped_cases_path = Path(scraped_cases_path)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -228,6 +235,25 @@ async def run_walker(
                     split_counters[str(meta.get("split"))] += 1
                     source_counters[str(meta.get("source"))] += 1
                     out_fh.write(json.dumps(sft) + "\n")
+
+                if hard_negatives > 0:
+                    # Decepticon adversarial hard negatives, train split only so
+                    # they never contaminate the validation/test eval. See
+                    # finetune/python/decepticon/adversary.py.
+                    from ..decepticon import adversary
+
+                    hn = adversary.hard_negative_records(
+                        hard_negatives, seed=hard_negatives_seed
+                    )
+                    for rec in hn:
+                        out_fh.write(json.dumps(rec) + "\n")
+                    counters["written"] += len(hn)
+                    counters["hard_negatives_injected"] = len(hn)
+                    split_counters["train"] += len(hn)
+                    source_counters["synthetic_teacher"] += len(hn)
+                    logger.info(
+                        "injected %d decepticon hard negatives (train split)", len(hn)
+                    )
 
     manifest = {
         "scraped_cases_path": str(scraped_cases_path),
@@ -298,6 +324,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=DEFAULT_REQUEST_TIMEOUT,
         help="HTTP request timeout for npm registry calls.",
     )
+    p.add_argument(
+        "--hard-negatives",
+        type=int,
+        default=0,
+        help="Inject N Decepticon adversarial hard negatives into the train split. "
+        "Default 0 (off). Synthetic, train-only, never enters the eval splits.",
+    )
+    p.add_argument("--hard-negatives-seed", type=int, default=7)
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -321,6 +355,8 @@ def main(argv: list[str] | None = None) -> int:
             max_tarball_bytes=args.max_tarball_bytes,
             request_timeout=args.request_timeout,
             manifest_path=args.manifest,
+            hard_negatives=args.hard_negatives,
+            hard_negatives_seed=args.hard_negatives_seed,
         )
     )
     print(json.dumps(manifest, indent=2))
