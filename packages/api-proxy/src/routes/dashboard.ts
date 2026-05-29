@@ -432,33 +432,49 @@ export async function registerDashboardRoutes(
 
     const prisma = getPrisma();
 
-    // Use raw queries to avoid Prisma type complexity with nested includes
+    // Fetch top 200 per status category using a window function.
+    // This prevents a single status (e.g. 311 QUEUED) from pushing other
+    // statuses (RUNNING, COMPLETED) out of the LIMIT.
     const jobs = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
-        rj."id" as job_id, rj."status" as job_status, rj."trigger", rj."createdAt",
-        rj."updatedAt", rj."failureReason", rj."auditContext",
-        pv."packageName", pv."version", pv."tarballHash",
-        ar."id" as run_id, ar."status" as run_status, ar."errorMessage",
-        d."id" as decision_id, d."verdict", d."reasonSummary", d."promptVersion",
-        latest_d."id" as latest_decision_id,
-        ta."id" as tarball_artifact_id
-      FROM "ReviewJob" rj
-      LEFT JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
-      LEFT JOIN "TarballArtifact" ta ON ta."packageVersionId" = pv."id"
-      LEFT JOIN LATERAL (
-        SELECT "id", "status", "errorMessage" FROM "AuditRun"
-        WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
-      ) ar ON true
-      LEFT JOIN LATERAL (
-        SELECT "id", "verdict", "reasonSummary", "promptVersion" FROM "Decision"
-        WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
-      ) d ON true
-      LEFT JOIN LATERAL (
-        SELECT "id" FROM "Decision"
-        WHERE "packageVersionId" = pv."id" ORDER BY "createdAt" DESC, "id" DESC LIMIT 1
-      ) latest_d ON true
-      ORDER BY rj."createdAt" DESC
-      LIMIT 200
+        sub.job_id, sub.job_status, sub."trigger", sub."createdAt",
+        sub."updatedAt", sub."failureReason", sub."auditContext",
+        sub."packageName", sub."version", sub."tarballHash",
+        sub.run_id, sub.run_status, sub."errorMessage",
+        sub.decision_id, sub.verdict, sub."reasonSummary", sub."promptVersion",
+        sub.latest_decision_id,
+        sub.tarball_artifact_id
+      FROM (
+        SELECT
+          rj."id" as job_id, rj."status" as job_status, rj."trigger", rj."createdAt",
+          rj."updatedAt", rj."failureReason", rj."auditContext",
+          pv."packageName", pv."version", pv."tarballHash",
+          ar."id" as run_id, ar."status" as run_status, ar."errorMessage",
+          d."id" as decision_id, d."verdict", d."reasonSummary", d."promptVersion",
+          latest_d."id" as latest_decision_id,
+          ta."id" as tarball_artifact_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY rj."status"
+            ORDER BY rj."createdAt" DESC
+          ) as rn
+        FROM "ReviewJob" rj
+        LEFT JOIN "PackageVersion" pv ON pv."id" = rj."packageVersionId"
+        LEFT JOIN "TarballArtifact" ta ON ta."packageVersionId" = pv."id"
+        LEFT JOIN LATERAL (
+          SELECT "id", "status", "errorMessage" FROM "AuditRun"
+          WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
+        ) ar ON true
+        LEFT JOIN LATERAL (
+          SELECT "id", "verdict", "reasonSummary", "promptVersion" FROM "Decision"
+          WHERE "reviewJobId" = rj."id" ORDER BY "createdAt" DESC LIMIT 1
+        ) d ON true
+        LEFT JOIN LATERAL (
+          SELECT "id" FROM "Decision"
+          WHERE "packageVersionId" = pv."id" ORDER BY "createdAt" DESC, "id" DESC LIMIT 1
+        ) latest_d ON true
+      ) sub
+      WHERE sub.rn <= 200
+      ORDER BY sub.job_status, sub.rn
     `);
 
     const colKeys: KanbanColumn[] = [
@@ -514,18 +530,31 @@ export async function registerDashboardRoutes(
     }
 
     const allCards = Object.values(columns).flat();
+
+    // Fetch real total counts per status (not limited to the 200-per-category
+    // window) so the summary badges reflect the full queue depth.
+    const realCounts = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+      SELECT status, count(*)::int as cnt
+      FROM "ReviewJob"
+      GROUP BY status
+    `);
+    const countMap = new Map<string, number>();
+    for (const row of realCounts) {
+      countMap.set(String(row.status), Number(row.cnt));
+    }
+
     const dashboard: DashboardState = {
       columns: columns,
       summary: {
         total: allCards.length,
         currentTotal: allCards.length - columns.superseded.length,
-        queued: columns.queued.length,
-        running: columns.running.length,
+        queued: countMap.get('QUEUED') ?? columns.queued.length,
+        running: countMap.get('RUNNING') ?? columns.running.length,
         blocked: columns.blocked.length,
         quarantined: columns.quarantined.length,
         allowed: columns.allowed.length,
         promoted: columns.promoted.length,
-        failed: columns.failed.length,
+        failed: (countMap.get('FAILED') ?? 0) + (countMap.get('DEAD_LETTER') ?? 0),
         superseded: columns.superseded.length,
         needsAttention: allCards.filter((c) => c.needsAttention).length,
       },
