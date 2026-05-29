@@ -41,8 +41,14 @@ which is exactly the ALLOW training signal the model has never seen.
 It also unlocks the thing the GHSA-text corpus could not support: a real
 malicious-vs-benign signal on STATIC features. The current benchmark
 (arXiv:2603.27549, the figshare 13,708-package set) shows GuardDog-class static
-features reach 93.32% F1; a 20-feature hand-rolled extractor should clear
-AUROC 0.90. Our 3,778/2,809 split is a moderate, trainable imbalance.
+features reach 93.32% F1, but that benchmark is malware-vs-benign typosquat
+detection, a different problem. Measured on THIS corpus (GHSA advisory pairs,
+where benign is the first-patched release of the same package), a static
+cold-package classifier floors at AUROC 0.54: the absolute capability
+inventories are near-identical between buckets, so the learnable signal is in
+the version DELTA, not the cold package (see CLASSIFIER-FLOOR-FINDINGS.md and
+decision-10). Our 3,778/2,809 split is a moderate imbalance; the delta is where
+the signal lives.
 
 Trident consult (codex/gemini/grok): endorsed. Gemini - "a fantastic
 high-value dataset; transitioning from text-based GHSA advisories to actual

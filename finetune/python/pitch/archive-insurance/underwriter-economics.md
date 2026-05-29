@@ -1,7 +1,7 @@
-# ModuleWarden Underwriting Economics
+# ModuleWarden Underwriting Economics (downstream application)
 **One-pager for cyber-insurance underwriters and CIOs**
 
-The pitch for ModuleWarden is usually a security story. This page is the underwriting story: what changes in the loss model when an insured deploys a deterministic, attestable ingest gate for every npm, pnpm, and yarn install. The customer profile below is illustrative. Every premium tier, loss ratio, and discount band is anchored to public industry data, cited at the end.
+This is a downstream application of the forecast, not the headline track. ModuleWarden's entry is in the Forecast track: it forecasts the probability that a dependency a developer is about to pull is a supply-chain attack vector, and an agent acts on it at submission time. One way a buyer acts on that forecast is to price cyber risk against it. This page is that application: what changes in the loss model when an insured deploys a deterministic, attestable ingest gate for every npm, pnpm, and yarn install. The customer profile below is illustrative. Every premium tier, loss ratio, and discount band is anchored to public industry data, cited at the end.
 
 ## The math, with one customer
 
@@ -18,7 +18,7 @@ The pitch for ModuleWarden is usually a security story. This page is the underwr
 - Year 1 premium: 121k EUR (a 15 percent tier reduction applied to the 142k baseline)
 - Revised expected loss ratio: 27 to 30 percent, driven by the reduction in supply chain attack surface that 98.5 percent of recorded malicious open-source packages are concentrated in [7]
 
-**Result for UNIQA**
+**Result for the cyber insurer**
 - Customer renews and the renewal goes through faster, because the control evidence is queryable on day one
 - Margin improvement per account: 11 to 14 percentage points, depending on where the renewed loss ratio settles inside the modeled range
 - Operational lift: one fewer supply chain claim per book of comparable accounts every three to five years, using the Verizon 15 percent supply chain breach share and Coalition's reported claims frequency growth as the prior [5, 8]
@@ -33,9 +33,9 @@ The discount anchor is Coalition's published 12.5 percent premium credit for MDR
 
 The supply chain exposure anchor is Verizon DBIR 2024 and Sonatype 2024. Third-party software development organizations played a role in 15 percent of the 10,000 breaches Verizon documented, a 68 percent year-over-year jump. Sonatype logged 512,847 malicious packages in the past year, a 156 percent increase, with 98.5 percent concentrated in npm [5, 7]. An install-time gate is the right place to intervene because that is where the trust decision actually happens.
 
-## Scaling to UNIQA's book
+## Scaling across a cyber book
 
-UNIQA's cyber line in CEE is not publicly broken out. The European cyber market is projected to account for 24 to 25 percent of global premium by 2027, with Munich Re putting global premium volume on track to more than double by 2030 at a 10 percent annual growth rate [4, 11]. If 20 to 30 percent of a CEE cyber book is tech-stack-eligible for an install-gate control (firms with material JavaScript or Python software production), deploying ModuleWarden as an underwriting incentive could shift loss ratio on that segment by the same 11 to 14 percentage points modeled above. Across an entire book the effect dilutes, so the honest portfolio-level claim is two to four points of loss ratio improvement once the eligible segment is weighted.
+A regional cyber line in CEE is rarely publicly broken out. The European cyber market is projected to account for 24 to 25 percent of global premium by 2027, with Munich Re putting global premium volume on track to more than double by 2030 at a 10 percent annual growth rate [4, 11]. If 20 to 30 percent of a CEE cyber book is tech-stack-eligible for an install-gate control (firms with material JavaScript or Python software production), deploying ModuleWarden as an underwriting incentive could shift loss ratio on that segment by the same 11 to 14 percentage points modeled above. Across an entire book the effect dilutes, so the honest portfolio-level claim is two to four points of loss ratio improvement once the eligible segment is weighted.
 
 ## What underwriters get with every ModuleWarden decision
 
@@ -50,8 +50,8 @@ Today the underwriter asks "do you run SCA?" and ticks a checkbox. The answer is
 
 ## Honest caveats
 
-- All numbers are anchored to public industry reports. The 142k baseline and the specific customer profile are illustrative, not pulled from a real UNIQA account
-- The 10 to 15 percent premium tier reduction assumes UNIQA's actuarial team validates ModuleWarden as a control class. Typical evaluation runs 30 to 90 days
+- All numbers are anchored to public industry reports. The 142k baseline and the specific customer profile are illustrative, not pulled from a real carrier account
+- The 10 to 15 percent premium tier reduction assumes the carrier's actuarial team validates ModuleWarden as a control class. Typical evaluation runs 30 to 90 days
 - The loss ratio reduction depends on customer install volume, threshold tuning, and the policyholder actually keeping the gate in enforce mode. A gate set to audit-only delivers the evidence artifact but not the loss reduction
 - The 11 to 14 percentage point margin claim is per-account on the eligible segment. The portfolio number softens to two to four points after eligibility weighting, which is what we recommend you quote externally
 

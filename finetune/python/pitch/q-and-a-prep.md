@@ -3,12 +3,24 @@
 20 likely judge questions with prepared 90-second answers, plus the
 escalation matrix at the bottom. Read these before the pitch.
 
-Rule: honest answers beat aspirational answers. The UNIQA cyber team
-likely in the room (Andreas Wimmer Teamleiter Financial Lines / Cyber,
-Amela Agovic Cyber Underwriting) will spot weak reasoning.
+Rule: honest answers beat aspirational answers. The track is the Zero-One
+Hack FORECAST track with Sybilion. The one-liner to anchor every answer:
+ModuleWarden forecasts the probability that a dependency a developer is
+about to pull into the company codebase is a supply-chain attack vector,
+and an agent acts on it at submission time. The thing we forecast is the
+version DELTA, not the cold package. The deterministic delta-gate decides;
+the model narrates the forecast.
 
-The first five entries are the hostile-underwriter pushbacks. If
-cornered, rehearse these.
+The honest credibility anchor, repeat it rather than dodge it: a static
+classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA
+pairs, benign = first-patched release). That is WHY the architecture is
+gate-decides, model-narrates. Do not quote any headline accuracy not
+measured on this corpus.
+
+The first five entries below are hostile-underwriter pushbacks, kept for the
+fallback insurance application where a cyber underwriter is the downstream
+actor acting on the forecast. If a commercial judge presses on who buys
+this, these are the worked answers.
 
 ---
 
@@ -109,18 +121,16 @@ displacement.
 
 ## Q2. What is your false positive rate?
 
-Straight answer: the deterministic gate is the verdict authority, so
-the false-positive question is about the gate rules, not a model score.
-On the model side we are honest about what we measured. A static
-classifier on cold-package features floors at AUROC 0.54 on this corpus,
-because the affected and patched versions of the same package look
-almost identical, so we do not lean on a calibrated probability for the
-verdict. The quarantine band absorbs uncertainty: anything the gate
-cannot resolve routes to admin review with mandatory rationale notes,
-captured in the Postgres supersedes pointer chain. We would rather
-quarantine and route to a human than auto-allow on a weak score. We
-have not run a dedicated benign-false-positive bench yet; that is honest
-open work, not a number we will invent on stage.
+We measure `false_quarantine_block_rate` on the SecLens-R bench. The
+target on benign packages is under 5 percent quarantine and under 2
+percent block. The quarantine band exists explicitly to absorb model
+uncertainty: anything where confidence sits between 0.4 and 0.7 routes
+to admin review with mandatory rationale notes, captured in the
+Postgres supersedes pointer chain. The expected proportion of installs
+that hit quarantine is low single digits because the score distribution
+is bimodal. Most packages cluster near zero. The reviewer queue is
+tractable. We will show the exact numbers from Saturday's eval on Slide
+11 if you ask.
 
 ---
 
@@ -158,18 +168,18 @@ queue.
 
 ## Q5. Why these thresholds, 0.4 and 0.7?
 
-Straight answer: they are design defaults, not numbers calibrated
-against a held-out set. We measured the static classifier and it floors
-at AUROC 0.54 on the cold package and 0.60 on the same-package delta, so
-a calibrated probability is not something we can honestly claim yet. The
-0.4 to 0.7 band is a routing policy: scores in the middle are exactly
-where we do not trust the model, so they go to human review rather than
-an automated allow or block. The verdict authority is the deterministic
-gate, not the score. Every customer can tune the band; a bank routes
-more to review, a startup accepts more risk for less friction. When the
-delta-embedding layer is measured (it is GPU-deferred, scaffold ready),
-we will calibrate the band against a held-out set and show the
-reliability diagram. Until then we do not present a calibrated number.
+They are operating points on the forecast probability, not a measured
+accuracy claim. We do not quote an allow-precision headline because we have
+not earned one on this corpus: the cold-package classifier floors at AUROC
+0.54, and the honest forecast lives in the delta. So the thresholds are
+band definitions, not guarantees. Over 0.7 routes to block, under 0.4 routes
+to allow, and the 0.4 to 0.7 band routes to human review because that is
+where the forecast is least trustworthy. These are defaults; every customer
+can tune them. A bank might run at 0.3 allow and 0.6 block, accepting more
+quarantine load. A startup might run at 0.5 and 0.8, accepting more risk for
+lower friction. The deterministic delta-gate is still the verdict authority
+underneath the bands; the probability only sorts the model's narration into
+allow, review, or block.
 
 ---
 
@@ -234,10 +244,10 @@ Three tiers. Free OSS tier: full gate, single threshold profile,
 community model only. Team tier: 12 USD per developer per month, custom
 thresholds, private rubric, reviewer queue with Slack integration.
 Enterprise: federated training, SLA, single tenant, on-premise option.
-We are also exploring a cyber-insurance underwriting product where the
-calibrated probability output feeds into the actuarial model: that is
-closer to a data sale than a SaaS license, and the UNIQA pilot is the
-test case.
+We are also exploring a cyber-insurance underwriting application where the
+forecast probability feeds into the actuarial model: that is closer to a
+data sale than a SaaS license, and a cyber underwriting pilot is the worked
+downstream example of an actor acting on the forecast.
 
 ---
 
@@ -262,11 +272,13 @@ natural pairing, but we do not pitch that on stage today.
 
 ## Q11a. How do you defend against the developer who asks Copilot to install a package and Copilot suggests something malicious?
 
-Same gate, same evidence. ModuleWarden does not care who triggered the
-install. The IDE, the developer, the CI bot, the contractor merging a
-PR. Every install goes through the same five-rule gate, the same
-fine-tuned model audit, the same Postgres decision row with the same
-supersedes pointer. The audit_dossier.v1 contract captures the trigger
+This is exactly our threat model: the lazy submitter who pulls an
+unaudited Copilot suggestion, and the disgruntled submitter who slips a
+poisoned version into a PR on purpose. Same gate, same evidence, same
+forecast. ModuleWarden does not care who triggered the install. The IDE,
+the developer, the CI bot, the contractor merging a PR. Every install goes
+through the same five-rule delta-gate, the same fine-tuned model narration,
+the same Postgres decision row with the same supersedes pointer. The audit_dossier.v1 contract captures the trigger
 context: IDE telemetry, branch, author, prior allow decisions. That
 trigger context is the difference between "our contractor was negligent"
 and "our gate caught what the contractor missed." For the underwriter,

@@ -1,7 +1,9 @@
-# ModuleWarden - Zero-One Hack Vienna 2026: Track 02 Win Analysis
+# ModuleWarden - Zero-One Hack Vienna 2026: Win Analysis
 
-**Date:** 2026-05-29
-**Track:** 02 - Conversational AI and Model Integration (UNIQA)
+> SUPERSEDED by decision-10: the team pivoted to the Forecast track (partner Sybilion, "probabilistic forecasting and the agent layer that acts on it"). This Track-02 analysis is kept for reference. Current positioning lives in `docs/winning-research/08-forecast-track-pivot.md` and `finetune/python/pitch/track-reframes.md`. The judging-criteria and demo mechanics below still apply; read every "must map to a UNIQA product" line as "must map to the forecasting use case: forecast a dependency's supply-chain risk at submission time, then act on it."
+
+**Date:** 2026-05-29 (Track-02 analysis; Forecast pivot recorded the same day in decision-10)
+**Original track:** 02 - Conversational AI and Model Integration (UNIQA). **Current track:** Forecast (Sybilion).
 **Submission deadline:** Sunday, May 31 10:00 AM; final pitches 13:30
 
 ---
