@@ -80,6 +80,30 @@ The naive answer is "use the biggest uncensored model." The evidence says no.
 Net: keep the heretic-v2 27B for the expanded role and add the agentic loop. Drop
 to 7B only if Decepticon stays a pure narrator.
 
+## Wiring the hard negatives into the SFT build
+
+Two ways to put Decepticon's hard negatives into the training corpus, both
+train-split only:
+
+- During the corpus build:
+  `python -m finetune.python.pipeline.corpus_walker --hard-negatives 200`
+  appends 200 synthetic hard negatives to `sft-records.jsonl` after the real
+  cases. Default is 0, so the existing build is unchanged.
+- Standalone, to a separate file you can inspect or concat:
+  `python -m finetune.python.decepticon.adversary -n 200 --out finetune/corpus/hard-negatives.jsonl`
+
+Guarantees that keep the eval honest:
+
+- split is always `train`. The rows never reach validation or test, so
+  `local_finetune_eval` on the held-out splits is not contaminated by synthetic
+  data. The measured fine-tune number stays real.
+- source is `synthetic_teacher` (the closed-enum value these fit) and every
+  `record_id` is prefixed `sft_decepticon_hardneg_`, so the synthetic rows are
+  separable and countable in the corpus and in the walker manifest
+  (`counters.hard_negatives_injected`).
+- The label is `block`: the verdict the auditor should reach on an evasive case
+  even though the gate hard rule did not fire.
+
 ## Sources
 
 - RedTeamLLM, an agentic AI framework for offensive security: https://arxiv.org/abs/2505.06913

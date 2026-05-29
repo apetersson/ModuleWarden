@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from . import coverage, mapper, model_client
+from ..pipeline.sft_pair_builder import build_sft_record
 
 CATALOG: list[str] = list(mapper._CAPABILITY_TO_ATTACK)
 GATE_RULE_CAPS: frozenset[str] = frozenset(
@@ -209,6 +210,76 @@ def detection_gaps_summary(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _synthetic_dossier(scenario: dict[str, Any]) -> dict[str, Any]:
+    """A synthetic audit_dossier.v1-shaped object for an adversarial case (data only)."""
+    pkg = scenario.get("package") or {"name": "synthetic-adv", "candidate_version": "1.0.0"}
+    return {
+        "schema_version": "modulewarden.audit_dossier.v1",
+        "audit_id": f"audit_decepticon_{pkg.get('name', 'adv')}",
+        "package": pkg,
+        "capability_deltas": scenario.get("capability_deltas", []),
+        "policy_context": {
+            "forbidden_output": [
+                "Do not claim this package is safe; this is an adversarial test case."
+            ]
+        },
+        "provenance": {"generator": "decepticon_adversary", "synthetic": True},
+    }
+
+
+def _synthetic_report(scenario: dict[str, Any], dossier: dict[str, Any]) -> dict[str, Any]:
+    chain = (scenario.get("detection") or {}).get("kill_chain") or mapper.kill_chain_narrative(
+        scenario.get("capability_deltas", [])
+    )
+    return {
+        "schema_version": "modulewarden.audit_report.v1",
+        "audit_id": dossier["audit_id"],
+        "verdict": "block",
+        "risk_level": "high",
+        "confidence": "high",
+        "summary": (
+            "Adversarial synthetic case reaching "
+            f"{chain.get('chain') or 'no chain'} via "
+            f"{', '.join(chain.get('technique_ids') or []) or 'no techniques'}, "
+            "constructed to avoid the install-scripts rule so the deterministic "
+            "gate hard catch does not fire. The capability chain still warrants a block."
+        ),
+        "primary_findings": [
+            {
+                "severity": "high",
+                "category": s["tactic"],
+                "claim": s["procedure"],
+                "evidence_refs": [s["technique_id"]],
+            }
+            for s in (chain.get("steps") or [])
+        ],
+    }
+
+
+def to_sft_record(scenario: dict[str, Any], *, split: str = "train") -> dict[str, Any]:
+    """Canonical modulewarden.sft_record.v1 for one evasive scenario.
+
+    split is train by design: synthetic hard negatives must never enter the
+    validation or test splits, or they would contaminate the honest eval. source
+    is synthetic_teacher (the closed-enum value these fit); the decepticon origin
+    is carried in the record_id prefix so the rows stay auditable and separable.
+    """
+    dossier = _synthetic_dossier(scenario)
+    report = _synthetic_report(scenario, dossier)
+    record_id = f"sft_decepticon_hardneg_{dossier['audit_id']}"
+    return build_sft_record(
+        dossier, report, split=split, source="synthetic_teacher", record_id=record_id
+    )
+
+
+def hard_negative_records(
+    n: int = 20, *, seed: int = 7, use_model: bool = False
+) -> list[dict[str, Any]]:
+    """Up to n canonical train-split hard-negative SFT records for the corpus build."""
+    res = generate_hard_negatives(max(n * 2, n + 4), seed=seed, use_model=use_model)
+    return [to_sft_record(s) for s in res["hard_negatives"][:n]]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Decepticon adversarial test-case generator")
     ap.add_argument("-n", type=int, default=20)
@@ -228,8 +299,8 @@ def main(argv: list[str] | None = None) -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         with args.out.open("w", encoding="utf-8") as fh:
             for s in res["hard_negatives"]:
-                fh.write(json.dumps(to_sft_hard_negative(s), ensure_ascii=False) + "\n")
-        print(f"wrote {res['n_hard_negatives']} hard-negative rows -> {args.out}")
+                fh.write(json.dumps(to_sft_record(s), ensure_ascii=False) + "\n")
+        print(f"wrote {res['n_hard_negatives']} canonical hard-negative SFT rows to {args.out}")
     return 0
 
 
