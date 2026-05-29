@@ -66,6 +66,16 @@ embedding layer, currently deferred because another model holds the GPU), the
 position of that delta in embedding space relative to nearest-known-attack
 patterns. That is a defensible probabilistic layer. The cold-package score is not.
 
+Measured 2026-05-30 on 594 matched same-package pairs
+(`finetune/python/eval/paired-delta/`, built by `_paired_delta_train.py`): the
+paired static delta scores AUROC 0.60 (PR-AUC 0.62, Brier 0.29), versus a
+same-package cold baseline of 0.25. So the delta does carry signal and beats the
+cold floor, but the verdict is WEAK, not learnable enough to stand alone: the top
+delta feature is still entropy (size-of-change), and capability_delta_count is
+near zero. This confirms the architecture: the deterministic delta-gate is the
+verdict authority, and the only lever for a strong probabilistic layer is the
+code-change embedding (task-18), not static count-features.
+
 ## Architecture: gate decides, model narrates (unchanged, and now empirically justified)
 
 The deterministic delta-gate is the verdict authority. It is auditable and emits

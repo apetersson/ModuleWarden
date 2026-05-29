@@ -112,3 +112,53 @@ stays the verdict authority; the fine-tuned model explains it, never overrides i
 What changes with the pivot is only the SFT target text (the insurance memo
 becomes the Forecast Evidence Memo) and the corpus framing. See
 `docs/winning-research/08-forecast-track-pivot.md`.
+
+## Two model roles: which artifact each one uses
+
+ModuleWarden runs two models with opposite needs, so they use different artifacts.
+
+### Auditor (defense) - we abliterate it ourselves
+
+Preferred base to abliterate: **Qwen/Qwen3.6-27B** (official weights).
+
+- It is the exact base the heretic-v2 reference abliterates, so we know it
+  abliterates cleanly with our Heretic v1.3.0 MPOA method.
+- It keeps both model roles on one base lineage, so auditor and Decepticon are
+  directly comparable.
+- Strong code plus reasoning: the auditor reads package source and advisories and
+  emits structured-JSON verdicts.
+- Proven small path for the local box and rehearsal: Qwen2.5-Coder-1.5B-Instruct
+  (the vast.ai smoke). The 27B is the GPU scale-up.
+- Code-max alternative if wanted: Qwen2.5-Coder-32B-Instruct. We default to
+  Qwen3.6-27B for lineage coherence and known-good abliteration.
+
+The auditor is fine-tuned (abliterate then QLoRA SFT) and is provenance-critical:
+it produces the side of the output a customer acts on, so we own its whole chain.
+
+### Decepticon (offense) - community GGUF, inference-only, no re-abliteration
+
+Decepticon narrates the deterministic ATT&CK kill chain as a red-team story for
+blue-team detection testing. It never trains and needs an uncensored model, so the
+pre-abliterated GGUF is the right artifact and there is nothing to re-abliterate.
+
+Use `llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF` as-is.
+Serve it locally and point Decepticon at it:
+
+    # llama.cpp
+    llama-server -m heretic-v2/Qwen3.6-27B-...-Q5_K_M.gguf \
+        --host 127.0.0.1 --port 8081 --ctx-size 8192
+    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://127.0.0.1:8081/v1
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=qwen3.6-27b-heretic-v2
+
+The client is `finetune/python/decepticon/model_client.py`. Its
+`requires_abliteration()` returns False, and
+`finetune/python/tests/test_decepticon_model_client.py` asserts the module never
+imports the abliteration or training code, so the no-re-abliteration contract is
+enforced, not just stated. The deterministic mapper still pins the technique ids;
+the GGUF only narrates the pinned chain.
+
+Why the GGUF is fine here but not for the auditor: Decepticon is inference-only, so
+the GGUF format is correct (no training stage to block on it), and it is
+offense-side narration for our own testing, so the third-party provenance hop is
+acceptable. The auditor is the opposite on both axes, which is why it gets our own
+abliteration of official Qwen weights.
