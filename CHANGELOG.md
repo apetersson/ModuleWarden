@@ -1,5 +1,41 @@
 # ModuleWarden Changelog
 
+## 2026-05-29 (adaptive steering layer - defense that updates without retraining)
+
+The model is fine-tuned once; the injection surface keeps moving. This adds the
+layer that adapts after the checkpoint is frozen, with no retrain.
+
+### Security / model hardening
+
+- Steering-vector registry at `steering/registry.py`: versioned JSON store keyed
+  by attack family, one active vector per key, auto-deprecation on update.
+  Records the layer, coefficient, ASR removed, and clean-accuracy delta per
+  vector. Rejected vectors are kept with status=rejected for the audit trail.
+  Readable without torch; lazy tensor rebuild on apply.
+- Conditional activation steering (CAST) at `steering/conditional.py`: a
+  regex+unicode detector gates whether the steering vector is applied, so benign
+  packages run the frozen model untouched and clean accuracy is preserved. The
+  detector tracks the shared injection payload catalog (Lee et al.,
+  arXiv:2409.05907).
+- Calibration pipeline at `steering/calibrate.py`: sweeps the steering
+  coefficient and accepts only the setting that reduces ASR without dropping
+  clean accuracy past a guardrail (default 2 points); records the outcome to the
+  registry. `select_coefficient` is pure and unit-tested; a CLI runs it against
+  the corpus and a checkpoint.
+
+### Tests
+
+- `tests/test_adaptive_steering.py` (11): registry round-trip + versioning,
+  CAST detector coverage over every payload family, the calibration guardrail
+  (accepts a robust setting, rejects an over-steering one), and a gpt2/CPU
+  conditional-steering mechanism test. Full finetune suite green.
+
+### Decisions
+
+- The guardrail encodes decision-4 at the steering layer: a vector that buys
+  robustness by hurting clean accuracy is refused and the refusal is recorded,
+  not discovered in production. See backlog TASK for the adaptive layer.
+
 ## 2026-05-29 (Saturday - injection hardening + activation steering)
 
 Audit-LLM injection defense, defense in depth with the deterministic gate.
