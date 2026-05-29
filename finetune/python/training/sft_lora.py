@@ -65,7 +65,7 @@ class SftConfig:
 
 def _require(module: str) -> Any:
     try:
-        return __import__(module, fromlist=["*"])
+        return __import__(module)
     except ImportError as exc:
         raise RuntimeError(
             f"{module} is required for SFT; pip install {module}"
