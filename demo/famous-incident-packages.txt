@@ -1,0 +1,17 @@
+# Seed packages for the live demo.
+# Mix of known-malicious and known-benign so the table tells a story.
+# Format: package@version, one per line. Lines starting with # are skipped.
+
+# Known-malicious (per OSSF advisories and public incident reports)
+event-stream@3.3.6
+eslint-scope@3.7.2
+ua-parser-js@0.7.29
+rc@1.2.9
+coa@2.0.3
+
+# Known-benign controls (top-10 npm packages, never compromised at these pins)
+lodash@4.17.21
+react@18.2.0
+axios@1.6.7
+express@4.18.2
+moment@2.29.4

