@@ -118,14 +118,16 @@ rm -rf "$DEMO_DIR"
 mkdir -p "$DEMO_DIR"
 cd "$DEMO_DIR"
 
-pnpm init
-
-# pnpm init may add a devEngines.packageManager block like:
-#   "version": "^11.0.8"
-# Current pnpm rejects that range when it later reads package.json, so remove
-# the block from this throwaway demo project before running any more pnpm
-# commands.
-node -e "const fs=require('fs'); const p='package.json'; const pkg=JSON.parse(fs.readFileSync(p,'utf8')); delete pkg.devEngines; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
+# Do not use `pnpm init` here. Some pnpm versions create a
+# devEngines.packageManager block with a non-exact version such as "^11.0.8",
+# which later pnpm commands reject. Keep this throwaway package.json minimal.
+cat > package.json <<'EOF'
+{
+  "name": "modulewarden-demo-project",
+  "version": "1.0.0",
+  "type": "module"
+}
+EOF
 
 # Keep the registry override scoped to this demo project only.
 # Do not use `pnpm config set` or `npm config set` here; those can mutate
