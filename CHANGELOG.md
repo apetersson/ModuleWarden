@@ -1,5 +1,34 @@
 # ModuleWarden Changelog
 
+## 2026-05-29 (served-path prompt defense - the layer that ships on vLLM/llama.cpp)
+
+The steering layer needs HF residual hooks the serving engine does not expose.
+This is the defense that runs on the served model, and the most practical
+update-without-retrain lever.
+
+### Security / model hardening
+
+- Served-path prompt defense at `serving/prompt_defense.py`: builds the audit
+  prompt with spotlighting (normalize + datamark the untrusted free-text) and an
+  instruction-hierarchy preamble that fences the package metadata as data, never
+  commands. Structural evidence is left intact. No residual hooks - runs on
+  vLLM/llama.cpp. Spotlighting arXiv:2403.14720, instruction hierarchy
+  arXiv:2404.13208.
+- `PromptDefensePolicy` is versioned and serializable (`save_policy`/
+  `load_policy`), so a new attack response ships as a reviewable data diff.
+- `make_defended_verdict_fn` is the served-path verdict_fn; with
+  `undefended_policy()` as the baseline arm it plugs into
+  `eval/injection_robustness` for the same ASR-delta the steering layer reports,
+  making the three defense layers comparable on one metric.
+
+### Tests
+
+- `tests/test_prompt_defense.py` (7): prompt carries the hierarchy + envelope,
+  free-text is datamarked while structural fields survive verbatim, smuggled
+  unicode is stripped, an injected payload is kept as fenced spotlit data, the
+  undefended baseline is bare, policy versioning + round-trip, and a gpt2/CPU
+  served-path verdict_fn. Full finetune suite green (59).
+
 ## 2026-05-29 (adaptive steering layer - defense that updates without retraining)
 
 The model is fine-tuned once; the injection surface keeps moving. This adds the
