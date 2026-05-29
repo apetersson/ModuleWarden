@@ -1,0 +1,15 @@
+Pixi Package Manager
+
+- Fast, modern, and reproducible package manager
+- Can install packages from:
+  - PyPI (like pip)
+  - conda-forge (like conda)
+- https://pixi.sh/
+
+Quick intro:
+curl -fsSL https://pixi.sh/install.sh | bash
+pixi init hello-world
+cd hello-world
+pixi add python  # install from conda-forge
+pixi add --pypi openai  # install from PyPI
+pixi run python -c 'print("Hello World!")'

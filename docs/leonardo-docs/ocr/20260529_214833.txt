@@ -1,0 +1,10 @@
+Containers on HPC: Singularity / Apptainer
+
+Most HPC systems don't run Docker, but Singularity or Apptainer (which are highly related and behave nearly identically)
+https://docs.sylabs.io/guides/latest/user-guide/
+
+Convert Docker containers on Leonardo:
+srun --partition=lrd_all_serial --time 04:00:00 --gres=tmpfs:100G --mem=16G --pty singularity pull --name vllm-openai-v0.2.1-cu129.sif docker://docker.io/vllm/vllm-openai:0.2.1-cu129
+
+Run something inside a Singularity container:
+singularity exec --nv --bind $SCRATCH:/scratch container.sif python3

@@ -1,0 +1,521 @@
+WEBVTT
+
+00:00.000 --> 00:06.320
+So once you've found your startup, let's say, you can actually get access free of charge
+
+00:06.320 --> 00:07.320
+to these supercomputers.
+
+00:07.320 --> 00:14.320
+So this is fantastic and this is something that we also pass on to a couple of the better
+
+00:14.320 --> 00:15.320
+approaches.
+
+00:15.320 --> 00:20.320
+And today we'll be dealing with Leonardo, number 10, the top 500 list.
+
+00:20.320 --> 00:28.120
+That might maybe change because the top 500 list is updated every six months.
+
+00:28.120 --> 00:33.920
+So that will be updated in June, again, so maybe it's a dropout of the top 10, but now
+
+00:33.920 --> 00:38.840
+we can still say, we can still claim to be on one of the top 10 supercomputers.
+
+00:38.840 --> 00:40.840
+Okay, so how does that work?
+
+00:40.840 --> 00:46.040
+Well, we're a bit behind schedule and I promise I won't take too long but just to give you
+
+00:46.040 --> 00:47.040
+a rough idea.
+
+00:47.040 --> 00:53.960
+So once you log on to one of these HPC machines, you end up on what is called a login node.
+
+00:53.960 --> 00:59.400
+So you don't want to do, you don't ever want to do any heavy lifting there.
+
+00:59.400 --> 01:06.760
+So no number crunching, no heavy compute on the login nodes, otherwise you'll get an angry
+
+01:06.760 --> 01:07.760
+email from the system.
+
+01:07.760 --> 01:12.800
+Well, in your case, that will be, we'll get the angry email, so we don't want that, so
+
+01:12.800 --> 01:15.000
+no number crunching on the login nodes.
+
+01:15.000 --> 01:18.040
+So the login nodes are there to just prepare your scripts.
+
+01:18.040 --> 01:22.800
+You can download the models that you need, just get ready for the actual work that needs
+
+01:22.800 --> 01:23.800
+to be done.
+
+01:23.800 --> 01:30.480
+But once you're actually ready to fine tune a trainer model, you want to use the compute
+
+01:30.480 --> 01:31.480
+nodes.
+
+01:31.480 --> 01:36.120
+These are the ones for the number crunching and these are also the ones that have the
+
+01:36.120 --> 01:39.520
+GPUs available.
+
+01:39.520 --> 01:42.400
+How do you connect at all to one of these login nodes?
+
+01:42.400 --> 01:47.280
+Well, this is usually done through SSH and this is also what you'll be using here.
+
+01:47.280 --> 01:49.760
+So through the Linux command line.
+
+01:49.760 --> 01:55.280
+So just in case you don't know what SSH is, well, with that you create an encrypted tunnel
+
+01:55.280 --> 02:02.680
+to the machine, in this case to one of these mentioned login nodes, where port 22 is listening
+
+02:02.680 --> 02:03.680
+by default.
+
+02:03.680 --> 02:08.960
+And basically, you can also use this to transfer your files.
+
+02:08.960 --> 02:17.240
+So in case you need to transfer files, instead of SSH you use SCP, but that's the same protocol
+
+02:17.240 --> 02:24.360
+behind that and you might want to copy stuff to and from the machine.
+
+02:24.360 --> 02:27.560
+This is how you do it.
+
+02:27.560 --> 02:31.920
+Basically to connect with SSH, you can connect to any of the login nodes.
+
+02:31.920 --> 02:37.960
+Leonardo's got login 1, 2, 5 and 7 for whatever reason, I don't know, the Italians can't
+
+02:37.960 --> 02:38.960
+count.
+
+02:38.960 --> 02:41.320
+I have no idea what's going on like that.
+
+02:41.320 --> 02:46.960
+In case you want to keep that random, you can just say, okay, login and leave the rest
+
+02:46.960 --> 02:53.640
+away, login.leonardo.chinica.it, then you'll just be assigned a login node that's got
+
+02:53.640 --> 02:54.640
+the most space available.
+
+02:54.640 --> 03:02.600
+But just in case you want to work with, there were tools as Tmax for example, then you might
+
+03:02.600 --> 03:07.600
+actually want to know on which login node you end up on and then you choose your login
+
+03:07.600 --> 03:08.600
+node.
+
+03:08.600 --> 03:13.760
+Okay, usually, by the way, you need the two-factor authentication, so in case you're a regular
+
+03:13.760 --> 03:20.080
+user, Leonardo wants to become one, you've still got that hurdle to take, not in this
+
+03:20.080 --> 03:24.840
+case, because these are basically trained usernames that you'll get.
+
+03:24.840 --> 03:30.680
+Okay, when it comes to software, there's some pre-installed software, HPC, but we usually
+
+03:30.680 --> 03:37.520
+do not recommend that software, the reason is that the software stack is not maintained
+
+03:37.520 --> 03:42.840
+as regularly as it should be, so you'll probably want to create your own environments.
+
+03:42.920 --> 03:47.920
+When it comes to environments, we usually recommend PXE, in case you don't know PXE,
+
+03:47.920 --> 03:55.960
+PXE is just a fantastic package manager, it's insanely fast, because it's got that insanely
+
+03:55.960 --> 04:04.480
+fast dependency solver programmed in Rust, if you know UB, PXE is a lot like UB, so that'll
+
+04:04.480 --> 04:09.160
+probably be the weapon of your choice there.
+
+04:10.080 --> 04:17.360
+Alternatively, you can work with containers, HPC systems do not use Docker, the reason
+
+04:17.360 --> 04:23.400
+is that you don't get root access, so instead you can go with singularity, or sometimes
+
+04:23.400 --> 04:32.080
+it's called app-tainer, depending on which vendor it's from, basically you can pull any
+
+04:32.080 --> 04:37.200
+Docker container, so if you have a Docker container already out there, then that's super
+
+04:37.200 --> 04:44.640
+useful, the reason why these containers are used on HPC is because they give you one large
+
+04:44.640 --> 04:49.320
+file, so you've got everything in that large file, not like with the environments where
+
+04:49.320 --> 04:54.480
+you've got lots of little files which parallel file systems don't like that much, but other
+
+04:54.480 --> 05:02.040
+than that, personally I'd go with PXE more than these containers, if you have, as I said,
+
+05:02.880 --> 05:08.560
+a finished Docker image, then it's easy to pull, really easy to do, as well as you can
+
+05:08.560 --> 05:15.000
+see here, but if you want to build your own container, it takes some time, so yeah, I
+
+05:15.000 --> 05:17.640
+could go with PXE in that case then.
+
+05:17.640 --> 05:25.120
+Okay, so then how do you send off the job from the logger nodes to the compute nodes?
+
+05:25.120 --> 05:30.720
+Well, you do this through a slum script, a slum script is basically a batch script with
+
+05:30.720 --> 05:37.840
+some extra parameters, but we might ask what is slum, well slum is just a scheduler that
+
+05:37.840 --> 05:44.520
+you have on these machines, because usually if you send off the job, you end in a queue,
+
+05:44.520 --> 05:49.280
+depending on how much resources you need, for how long you need it for, you end up in
+
+05:49.280 --> 05:55.160
+the queue, and as soon as the resources become available, your job starts to run, so that's
+
+05:55.160 --> 05:57.200
+what slum is for then.
+
+05:57.200 --> 06:05.480
+So right at the top of your batch script, you've got these parameters for slum, these
+
+06:05.480 --> 06:12.080
+are not commented out, so that's how it's supposed to be, with hash as batch, so these
+
+06:12.080 --> 06:14.640
+are all the directives that slum gets.
+
+06:14.640 --> 06:20.080
+So what you need to mention there is the partition that you're working on, so that will always
+
+06:20.080 --> 06:24.320
+be on the booster partition on Leonardo, these are the ones with the GPU, so these are the
+
+06:24.320 --> 06:25.920
+ones that you need.
+
+06:25.920 --> 06:32.160
+Now we've got a reservation in place, that's why we've got a reservation here, s underscore
+
+06:32.160 --> 06:40.320
+trial underscore ncc, with a reservation that means you can stick the queue basically, so
+
+06:40.320 --> 06:48.320
+we have got 100 GPUs in place, these GPUs are arranged in what is called a node, so
+
+06:48.320 --> 06:56.240
+one node has got four GPUs on Leonardo, and essentially what that means is we can say
+
+06:56.240 --> 07:00.880
+per team you've got one node available in the reservation.
+
+07:00.880 --> 07:07.440
+Now make sure that you do not use more than one node in the reservation, otherwise that
+
+07:07.440 --> 07:14.960
+would be unfair, let's have fair play and all the same chances, so per team one node
+
+07:14.960 --> 07:15.960
+is fine.
+
+07:15.960 --> 07:20.760
+If you want to use more than one node, you can actually also do so, and just comment
+
+07:20.760 --> 07:28.280
+that out, the reservation, and you'll end up like every other Leonardo user in the queue,
+
+07:28.280 --> 07:33.000
+so that means you might have to wait a little bit until your job begins to run, it might
+
+07:33.000 --> 07:36.520
+be a long time, it might be a short time, you never know, actually on the weekend it
+
+07:36.520 --> 07:42.120
+shouldn't be too bad, but you can try it out without the reservation as well.
+
+07:42.120 --> 07:48.600
+So here in this case, in this slums group we chose just one node, we chose just one
+
+07:48.600 --> 07:57.760
+task for this particular node, and only one GPU for this task, so this is a one GPU job.
+
+07:57.760 --> 08:04.960
+We asked for 120 gigs of memory, now this is not the GPU memory, bear in mind, so that's
+
+08:04.960 --> 08:14.240
+not the VRAM, that's the regular RAM, so on Leonardo we say okay, allocate that fairly,
+
+08:14.240 --> 08:20.920
+so basically take 120 gigs per GPU that you have, so you can go up to four times that
+
+08:20.920 --> 08:29.360
+amount if you have four GPUs, and by the way the GPUs of Leonardo have 64 gigs of RAM,
+
+08:29.680 --> 08:37.200
+there are A100 GPUs from NVIDIA with 64 gigs of RAM. Okay, the CPUs per task,
+
+08:38.560 --> 08:44.400
+yeah, it's also you can multiply by the number of GPUs that you have, if you only have one
+
+08:44.400 --> 08:52.480
+GPU then you can again first share and take eight of these CPUs. Now if you are outside of the queue
+
+08:52.480 --> 08:59.840
+don't forget to set the time, because actually also do it inside of their reservation as well,
+
+08:59.840 --> 09:06.000
+always set the time, it's just a good practice, the reason being is depending on how long you
+
+09:06.000 --> 09:12.800
+think that job will run for, you get through the queue quicker or not, so if you do not set the
+
+09:12.800 --> 09:21.040
+time, SLURM assumes that this job will run for 24 hours, and then you might be waiting for quite
+
+09:21.040 --> 09:27.360
+some time, so always just for good practice make sure you set the time, as a matter of fact on,
+
+09:28.960 --> 09:34.000
+yeah, as a matter of fact within a reservation actually if you do not set it, that's within
+
+09:34.000 --> 09:39.600
+the reservation, the job will stop after 30 minutes because that's the cutoff time, okay,
+
+09:39.600 --> 09:47.680
+so make sure you set that time before you send off your job. Okay, so what you have then after that
+
+09:47.680 --> 09:54.480
+is just what you have in a regular bash script, so for example in this case we want to use our
+
+09:54.480 --> 10:01.040
+pixi environment, and we want to run something with this pixi environment, which is to define
+
+10:01.040 --> 10:10.000
+that here in an extra variable, you do not need this manifest path to the pixi environment,
+
+10:10.000 --> 10:16.000
+if you have your pixi tunnel within the folder that you're working in, where that
+
+10:16.000 --> 10:21.760
+job script is as well, so only if that pixi environment is somewhere else you need to provide
+
+10:21.760 --> 10:30.080
+the path to that as well, and then of course you just run your python script or whatever you like
+
+10:30.080 --> 10:37.520
+to run, this is how it would look like with a singularity container, so very similar, you execute
+
+10:37.520 --> 10:46.080
+that singularity container and you provide the image of this container, so if you use more than
+
+10:46.080 --> 10:52.560
+one GPU, okay, how would that look like? Obviously we'd set this to two, we'd increase the RAM,
+
+10:52.560 --> 11:00.080
+we'd increase the CPUs, the rest is the same, how about if we go to four GPUs, well you might have
+
+11:00.080 --> 11:05.520
+guessed it, just these three numbers change accordingly, what about if you want to use more
+
+11:05.520 --> 11:10.800
+than one node, well in that case as I already mentioned, and it's just because you'll get the
+
+11:10.800 --> 11:16.720
+slides afterwards, make sure that you get rid of this reservation, it would be unfair otherwise.
+
+11:18.640 --> 11:25.120
+Okay, just some useful slowing commands in case you've never worked with slowing, so with sbatch
+
+11:25.120 --> 11:34.480
+you send off that that slow script, by the way there's another way you can also use your compute
+
+11:34.480 --> 11:45.520
+nodes that's interactively, instead of sbatch you'd write srun and then you provide the resources
+
+11:45.520 --> 11:50.240
+that you need, including also the time that you need that for when you get an interactive
+
+11:51.360 --> 11:57.920
+session on a compute node. Now once you send off a job with sbatch you want to know is it already
+
+11:57.920 --> 12:03.840
+running or not, so what's going on, so you could check that with a queue, with sq minus minus me,
+
+12:03.840 --> 12:09.600
+that lets you know whether your jobs are already running, and you can also have a look at the
+
+12:09.600 --> 12:16.880
+output just while it runs, if you want you can split the standard out and standard error, if you
+
+12:16.880 --> 12:23.280
+don't mention where these files should go, they're just concatenated so they're within one bit,
+
+12:24.000 --> 12:29.120
+and should you realize, whoops I need to cancel my job, you can always do so with scancel and the
+
+12:29.120 --> 12:34.400
+job id, you always see the job id if you have a look at the queue, okay so you just provide that
+
+12:34.400 --> 12:42.240
+job id and then that gets cancelled, and here as I mentioned srun will provide you with an
+
+12:42.240 --> 12:49.280
+interactive session. Okay, now coming to the storage system on Leonardo, if you look into
+
+12:49.360 --> 12:56.720
+Leonardo, by default you're in the home directory, but be aware that it's quite limited with 50 gigs,
+
+12:57.440 --> 13:03.600
+so make sure that if you download models, or repeat that several times now, make sure that
+
+13:03.600 --> 13:09.600
+if you download models, do this first of all in the login node, the reason is that on the compute
+
+13:09.600 --> 13:15.520
+node you don't have access to the internet, so do it on the login node, and make sure that you
+
+13:16.320 --> 13:22.880
+place the large files, so models for example in scratch, so in scratch you've got several
+
+13:23.440 --> 13:26.240
+terabytes, basically the whole scratch
+
+13:28.720 --> 13:36.480
+partition is several petabytes, so you've got lots of space there, we usually say 20 terabytes just
+
+13:36.480 --> 13:44.880
+to give people a rough guideline, okay so put it in in scratch, please don't use fast or work,
+
+13:45.760 --> 13:51.840
+that's also available if you check out the Tineca documentation, but for this particular
+
+13:52.800 --> 13:56.400
+project this is already in use, so please make sure that you don't don't use that,
+
+13:57.200 --> 14:04.400
+so home scratch in public is for you. Okay, when it comes to the login nodes there's a
+
+14:04.400 --> 14:10.080
+CPU time limit as well, that is 10 minutes, so if you need to download something that's especially
+
+14:10.080 --> 14:14.880
+true if you are dealing with singularity containers that you want to download, models usually go
+
+14:14.880 --> 14:23.120
+pretty quickly, but singularity containers might take some time and you might hit the max time
+
+14:23.120 --> 14:32.000
+limit, so you could use this partition where you have four hours, just if you need to download
+
+14:32.000 --> 14:41.040
+something for longer, okay, otherwise we've also worked out a bit of a, or we've provided a bit of
+
+14:41.120 --> 14:48.000
+a workaround, that is if you need access via the compute nodes, I already mentioned they do not
+
+14:48.000 --> 14:58.240
+have internet access by default, so we provide you with a proxy server on one of the login nodes,
+
+14:59.040 --> 15:04.720
+but just make sure that you don't use that for heavy bandwidth stuff, so don't download your
+
+15:04.720 --> 15:12.240
+models via that, okay, because otherwise it just that will just be chock-a-block, so just in case
+
+15:12.240 --> 15:18.800
+you want to use something like weights and biases or yeah anything similar to that, that's what this
+
+15:18.800 --> 15:24.720
+is there for, okay, so make sure to use that if you need the internet for the compute nodes,
+
+15:24.720 --> 15:31.360
+otherwise just everything through the login nodes. Okay, if you want to read something up quickly,
+
+15:31.440 --> 15:37.040
+we've got some Leonardo onboarding material out there that's on our website, it's on a hidden
+
+15:37.040 --> 15:44.720
+part of our website, so you know it's the AI factory website with n slash hpc minus onboarding,
+
+15:45.680 --> 15:51.520
+check out chapter five and six especially, that talks about these first steps and also the
+
+15:52.160 --> 15:57.440
+software topic that I just briefly mentioned. Other than that, there's also the Ginnica
+
+15:57.440 --> 16:02.800
+documentation, but this is much more thorough as you can imagine, but of course feel free to look
+
+16:02.800 --> 16:10.000
+that up as well, so Ginnica being the hosting entity of Leonardo and look up whatever you need
+
+16:10.000 --> 16:17.520
+there, and that's basically it and with that go and have fun, you will get your users and passwords
+
+16:17.520 --> 16:24.480
+afterwards, they'll be distributed to you, so basically you'll get a link via email, right,
+
+16:24.480 --> 16:32.160
+you'll get a link via email and once you click on that link, you'll end up on a page that wants
+
+16:32.160 --> 16:38.720
+your name and also your affiliation, so please fill that out because you also need to agree to
+
+16:38.720 --> 16:46.480
+the Ginnica chunks and conditions, basically you just confirm that you don't use the supercomputer
+
+16:46.480 --> 16:53.760
+for anything naughty, I don't know, bitcoin mining or simulating nuclear weapons or whatever,
+
+16:54.480 --> 16:59.920
+so that's what you're agreeing to there and just they just want to know who's working on their
+
+16:59.920 --> 17:06.880
+machines, okay, so this is why you need to provide your name there. This link is unique for every
+
+17:06.880 --> 17:14.480
+user, so once you've agreed to that and filled out that free form, you then get your username and
+
+17:14.480 --> 17:21.760
+password and with that an already used SSH that I've shown you here, okay, thanks a lot.
+

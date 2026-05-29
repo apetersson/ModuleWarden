@@ -1,0 +1,15 @@
+Leonardo
+
+File storage:
+Shared storage between all login and compute nodes.
+
+- $HOME: 50 GB limit
+- $SCRATCH: Higher limit. Use this for larger files during the hackathon. (Files are deleted after 40 days.)
+- $PUBLIC: 50 GB limit. Can be used to share files between Leonardo users.
+- $FAST and $WORK: Do not use during the hackathon.
+
+Login node CPU time limit:
+Processes on login nodes have a 10 minute CPU time limit.
+Use this for longer processes:
+
+srun --partition=lrd_all_serial --time 04:00:00 --gres=tmpfs:100G --mem=16G --pty bash

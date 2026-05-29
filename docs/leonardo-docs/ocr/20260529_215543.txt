@@ -1,0 +1,19 @@
+Slurm: Job Scheduler
+Useful Slurm commands
+
+# Submit a job:
+sbatch job.sh
+
+# Check submitted jobs:
+squeue --me
+
+# Look at the output from a job:
+cat slurm-<job_id>.out
+# Or follow the output as the job runs:
+tail -c +0 -f slurm-<job_id>.out
+
+# Cancel job:
+scancel <job_id>
+
+# Get a shell at a node while a job is running:
+srun --overlap --pty --jobid=<job_id> bash
