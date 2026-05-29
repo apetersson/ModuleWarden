@@ -97,59 +97,51 @@ The technique ids stay pinned by the deterministic mapper; the GGUF only narrate
 them. If the endpoint is not configured, the client raises rather than faking a
 narrative (no silent degrade).
 
-## On Leonardo HPC (per docs/leonardo-docs)
+## On Leonardo HPC (reuse scripts/leonardo, do not run a parallel job)
 
-Leonardo (CINECA) is Slurm-scheduled. GPUs are on the `boost_usr_prod` booster
-partition with the hackathon reservation `s_tra_ncc`. It runs containers via
-Singularity, and outbound internet needs the Leonardo HTTP proxy. vLLM is served
-from the official vllm-openai Singularity image, not a bare module. Model is the
-bf16 repo (`llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved`), not
-the GGUF.
+Andreas already has the Leonardo deploy in `scripts/leonardo/`. Decepticon reuses
+it. The serve script is parameterized, so pointing it at the abliterated checkpoint
+is a one-variable override (`MW_VLLM_MODEL`). vLLM runs on a compute node via
+Singularity (TP=4 across 4 A100s, port 8000); you reach it locally through an SSH
+tunnel on port 8081. The model downloads inside the job through the Leonardo HTTP
+proxy, so no manual fetch is required (`fetch-models.sh` is an optional login-node
+pre-cache).
 
-One-time prep on the serial partition (no GPU): set the proxy, pull the vLLM image,
-fetch the model.
+Model: `huihui-ai/Huihui-Qwen3.6-27B-abliterated`, the chosen pre-abliterated
+checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it.
 
-    # outbound internet needs the proxy. Credentials are in docs/leonardo-docs/slides.md
-    export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
+1. Deploy vLLM with the abliterated checkpoint:
 
-    srun --partition=lrd_all_serial --time 04:00:00 --mem=16G --pty \
-        singularity pull --name vllm-openai.sif docker://docker.io/vllm/vllm-openai:0.2.1-cu129
+    MW_VLLM_MODEL=huihui-ai/Huihui-Qwen3.6-27B-abliterated \
+    MW_VLLM_MODEL_NAME=qwen3.6-27b-abliterated \
+    sbatch scripts/leonardo/slurm-vllm.sh
 
-    MODELS_DIR=$SCRATCH/models finetune/python/decepticon/fetch-models.sh --decepticon-bf16
+2. Find the node and open the tunnel (localhost:8081 maps to node:8000):
 
-The weights come straight from HuggingFace (proxy on), not via a laptop or
-Nextcloud (the bf16 is ~56 GB). A staging copy of `fetch-models.sh` also lives at
-`ZeroToOne_Data/models/` on Nextcloud.
+    squeue --me
+    scripts/leonardo/tunnel.sh <compute-node>
 
-Preflight on the login node, no GPU needed:
+3. Health-check, then point Decepticon at the tunnel:
 
-    python -m finetune.python.decepticon.config_check   # READY, model_endpoint WARN until vLLM is up
-
-Slurm job that serves, waits, preflights, then generates:
-
-    #!/bin/bash
-    #SBATCH --partition=boost_usr_prod
-    #SBATCH --reservation=s_tra_ncc
-    #SBATCH --nodes=1
-    #SBATCH --ntasks-per-node=1
-    #SBATCH --gpus-per-task=1
-    #SBATCH --cpus-per-task=8       # Leonardo fair share: 8 * gpus-per-task
-    #SBATCH --mem=120GB             # Leonardo fair share: 120GB * gpus-per-task
-    #SBATCH --time=0:30:00
-    SIF=$SCRATCH/vllm-openai.sif
-    singularity exec --nv --bind $SCRATCH:/scratch "$SIF" \
-        python3 -m vllm.entrypoints.openai.api_server \
-        --model $MODELS_DIR/decepticon-heretic-v2-bf16 \
-        --served-model-name heretic-v2 --host 0.0.0.0 --port 8081 &
-    until curl -sf http://localhost:8081/v1/models >/dev/null; do sleep 5; done
+    scripts/leonardo/vllm-health-check.sh http://localhost:8081
     export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1
-    export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2
-    python -m finetune.python.decepticon.config_check   # now all PASS
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=qwen3.6-27b-abliterated
+
+4. Preflight, then generate:
+
+    python -m finetune.python.decepticon.config_check        # model_endpoint now PASS
     python -m finetune.python.decepticon.adversary -n 200 --use-model \
         --out finetune/corpus/hard-negatives.jsonl
 
-The deterministic core (coverage, adversary without `--use-model`, the preflight)
-needs no GPU and runs on the login node; only `--use-model` enrichment needs vLLM.
+The auditor uses the same chosen checkpoint `huihui-ai/Huihui-Qwen3.6-27B-abliterated`
+(pre-abliterated per CLAUDE.md, then SFT LoRA), so no in-repo abliteration step is
+needed. The deterministic Decepticon core (coverage, adversary without `--use-model`,
+the preflight) needs no GPU and runs on the login node.
+
+Security note: `scripts/leonardo/` currently has the HTTP proxy credentials inline.
+The repo is private so it is contained, but those belong in `.leonardo-access` or an
+env file (as the Leonardo login password already does), with the committed copies
+scrubbed.
 
 ## Why no abliteration step here
 

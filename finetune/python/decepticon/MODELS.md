@@ -14,9 +14,8 @@ directly.
 
 | role | repo | format | size |
 |------|------|--------|------|
-| Decepticon (offense, inference) | `llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved` | bf16 (vLLM) | ~55.6 GB |
-| Decepticon (offense, inference) | same, `-GGUF` repo, `Q5_K_M` file | GGUF (llama.cpp) | ~19.7 GB |
-| Auditor base (we abliterate it) | `Qwen/Qwen3.6-27B` | bf16 | ~55.6 GB |
+| Chosen checkpoint (auditor + Decepticon, per CLAUDE.md) | `huihui-ai/Huihui-Qwen3.6-27B-abliterated` | bf16 (vLLM) | ~55.6 GB |
+| Alternative local llama.cpp (different abliteration) | `llmfan46/Qwen3.6-27B-uncensored-heretic-v2-...-GGUF`, `Q5_K_M` | GGUF | ~19.7 GB |
 
 ## Fetch on Leonardo
 

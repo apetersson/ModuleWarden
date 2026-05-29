@@ -14,6 +14,7 @@
 # Then SSH tunnel from local: ssh -L 8081:<node>:8000 <user>@login01-ext.leonardo.cineca.it
 
 #SBATCH --partition=boost_usr_prod
+#SBATCH --reservation=s_tra_ncc     # hackathon reserved node (fast lane); drop for general queue / multi-node
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=4           # qwen3.6 27b with TP=4 on A100 64GB
@@ -46,7 +47,8 @@ VLLM_SIF="${SCRATCH_DIR}/containers/vllm-openai-cu129.sif"
 LOG_DIR="${SCRATCH_DIR}/vllm-logs"
 mkdir -p "${MODEL_CACHE}" "${LOG_DIR}" "$(dirname "${VLLM_SIF}")"
 
-MODEL_ID="${MW_VLLM_MODEL:-Qwen/Qwen3.6-27B}"
+# Default to the chosen pre-abliterated checkpoint (CLAUDE.md); override via MW_VLLM_MODEL.
+MODEL_ID="${MW_VLLM_MODEL:-huihui-ai/Huihui-Qwen3.6-27B-abliterated}"
 MODEL_NAME="${MW_VLLM_MODEL_NAME:-qwen3.6-27b}"
 PORT="${MW_VLLM_PORT:-8000}"
 HOST="${MW_VLLM_HOST:-0.0.0.0}"
