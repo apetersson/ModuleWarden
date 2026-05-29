@@ -396,7 +396,8 @@ function DashboardPage({
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0 }}>Audit Dashboard</h2>
         <span style={{ color: '#666', fontSize: '0.9rem' }}>
-          {dashboard?.summary.total ?? 0} runs
+          {dashboard?.summary.currentTotal ?? 0} current package states
+          {dashboard && dashboard.summary.superseded > 0 && <span> · {dashboard.summary.superseded} superseded runs</span>}
           {dashboard && <span> · {dashboard.summary.needsAttention} need attention</span>}
         </span>
         <input
