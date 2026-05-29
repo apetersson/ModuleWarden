@@ -16,7 +16,7 @@
     "published": null,
     "updated": null,
     "per_page": 100,
-    "max_pages_per_query": 2
+    "max_pages_per_query": 20
   },
   "npm_registry": {
     "enabled": true,
