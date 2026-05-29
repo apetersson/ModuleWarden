@@ -12,10 +12,10 @@ interface PackumentParams {
 }
 
 /**
- * Callback signature for enqueuing a package review.
- * Returns the pg-boss job ID or null if enqueue failed.
+ * Callback signature for enqueuing an audit-pipeline-schedule job.
+ * The worker resolves the full DAG and audits packages in topological order.
  */
-type EnqueuePackageReview = (data: {
+type EnqueuePipeline = (data: {
   packageName: string;
   packageVersion: string;
   tarballHash: string;
@@ -121,107 +121,52 @@ function toPendingResolutionPackument(
 }
 
 /**
- * Enqueue a package and its direct dependencies for high-priority review.
- *
- * Fetches the upstream packument for each direct dependency to resolve the
- * 'latest' version and its tarball hash before enqueuing. Runs in the
- * background (not awaited) so the HTTP response is not delayed.
+ * Enqueue an audit-pipeline-schedule job. The worker will resolve the full
+ * dependency DAG and audit packages in topological order (leaf deps first).
+ * Runs in the background so the HTTP response is not delayed.
  */
-async function enqueuePackageAndDeps(
+async function enqueuePipeline(
   packageName: string,
-  enqueueReview: (data: {
+  enqueuePipelineJob: (data: {
     packageName: string;
     packageVersion: string;
     tarballHash: string;
     auditContext: string;
   }) => Promise<string | null>,
   upstream: NpmPackument,
-  upstreamFetch: (name: string) => Promise<NpmPackument | null> = fetchUpstreamPackument,
 ): Promise<void> {
-  // Collect all (depName, depVersionRange) pairs from the latest version's
-  // dependencies, devDependencies, and peerDependencies.
   const allVersions = Object.keys(upstream.versions);
-  // Pick the latest stable (non-prerelease) version
   const stableVersions = allVersions.filter((v) => !v.includes('-') && !v.includes('rc') && !v.includes('alpha') && !v.includes('beta'));
   const latestTag = upstream['dist-tags']?.latest;
-  const fallbackVersion = stableVersions.sort(semverSortDesc)[0] ?? allVersions.sort(semverSortDesc)[0];
   const latestVersion = latestTag && upstream.versions[latestTag]
     ? latestTag
-    : fallbackVersion;
+    : stableVersions.sort(semverSortDesc)[0] ?? allVersions.sort(semverSortDesc)[0];
 
   if (!latestVersion) return;
   const versionData = upstream.versions[latestVersion];
   if (!versionData) return;
 
   const tarballHash = versionData.dist?.integrity ?? versionData.dist?.shasum;
-  if (!tarballHash) return;
+  if (!tarballHash) {
+    logger.warn('Cannot enqueue pipeline: no tarball hash for root package', { packageName, version: latestVersion });
+    return;
+  }
 
-  // 1. Enqueue the root package itself
-  const rootAuditContext = 'preflight:packument:discovery';
+  const auditContext = `preflight:packument:pipeline:${packageName}@${latestVersion}`;
   try {
-    await enqueueReview({
+    await enqueuePipelineJob({
       packageName,
       packageVersion: latestVersion,
       tarballHash,
-      auditContext: rootAuditContext,
+      auditContext,
     });
   } catch (err) {
-    logger.warn('Failed to enqueue root package review', {
+    logger.warn('Failed to enqueue audit pipeline', {
       packageName,
       version: latestVersion,
       error: err instanceof Error ? err.message : String(err),
     });
   }
-
-  // 2. Collect all dependency names from the latest version
-  const depEntries: Array<{ name: string; range: string }> = [];
-  for (const depType of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
-    const deps = versionData[depType] as Record<string, string> | undefined;
-    if (deps) {
-      for (const [depName, depRange] of Object.entries(deps)) {
-        if (!depName.startsWith('@modulewarden/') && !depName.startsWith('@types/')) {
-          depEntries.push({ name: depName, range: depRange });
-        }
-      }
-    }
-  }
-
-  if (depEntries.length === 0) return;
-
-  // 3. For each dependency, fetch its upstream packument and enqueue the latest version
-  const depContext = 'preflight:packument:dep-of:' + packageName;
-  await Promise.allSettled(
-    depEntries.map(async (dep) => {
-      try {
-        const depUpstream = await upstreamFetch(dep.name);
-        if (!depUpstream) return;
-
-        const depStableVersions = Object.keys(depUpstream.versions)
-          .filter((v) => !v.includes('-') && !v.includes('rc') && !v.includes('alpha') && !v.includes('beta'));
-        const depLatestTag = depUpstream['dist-tags']?.latest;
-        const depLatestVersion = depLatestTag && depUpstream.versions[depLatestTag]
-          ? depLatestTag
-          : depStableVersions.sort(semverSortDesc)[0] ?? Object.keys(depUpstream.versions).sort(semverSortDesc)[0];
-
-        if (!depLatestVersion) return;
-        const depVersionData = depUpstream.versions[depLatestVersion];
-        const depHash = depVersionData?.dist?.integrity ?? depVersionData?.dist?.shasum;
-        if (!depHash) return;
-
-        await enqueueReview({
-          packageName: dep.name,
-          packageVersion: depLatestVersion,
-          tarballHash: depHash,
-          auditContext: depContext,
-        });
-      } catch (err) {
-        logger.warn('Failed to enqueue dependency review', {
-          dependency: dep.name,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    })
-  );
 }
 
 /**
@@ -272,7 +217,7 @@ function semverSortDesc(a: string, b: string): number {
  */
 export async function registerPackumentRoute(
   app: FastifyInstance,
-  enqueuePackageReview?: EnqueuePackageReview
+  enqueuePipelineJob?: EnqueuePipeline
 ): Promise<void> {
   app.get<{ Params: PackumentParams }>(
     '/:package',
@@ -314,10 +259,11 @@ export async function registerPackumentRoute(
         if (Object.keys(filtered.versions).length > 0) {
           return reply.send(filtered);
         }
-        // Enqueue the package + its dependencies if no versions are approved
-        if (enqueuePackageReview) {
-          enqueuePackageAndDeps(packageName, enqueuePackageReview, upstream).catch(
-            (err) => logger.warn('Background dep enqueue failed', { packageName, error: String(err) })
+        // Enqueue an audit pipeline that resolves the full dependency DAG
+        // and audits packages in topological order (leaf deps first).
+        if (enqueuePipelineJob) {
+          enqueuePipeline(packageName, enqueuePipelineJob, upstream).catch(
+            (err) => logger.warn('Pipeline enqueue failed', { packageName, error: String(err) })
           );
         }
         return reply.send(toPendingResolutionPackument(
@@ -345,10 +291,10 @@ export async function registerPackumentRoute(
 
       // Filter to approved-only
       if (Object.keys(filtered.versions).length === 0) {
-        // Enqueue the package + its dependencies if no versions are approved
-        if (enqueuePackageReview) {
-          enqueuePackageAndDeps(packageName, enqueuePackageReview, upstream).catch(
-            (err) => logger.warn('Background dep enqueue failed', { packageName, error: String(err) })
+        // Enqueue an audit pipeline that resolves the full dependency DAG
+        if (enqueuePipelineJob) {
+          enqueuePipeline(packageName, enqueuePipelineJob, upstream).catch(
+            (err) => logger.warn('Pipeline enqueue failed', { packageName, error: String(err) })
           );
         }
         return reply.send(toPendingResolutionPackument(

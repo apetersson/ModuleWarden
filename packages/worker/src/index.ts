@@ -9,6 +9,7 @@ import { registerModelEscalationHandler } from './handlers/model-escalation.js';
 import { registerEvidencePostProcessHandler } from './handlers/evidence-post-process.js';
 import { registerReAuditCampaignHandler } from './handlers/reaudit.js';
 import { registerProjectReadyHandler } from './handlers/project-ready.js';
+import { registerPipelineScheduleHandler, registerPipelineUnblockHandler } from './handlers/pipeline.js';
 import { SCHEDULED_JOBS } from './jobs/definitions.js';
 
 const config = defaultConfig();
@@ -36,6 +37,8 @@ async function main() {
   await registerEvidencePostProcessHandler(queue);
   await registerReAuditCampaignHandler(queue);
   await registerProjectReadyHandler(queue);
+  await registerPipelineScheduleHandler(queue);
+  await registerPipelineUnblockHandler(queue);
 
   // Register scheduled jobs
   for (const scheduled of SCHEDULED_JOBS) {

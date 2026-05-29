@@ -39,6 +39,26 @@ async function enqueuePackageReviewLight(
   }
 }
 
+async function enqueuePipelineLight(
+  packageName: string,
+  packageVersion: string,
+  tarballHash: string,
+  auditContext: string
+): Promise<string | null> {
+  try {
+    const queue = await getQueue();
+    const idempotencyKey = `mw:pipeline:${packageName}:${packageVersion}:${tarballHash}`;
+    return await queue.send('audit-pipeline-schedule', {
+      packageName,
+      packageVersion,
+      tarballHash,
+      auditContext,
+    }, idempotencyKey);
+  } catch {
+    return null;
+  }
+}
+
 async function retryAuditContainerExec(data: {
   reviewJobId: string;
   packageName: string;
@@ -132,7 +152,7 @@ export async function buildServer() {
   // ── Registry endpoints ────────────────────────────────────────
 
   await registerPackumentRoute(app, async (data) => {
-    return enqueuePackageReviewLight(
+    return enqueuePipelineLight(
       data.packageName,
       data.packageVersion,
       data.tarballHash,
