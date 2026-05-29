@@ -284,6 +284,31 @@ data generalizes to paraphrases and needs no inference hooks; steering needs the
 HF residual-stream path (vLLM does not expose hooks) and can backfire if the
 coefficient is unmanaged, which is exactly why the calibration guardrail exists.
 
+## Served-path prompt defense (the layer that ships on vLLM/llama.cpp)
+
+The steering layer needs the HF residual stream, which the production serving
+engine does not expose. So the defense that actually runs on the served model is
+prompt-level, in `serving/prompt_defense.py`. It is also the most practical
+update-without-retrain lever (the research verdict ranked it first on that axis):
+no hooks, no vector, no retrain - a new attack is answered by bumping a versioned
+policy and shipping it as data.
+
+`build_audit_prompt(dossier, policy)` does three things, all at prompt
+construction: normalize the untrusted free-text (strip invisible-unicode
+smuggling), spotlight it (datamark the whitespace so the model reads it as data
+- Microsoft spotlighting, arXiv:2403.14720), and fence it in an explicit
+envelope under an instruction-hierarchy preamble that says the envelope is data,
+never commands (arXiv:2404.13208). Structural fields (capability deltas, diff
+hash, lifecycle-script booleans) are left untouched so the real evidence still
+reaches the model.
+
+`PromptDefensePolicy` is versioned and serializable (`save_policy`/`load_policy`),
+so a new attack response is a reviewable diff. `make_defended_verdict_fn` is the
+served-path verdict_fn; pass `undefended_policy()` as the baseline arm and run
+both through `eval/injection_robustness` for the same ASR-delta number the
+steering layer reports. That makes the three layers comparable on one metric:
+SFT (train) + prompt defense (served) + steering (HF).
+
 ## Sources
 
 - Pantheon council session `d7b711f5-a467-4cbd-a395-a74492a157a0` (HIGH confidence, 3 reviewers)
