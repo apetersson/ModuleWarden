@@ -24,11 +24,15 @@ Three roles, in build order:
    `behavioral_change_runtime` are blind spots. This turns "we have a gate" into a
    measured coverage claim, and the blind spots are precisely what justifies the
    embedding layer (task-18). No GPU, pure static reasoning over the catalog.
-3. Adversarial test-case generator (the real "more"). Generate synthetic
-   malicious-package scenarios and version-delta cases designed to slip past the
-   gate and the weak (0.60) forecaster, then feed the misses into the Decepticon
-   wiki `detection_gaps` field and into the SFT corpus as hard negatives. This is
-   the loop that improves the defense over time.
+3. Adversarial test-case generator (BUILT, `adversary.py`). Synthesizes adversarial
+   dossiers from the catalog, scores each against the gate detection tiers, and
+   emits the evasive ones as hard negatives shaped as SFT rows (label: block, the
+   verdict the defense should reach). Measured: 75 percent of synthetic scenarios
+   evade the one hard gate rule, reaching exec (T1059), dynamic-code (T1059.007),
+   and exfil (T1041). The misses feed the Decepticon wiki `detection_gaps` and the
+   SFT corpus as hard negatives. Deterministic core runs with no GPU; optional
+   `--use-model` enriches with the GGUF, filtered to the catalog. This closes the
+   offense-feeds-defense loop.
 
 Safety boundary (unchanged): all generation is synthetic and static. Decepticon
 never executes a package, never runs an exploit, never touches the live-malware
