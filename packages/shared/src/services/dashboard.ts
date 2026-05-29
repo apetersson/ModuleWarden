@@ -94,6 +94,7 @@ export interface DashboardState {
 export interface QueueStats {
   queue: string;
   pending: number;
+  retrying: number;
   running: number;
   completed: number;
   failed: number;

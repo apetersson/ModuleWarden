@@ -86,6 +86,7 @@ const EMPTY_AUDIT_CARDS: AuditRunCard[] = [];
 interface QueueStat {
   queue: string;
   pending: number;
+  retrying: number;
   running: number;
   completed: number;
   failed: number;
@@ -627,6 +628,7 @@ function DashboardPage({
               <tr style={{ borderBottom: '2px solid #ddd' }}>
                 <th style={{ padding: '0.4rem', textAlign: 'left' }}>Queue</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Waiting</th>
+                <th style={{ padding: '0.4rem', textAlign: 'right' }}>Scheduled Retry</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Running</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Completed</th>
                 <th style={{ padding: '0.4rem', textAlign: 'right' }}>Failed</th>
@@ -638,6 +640,7 @@ function DashboardPage({
                 <tr key={q.queue} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ padding: '0.4rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>{q.queue}</td>
                   <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.pending}</td>
+                  <td style={{ padding: '0.4rem', textAlign: 'right', color: q.retrying > 0 ? '#f57f17' : 'inherit' }}>{q.retrying}</td>
                   <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.running}</td>
                   <td style={{ padding: '0.4rem', textAlign: 'right' }}>{q.completed}</td>
                   <td style={{ padding: '0.4rem', textAlign: 'right', color: q.failed > 0 ? '#c62828' : 'inherit' }}>{q.failed}</td>
@@ -1967,6 +1970,7 @@ function QueuePage({ adminToken, onAuthRequired }: { adminToken: string; onAuthR
             <tr style={{ borderBottom: '2px solid #ddd' }}>
               <th style={{ padding: '0.5rem', textAlign: 'left' }}>Queue</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Waiting</th>
+              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Scheduled Retry</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Running</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Completed</th>
               <th style={{ padding: '0.5rem', textAlign: 'right' }}>Failed</th>
@@ -1978,6 +1982,7 @@ function QueuePage({ adminToken, onAuthRequired }: { adminToken: string; onAuthR
               <tr key={q.queue} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{q.queue}</td>
                 <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.pending}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right', color: q.retrying > 0 ? '#f57f17' : 'inherit' }}>{q.retrying}</td>
                 <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.running}</td>
                 <td style={{ padding: '0.5rem', textAlign: 'right' }}>{q.completed}</td>
                 <td style={{ padding: '0.5rem', textAlign: 'right', color: q.failed > 0 ? '#c62828' : 'inherit' }}>{q.failed}</td>

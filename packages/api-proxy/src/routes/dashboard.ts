@@ -528,7 +528,8 @@ export async function registerDashboardRoutes(
       const stateCounts = statsByQueue.get(q) ?? {};
       return {
         queue: q,
-        pending: (stateCounts.created ?? 0) + (stateCounts.retry ?? 0),
+        pending: stateCounts.created ?? 0,
+        retrying: stateCounts.retry ?? 0,
         running: stateCounts.active ?? 0,
         completed: stateCounts.completed ?? 0,
         failed: (stateCounts.failed ?? 0) + (stateCounts.cancelled ?? 0) + (stateCounts.expired ?? 0),
