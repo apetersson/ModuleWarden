@@ -33,6 +33,10 @@ except ImportError as exc:  # pragma: no cover - documented requirement
 from chat.agent import _list_incidents, handle_query, lookup_by_incident_id
 from chat import model_client
 
+# Live GHSA + OSSF advisory lookups for arbitrary packages are on in the app
+# (read-only metadata only). Tests leave this unset to stay offline.
+os.environ.setdefault("MW_LIVE_ADVISORIES", "1")
+
 st.set_page_config(
     page_title="ModuleWarden Underwriter Assistant",
     page_icon=":shield:",

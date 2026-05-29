@@ -76,7 +76,7 @@ def test_handle_query_lodash_allow():
 
 def test_handle_query_unknown_package():
     turn = handle_query("audit acme-fake-pkg@9.9.9")
-    assert "do not have an audit dossier" in turn.response_md
+    assert "do not have a pre-audited dossier" in turn.response_md
     assert turn.evidence["intent"] == "lookup_unknown"
 
 

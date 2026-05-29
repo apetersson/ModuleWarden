@@ -14,7 +14,11 @@ installing any UI dependencies.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+
+# Live GHSA + OSSF advisory lookups are on for the CLI demo (read-only).
+os.environ.setdefault("MW_LIVE_ADVISORIES", "1")
 
 from chat.agent import _list_incidents, handle_query
 
