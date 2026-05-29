@@ -1,0 +1,113 @@
+{
+  "corpus_file": "finetune\\corpus\\scraped-cases.npm-enriched.jsonl",
+  "honesty_note": "All cases are confirmed-vulnerable advisories. No benign class exists in this set, so no classifier accuracy/AUROC is reported. Numbers below are corpus composition and trainable-pair counts.",
+  "scale": {
+    "total_cases": 4212,
+    "unique_packages": 2139,
+    "unique_advisories": 4586
+  },
+  "composition": {
+    "case_type": {
+      "cve_diff": 2804,
+      "incident_replay": 1408
+    },
+    "severity": {
+      "high": 1476,
+      "critical": 2736
+    },
+    "source": {
+      "github_advisory": 4212
+    }
+  },
+  "supply_chain_signal": {
+    "embedded_malicious_code_cwe_506": 1692,
+    "embedded_malicious_code_pct": 40.2,
+    "top_cwes": [
+      [
+        "CWE-506",
+        1692
+      ],
+      [
+        "CWE-1321",
+        272
+      ],
+      [
+        "CWE-94",
+        198
+      ],
+      [
+        "CWE-78",
+        195
+      ],
+      [
+        "CWE-79",
+        146
+      ],
+      [
+        "CWE-863",
+        144
+      ],
+      [
+        "CWE-22",
+        142
+      ],
+      [
+        "CWE-400",
+        138
+      ],
+      [
+        "CWE-77",
+        121
+      ],
+      [
+        "CWE-918",
+        104
+      ]
+    ]
+  },
+  "trainable_pairs": {
+    "with_first_patched_version": 2259,
+    "with_first_patched_pct": 53.6,
+    "with_benign_neighbor_versions": 2077,
+    "note": "vulnerable + first-patched form the contrastive bad/good pairs the auditor learns; this is the honest offline negative signal."
+  },
+  "registry_resolvability": {
+    "with_npm_record": 4212,
+    "with_npm_record_pct": 100.0,
+    "with_repo_or_source_location": 4042,
+    "with_repo_or_source_location_pct": 96.0,
+    "with_npm_timestamp": 4184,
+    "with_npm_timestamp_pct": 99.3
+  },
+  "gate_rule_coverage": {
+    "rules": {
+      "release-age": {
+        "input": "registry-metadata",
+        "computable_offline_at_corpus_scale": true
+      },
+      "source-match": {
+        "input": "registry-metadata",
+        "computable_offline_at_corpus_scale": true
+      },
+      "install-scripts": {
+        "input": "tarball",
+        "computable_offline_at_corpus_scale": false
+      },
+      "sri-checksum": {
+        "input": "tarball",
+        "computable_offline_at_corpus_scale": false
+      },
+      "allowlist": {
+        "input": "policy-config",
+        "computable_offline_at_corpus_scale": false
+      }
+    },
+    "computable_offline": [
+      "release-age",
+      "source-match"
+    ],
+    "computable_offline_count": 2,
+    "total_rules": 5,
+    "note": "release-age and source-match are computable from registry metadata at corpus scale. install-scripts and sri-checksum need a per-version tarball, fetched per job by the production audit-runner in its sandbox (not run here). allowlist is operator policy, not data."
+  }
+}
