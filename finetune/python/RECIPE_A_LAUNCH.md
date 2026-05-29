@@ -161,3 +161,21 @@ python -m finetune.python.eval.matrix_runner \
 If the Sunday eval needs a second run, top up before Saturday afternoon.
 Add via the vast.ai dashboard. Minimum useful top up: $5 (about 3 more
 hours at $1.50 per hour).
+
+## Local GPU constraint (do not waste time on local 7B+ runs)
+
+The local RTX 5090 (32 GB) is shared with the federation services, which
+hold ~26 GB steady; free VRAM fluctuates between ~1 and 9 GB. Measured this
+session:
+
+- 0.5B QLoRA: succeeds locally (the honest 0% to 46.7% verdict-reproduction
+  number came from a local 0.5B run on the augmented corpus).
+- 1.5B QLoRA: wedged - base-eval generation OOM'd / stalled when free VRAM
+  dipped to ~1.2 GB mid-run.
+- 7B and 27B: not feasible locally. Use vast.ai / Leonardo (this runbook).
+
+So: local 0.5B is the fast proof-of-pipeline path; anything larger goes to
+vast.ai. Do not burn time trying to fit a 7B on the local box. The eval
+script `finetune/python/training/local_finetune_eval.py` caps the eval prompt
+to avoid the long-dossier attention OOM, but it cannot create VRAM that the
+federation services are holding.

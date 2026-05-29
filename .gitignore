@@ -41,4 +41,4 @@ finetune/corpus/scraped-cases-*.jsonl
 # ATT&CK Tier-2 generated artifacts (regenerable)
 finetune/corpus/sft-records.attck.jsonl
 finetune/python/training/adapters/
-finetune/python/eval/finetune-metrics*.json
+# Note: finetune-metrics*.json are committed as pitch evidence (the model card).

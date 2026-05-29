@@ -1,0 +1,37 @@
+{
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "method": "QLoRA 4-bit",
+  "corpus": "finetune/corpus/sft-records.attck.jsonl",
+  "train_records": 386,
+  "eval_split": "test",
+  "eval_records": 23,
+  "smoke": false,
+  "safety": "JSON-text only; no tarball fetch; model output parsed as data, never executed",
+  "base": {
+    "label": "base",
+    "n": 23,
+    "schema_valid": 0,
+    "schema_valid_pct": 0.0,
+    "verdict_match": 0,
+    "verdict_match_pct": 0.0,
+    "block_total": 5,
+    "block_caught": 0,
+    "block_recall_pct": 0.0,
+    "kill_chain_emitted": 0,
+    "kill_chain_emitted_pct": 0.0
+  },
+  "fine_tuned": {
+    "label": "fine_tuned",
+    "n": 23,
+    "schema_valid": 5,
+    "schema_valid_pct": 21.7,
+    "verdict_match": 17,
+    "verdict_match_pct": 73.9,
+    "block_total": 5,
+    "block_caught": 0,
+    "block_recall_pct": 0.0,
+    "kill_chain_emitted": 0,
+    "kill_chain_emitted_pct": 0.0
+  },
+  "adapter_dir": "C:\\Projects\\_Jobs\\Collaborations\\Andrew\\_mw-clone\\finetune\\python\\training\\adapters\\local-sft"
+}
