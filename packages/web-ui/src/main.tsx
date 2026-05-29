@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UnderwriterPage } from './underwriter/UnderwriterPage';
 
@@ -664,6 +664,8 @@ interface PromptPack {
   name: string;
   version: string;
   category: string;
+  content: string;
+  hash: string;
   createdAt: string;
 }
 
@@ -679,6 +681,7 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [expandedPromptId, setExpandedPromptId] = useState<string | null>(null);
 
   useEffect(() => {
     async function doFetch() {
@@ -786,6 +789,7 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #ddd' }}>
+            <th style={{ padding: '0.4rem', textAlign: 'left', width: 70 }}>Raw</th>
             <th style={{ padding: '0.4rem', textAlign: 'left' }}>Name</th>
             <th style={{ padding: '0.4rem', textAlign: 'left' }}>Version</th>
             <th style={{ padding: '0.4rem', textAlign: 'left' }}>Category</th>
@@ -793,28 +797,74 @@ function PromptsPage({ adminToken, onAuthRequired }: { adminToken: string; onAut
           </tr>
         </thead>
         <tbody>
-          {rows.map((p) => (
-            <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '0.4rem', fontFamily: 'monospace' }}>{p.name}</td>
-              <td style={{ padding: '0.4rem' }}>{p.version}</td>
-              <td style={{ padding: '0.4rem' }}>
-                <span style={{
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  background: p.category === 'CORE' ? '#e3f2fd' : p.category === 'CUSTOM_ADMIN' ? '#fff3e0' : '#f3e5f5',
-                  color: p.category === 'CORE' ? '#1565c0' : p.category === 'CUSTOM_ADMIN' ? '#e65100' : '#6a1b9a',
-                }}>
-                  {p.category}
-                </span>
-                {!enabledCategories.has(p.category as PromptCategorySetting['category']) && (
-                  <span style={{ marginLeft: '0.4rem', color: '#777', fontSize: '0.75rem' }}>disabled by default</span>
+          {rows.map((p) => {
+            const expanded = expandedPromptId === p.id;
+            return (
+              <Fragment key={p.id}>
+                <tr style={{ borderBottom: expanded ? 'none' : '1px solid #eee' }}>
+                  <td style={{ padding: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPromptId(expanded ? null : p.id)}
+                      aria-expanded={expanded}
+                      style={{
+                        padding: '0.25rem 0.45rem',
+                        border: '1px solid #bbb',
+                        borderRadius: 4,
+                        background: expanded ? '#e3f2fd' : '#f7f7f7',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      {expanded ? 'Hide' : 'View'}
+                    </button>
+                  </td>
+                  <td style={{ padding: '0.4rem', fontFamily: 'monospace' }}>{p.name}</td>
+                  <td style={{ padding: '0.4rem' }}>{p.version}</td>
+                  <td style={{ padding: '0.4rem' }}>
+                    <span style={{
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      background: p.category === 'CORE' ? '#e3f2fd' : p.category === 'CUSTOM_ADMIN' ? '#fff3e0' : '#f3e5f5',
+                      color: p.category === 'CORE' ? '#1565c0' : p.category === 'CUSTOM_ADMIN' ? '#e65100' : '#6a1b9a',
+                    }}>
+                      {p.category}
+                    </span>
+                    {!enabledCategories.has(p.category as PromptCategorySetting['category']) && (
+                      <span style={{ marginLeft: '0.4rem', color: '#777', fontSize: '0.75rem' }}>disabled by default</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(p.createdAt).toLocaleString()}</td>
+                </tr>
+                {expanded && (
+                  <tr key={`${p.id}-content`} style={{ borderBottom: '1px solid #eee' }}>
+                    <td />
+                    <td colSpan={4} style={{ padding: '0 0.4rem 0.7rem' }}>
+                      <div style={{ color: '#666', fontSize: '0.75rem', marginBottom: '0.3rem' }}>
+                        Hash: <code>{p.hash}</code>
+                      </div>
+                      <pre style={{
+                        margin: 0,
+                        padding: '0.75rem',
+                        border: '1px solid #ddd',
+                        borderRadius: 6,
+                        background: '#fafafa',
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        maxHeight: 420,
+                        fontSize: '0.8rem',
+                        lineHeight: 1.45,
+                      }}>
+                        {p.content}
+                      </pre>
+                    </td>
+                  </tr>
                 )}
-              </td>
-              <td style={{ padding: '0.4rem', color: '#666' }}>{new Date(p.createdAt).toLocaleString()}</td>
-            </tr>
-          ))}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     );

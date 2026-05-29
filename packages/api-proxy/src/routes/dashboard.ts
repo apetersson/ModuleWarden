@@ -583,13 +583,16 @@ export async function registerDashboardRoutes(
       }
       const currentRunId = String(row.run_id ?? id);
       const scoresRaw = row.scores ? String(row.scores) : '{}';
-      const promotionStatus = await readPromotionStatus(
-        prisma,
-        String(row.packageName ?? 'unknown'),
-        String(row.version ?? 'unknown'),
-        String(row.tarballHash ?? ''),
-        row.decision_id ? String(row.decision_id) : null,
-      );
+      const verdict = row.verdict ? String(row.verdict) : null;
+      const promotionStatus = verdict === 'ALLOW'
+        ? await readPromotionStatus(
+          prisma,
+          String(row.packageName ?? 'unknown'),
+          String(row.version ?? 'unknown'),
+          String(row.tarballHash ?? ''),
+          row.decision_id ? String(row.decision_id) : null,
+        )
+        : 'none';
 
       const detail: PackageVersionDetail = {
         auditRunId: currentRunId,
@@ -598,14 +601,14 @@ export async function registerDashboardRoutes(
         jobStatus: String(row.job_status ?? ''),
         canRetry: !['RUNNING', 'PENDING'].includes(String(row.run_status ?? '')) &&
           !['RUNNING', 'QUEUED', 'PENDING'].includes(String(row.job_status ?? '')),
-        canPromote: String(row.verdict ?? '') === 'ALLOW' && promotionStatus !== 'promoted',
+        canPromote: verdict === 'ALLOW' && promotionStatus !== 'promoted',
         promotionStatus,
         packageName: String(row.packageName ?? 'unknown'),
         version: String(row.version ?? 'unknown'),
         tarballHash: String(row.tarballHash ?? ''),
         predecessorVersion: null,
         predecessorHash: null,
-        verdict: row.verdict ? String(row.verdict) : null,
+        verdict,
         riskSummary: row.reasonSummary ? String(row.reasonSummary) : row.errorMessage ? String(row.errorMessage) : null,
         capabilityDeltas: [],
         dependencyChanges: {},
@@ -991,6 +994,8 @@ export async function registerDashboardRoutes(
         name: true,
         version: true,
         category: true,
+        content: true,
+        hash: true,
         createdAt: true,
       },
     });
