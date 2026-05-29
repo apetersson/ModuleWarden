@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
+// ⚠️ STUB: Capability extraction is regex-based, not AST-based.
+// This means it can match inside strings/comments and is evadable.
+// The ARCH-03 comment references AST-based extraction that was planned
+// but not implemented. Results should be treated as best-effort signals.
 export interface CapabilityFinding {
   category: CapabilityCategory;
   severity: 'high' | 'medium' | 'low';
@@ -155,11 +159,23 @@ export function extractCapabilities(sourceDir: string): CapabilityReport {
 
 function findSourceFiles(dir: string): string[] {
   try {
-    const output = execSync(
-      `find "${dir}" -type f \\( -name "*.js" -o -name ".jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.mjs" -o -name "*.cjs" -o -name "*.mts" \\) 2>/dev/null | sort`,
-      { encoding: 'utf-8' }
-    );
-    return output.trim().split('\n').filter(Boolean);
+    const output = execFileSync('find', [
+      dir,
+      '-type', 'f',
+      '(',
+      '-name', '*.js', '-o',
+      '-name', '*.jsx', '-o',
+      '-name', '*.ts', '-o',
+      '-name', '*.tsx', '-o',
+      '-name', '*.mjs', '-o',
+      '-name', '*.cjs', '-o',
+      '-name', '*.mts',
+      ')',
+    ], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return output.trim().split('\n').filter(Boolean).sort();
   } catch {
     return [];
   }

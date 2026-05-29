@@ -14,6 +14,13 @@ if (!apiBase) {
 }
 const API_BASE: string = apiBase;
 const REFRESH_INTERVAL = 15_000;
+/**
+ * ⚠️ LOCAL_DEMO_ADMIN_TOKEN — DEVELOPMENT ONLY.
+ * This value is shipped in the client bundle and prefilled into the token field.
+ * Do NOT use this value in production MW_AUTH_ADMIN_TOKENS. Anyone who can
+ * view the web UI source knows this credential.
+ * Generate a unique, random token for production deployments.
+ */
 const LOCAL_DEMO_ADMIN_TOKEN = 'mw-admin-token-change-me';
 type PageKey = 'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'underwriter';
 const PAGE_KEYS: PageKey[] = ['dashboard', 'queue', 'prompts', 'campaigns', 'evaluation', 'underwriter'];

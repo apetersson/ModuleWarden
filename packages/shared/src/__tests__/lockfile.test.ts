@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { parseLockfile } from '../services/lockfile';
+import { parseLockfile, parseLockfileContent } from '../services/lockfile';
 
 function withTempDir(fn: (dir: string) => void) {
   const dir = mkdtempSync(join(tmpdir(), 'lockfile-test-'));
@@ -79,7 +79,7 @@ describe('parseLockfile — npm', () => {
 });
 
 describe('parseLockfile — pnpm', () => {
-  it('parses pnpm lockfile with packages', () => {
+  it('parses pnpm v5/v6 lockfile (leading slash keys)', () => {
     withTempDir((dir) => {
       const path = join(dir, 'pnpm-lock.yaml');
       writeFileSync(path, [
@@ -106,6 +106,62 @@ describe('parseLockfile — pnpm', () => {
       expect(result.entries[1]!.packageName).toBe('express');
       expect(result.entries[1]!.version).toBe('4.18.2');
     });
+  });
+
+  it('parses pnpm v9 lockfile (no leading slash for unscoped packages)', () => {
+    // pnpm v9 format: unscoped packages don't have leading slash
+    const content = [
+      "lockfileVersion: '9.0'",
+      '',
+      'settings:',
+      '  autoInstallPeers: true',
+      '  excludeLinksFromLockfile: false',
+      '',
+      'importers:',
+      '  .:',
+      '    dependencies:',
+      '      lodash:',
+      '        specifier: ^4.17.21',
+      '        version: 4.17.21',
+      '      express:',
+      '        specifier: ^4.18.0',
+      '        version: 4.18.2',
+      '',
+      'packages:',
+      '  lodash@4.17.21:',
+      '    resolution:',
+      '      integrity: sha512-hash-lodash-v9',
+      '    dev: false',
+      '  express@4.18.2:',
+      '    resolution:',
+      '      integrity: sha512-hash-express-v9',
+      '    dependencies:',
+      '      accepts: 1.3.8',
+      '  /@scope/name@2.0.0:',
+      '    resolution:',
+      '      integrity: sha512-scoped-v9',
+      '    dev: false',
+      '',
+      'snapshots:',
+      '  lodash@4.17.21:',
+      '    dev: false',
+      '  express@4.18.2:',
+      '    dependencies:',
+      '      accepts: 1.3.8',
+      '  /@scope/name@2.0.0:',
+      '    dev: false',
+    ].join('\n');
+
+    const result = parseLockfileContent(content, 'pnpm');
+    expect(result.format).toBe('pnpm');
+    expect(result.entries).toHaveLength(3);
+    expect(result.entries[0]!.packageName).toBe('lodash');
+    expect(result.entries[0]!.version).toBe('4.17.21');
+    expect(result.entries[0]!.integrity).toBe('sha512-hash-lodash-v9');
+    expect(result.entries[1]!.packageName).toBe('express');
+    expect(result.entries[1]!.version).toBe('4.18.2');
+    expect(result.entries[2]!.packageName).toBe('@scope/name');
+    expect(result.entries[2]!.version).toBe('2.0.0');
   });
 });
 
@@ -134,6 +190,40 @@ describe('parseLockfile — yarn', () => {
       expect(result.entries[0]!.packageName).toBe('lodash');
       expect(result.entries[0]!.version).toBe('4.17.21');
     });
+  });
+});
+
+describe('parseLockfileContent — direct content parsing', () => {
+  it('parses npm lockfile from content', () => {
+    const content = JSON.stringify({
+      name: 'test',
+      lockfileVersion: 3,
+      packages: {
+        'node_modules/left-pad': {
+          version: '1.3.0',
+          integrity: 'sha512-hash',
+        },
+      },
+    });
+    const result = parseLockfileContent(content, 'npm');
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]!.packageName).toBe('left-pad');
+  });
+
+  it('auto-detects format from content', () => {
+    const content = JSON.stringify({
+      name: 'test',
+      lockfileVersion: 3,
+      packages: {},
+    });
+    const result = parseLockfileContent(content);
+    expect(result.format).toBe('npm');
+  });
+
+  it('rejects unrecognized format', () => {
+    const result = parseLockfileContent('some random text');
+    expect(result.entries).toHaveLength(0);
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 });
 

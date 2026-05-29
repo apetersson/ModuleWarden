@@ -84,7 +84,8 @@ export async function promoteTarballToVerdaccio(
 
   // Verify integrity hash
   const hashAlgo = integrity.startsWith('sha512-') ? 'sha512'
-    : integrity.startsWith('sha256-') || integrity.startsWith('sha384-') ? 'sha256'
+    : integrity.startsWith('sha384-') ? 'sha384'
+    : integrity.startsWith('sha256-') ? 'sha256'
     : 'sha256';
   const expectedHash = integrity.replace(/^(sha512|sha256|sha384)-/, '');
   const actualHash = createHash(hashAlgo).update(buf).digest('base64');

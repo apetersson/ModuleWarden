@@ -16,7 +16,10 @@ interface OverrideBody {
  * Admin override endpoints.
  * Only accessible with security-admin tokens.
  */
-export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
+export async function registerAdminRoutes(
+  app: FastifyInstance,
+  pgBossSend?: (queue: string, data: Record<string, unknown>) => Promise<string | null>
+): Promise<void> {
   /**
    * POST /admin/override — Create a security-admin override.
    */
@@ -44,7 +47,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'scope must be SPECIFIC_VERSION, PACKAGE, PROJECT, or GLOBAL' });
       }
 
-      if (!/^@?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
+      if (!/^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(packageName)) {
         return reply.status(400).send({ error: 'Invalid package name format. Must be a valid npm package name.' });
       }
 
@@ -203,18 +206,30 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Body: { filename: string; format: string; content: string } }>, reply: FastifyReply) => {
       if (!checkAdmin(request, reply)) return;
 
-      const { filename, content } = request.body;
+      const { filename, format, content } = request.body;
       if (!filename || !content) {
         return reply.status(400).send({ error: 'Missing filename or content' });
       }
 
       try {
+        const prisma = getPrisma();
+
+        // Create or resolve a project from the filename (basename only, no extension)
+        const projectName = filename.split('/').pop()?.split('\\').pop()?.replace(/\.[^.]+$/, '') ?? 'imported-project';
+        const project = await prisma.project.upsert({
+          where: { name: projectName },
+          create: { name: projectName, graphState: 'IMPORTING' },
+          update: {},
+        });
+
         const { importLockfile } = await import('../services/lockfile-import.js');
-        const result = await importLockfile(filename, content);
+        const result = await importLockfile(project.id, content, format, pgBossSend);
         return reply.status(201).send({
+          projectId: project.id,
           packageCount: result.newVersions,
           subscriptionCount: result.newSubscriptions,
           reviewCount: result.enqueuedReviews,
+          errors: result.errors.length > 0 ? result.errors : undefined,
         });
       } catch (err) {
         return reply.status(500).send({

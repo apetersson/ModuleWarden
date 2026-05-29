@@ -78,6 +78,10 @@
       "types": "./dist/services/evaluation-runner.d.ts",
       "import": "./dist/services/evaluation-runner.js"
     },
+    "./services/dag-resolver": {
+      "types": "./dist/services/dag-resolver.d.ts",
+      "import": "./dist/services/dag-resolver.js"
+    },
     "./services/dashboard": {
       "types": "./dist/services/dashboard.d.ts",
       "import": "./dist/services/dashboard.js"

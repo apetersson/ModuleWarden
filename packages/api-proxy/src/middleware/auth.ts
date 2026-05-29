@@ -127,24 +127,36 @@ export function checkDeveloper(request: FastifyRequest, reply: FastifyReply): bo
 /**
  * Check whether the request carries a valid admin OR developer token.
  * Developer tokens have strictly lower scope than admin tokens.
+ *
+ * Unlike checkToken, this function does NOT write a response on dev-token
+ * mismatch — it only sends a response after both lists are exhausted.
+ * This avoids the double-send bug (H1) where a valid admin token gets 403
+ * because the dev check already replied.
  */
 export function checkAnyAuth(request: FastifyRequest, reply: FastifyReply): boolean {
-  // Try developer first (lower scope), then admin
   const authHeader = request.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     reply.status(401).send({ error: 'Authentication required' });
     return false;
   }
 
+  const token = authHeader.slice(7);
+  const requestHash = hashToken(token);
+
+  // Check dev tokens silently (no response sent on mismatch)
   const devTokens = getHashedDevTokens();
   if (devTokens && devTokens.length > 0) {
-    if (checkToken(request, reply, devTokens, 'developer')) return true;
-    // Don't return false yet — try admin tokens
+    const matched = devTokens.some((storedHash) => safeBufferEquals(storedHash, requestHash));
+    if (matched) return true;
   }
 
+  // Check admin tokens
   const adminTokens = getHashedAdminTokens();
   if (adminTokens && adminTokens.length > 0) {
-    return checkToken(request, reply, adminTokens, 'admin');
+    const matched = adminTokens.some((storedHash) => safeBufferEquals(storedHash, requestHash));
+    if (matched) return true;
+    reply.status(403).send({ error: 'Forbidden: valid admin or dev token required' });
+    return false;
   }
 
   reply.status(503).send({ error: 'Auth not configured: set MW_AUTH_ADMIN_TOKENS or MW_AUTH_DEV_TOKENS' });

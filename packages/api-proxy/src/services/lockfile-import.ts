@@ -1,8 +1,7 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import type { LockfileParseResult } from '@modulewarden/shared/services/lockfile';
-import { parseLockfile } from '@modulewarden/shared/services/lockfile';
+import { parseLockfileContent } from '@modulewarden/shared/services/lockfile';
 import { buildIdempotencyKey } from '@modulewarden/shared/constants';
-import { existsSync } from 'node:fs';
 
 export interface ImportResult {
   projectId: string;
@@ -14,10 +13,10 @@ export interface ImportResult {
 }
 
 /**
- * Import a lockfile into ModuleWarden.
+ * Import a lockfile into ModuleWarden from raw content.
  *
  * Steps:
- * 1. Parse the lockfile to extract all package versions
+ * 1. Parse the lockfile content to extract all package versions
  * 2. Upsert each package version into Prisma
  * 3. Subscribe to each package for upstream monitoring
  * 4. Enqueue cold-start review jobs for each version
@@ -25,7 +24,8 @@ export interface ImportResult {
  */
 export async function importLockfile(
   projectId: string,
-  lockfilePath: string,
+  content: string,
+  format?: string,
   pgBossSend?: (queue: string, data: Record<string, unknown>) => Promise<string | null>
 ): Promise<ImportResult> {
   const result: ImportResult = {
@@ -37,14 +37,8 @@ export async function importLockfile(
     errors: [],
   };
 
-  // 1. Verify file exists
-  if (!existsSync(lockfilePath)) {
-    result.errors.push(`Lockfile not found: ${lockfilePath}`);
-    return result;
-  }
-
-  // 2. Parse lockfile
-  const parseResult: LockfileParseResult = parseLockfile(lockfilePath);
+  // 1. Parse lockfile content
+  const parseResult: LockfileParseResult = parseLockfileContent(content, format);
   result.errors.push(...parseResult.errors);
   result.totalEntries = parseResult.entries.length;
 
@@ -53,17 +47,19 @@ export async function importLockfile(
   }
 
   const prisma = getPrisma();
+
+  // Create a lockfile import record
   const lockfileImport = await prisma.lockfileImport.create({
     data: {
       projectId,
-      lockfilePath,
+      lockfilePath: `inline:${parseResult.format}`,
       packageCount: parseResult.entries.length,
     },
   });
 
   // 3. Upsert each package version and create subscriptions
   for (const entry of parseResult.entries) {
-    // H-5: Skip entries with no integrity — cannot verify artifact identity
+    // Skip entries with no integrity — cannot verify artifact identity
     if (!entry.integrity) {
       console.log(`[lockfile-import] Skipping ${entry.packageName}@${entry.version}: no integrity hash`);
       continue;
@@ -124,7 +120,7 @@ export async function importLockfile(
       });
       result.newSubscriptions++;
 
-      const auditContext = `lockfile-import:${lockfilePath.split('/').pop()}`;
+      const auditContext = `lockfile-import:${parseResult.format}`;
       const idempotencyKey = buildIdempotencyKey('package-review', entry.packageName, entry.version, entry.integrity, auditContext);
       const reviewJob = await prisma.reviewJob.upsert({
         where: { idempotencyKey },
@@ -200,7 +196,7 @@ export async function checkProjectReadiness(projectId: string): Promise<{
   });
 
   const total = versions.length;
-  const decided = versions.filter((v) => v.packageVersion.predecessorDecisions.length > 0).length;
+  const decided = versions.filter((v: { packageVersion: { predecessorDecisions: unknown[] } }) => v.packageVersion.predecessorDecisions.length > 0).length;
   const pending = total - decided;
 
   return {

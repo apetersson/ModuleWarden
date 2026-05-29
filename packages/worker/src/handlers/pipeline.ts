@@ -20,6 +20,12 @@ import type { JobQueue } from '../jobs/queue.js';
 
 // ── audit-pipeline-schedule ──────────────────────────────────────
 
+// H2: Limit DAG depth and total steps to prevent unauthenticated amplification.
+// The packument route is unauthenticated; unbounded transitive dep resolution
+// could exhaust resources. These limits cap the worst case.
+const MAX_PIPELINE_DEPTH = 10;
+const MAX_PIPELINE_STEPS = 500;
+
 /**
  * Register the `audit-pipeline-schedule` handler.
  *
@@ -36,12 +42,27 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
     const { packageName, packageVersion, tarballHash, auditContext } = job.data;
     const prisma = getPrisma();
 
-    // 1. Resolve the full dependency DAG
-    const dag = await resolveDependencyDag(packageName, packageVersion, fetchUpstreamPackument);
+    // 1. Resolve the full dependency DAG (with depth/step limits — H2)
+    const dag = await resolveDependencyDag(
+      packageName,
+      packageVersion,
+      fetchUpstreamPackument,
+      MAX_PIPELINE_DEPTH,
+      MAX_PIPELINE_STEPS,
+    );
 
     if (dag.steps.length === 0) {
       logger.warn('DAG resolution returned no steps', { packageName, packageVersion });
       return;
+    }
+
+    if (dag.steps.length >= MAX_PIPELINE_STEPS) {
+      logger.warn('DAG hit max step limit, pipeline may be incomplete', {
+        packageName,
+        packageVersion,
+        stepCount: dag.steps.length,
+        maxSteps: MAX_PIPELINE_STEPS,
+      });
     }
 
     // 2. Create the pipeline record
@@ -150,12 +171,10 @@ export async function registerPipelineScheduleHandler(queue: JobQueue): Promise<
  */
 export async function registerPipelineUnblockHandler(queue: JobQueue): Promise<void> {
   await queue.work('audit-pipeline-unblock', async (job) => {
-    const { pipelineId, stepId, packageName, packageVersion } = job.data;
+    const { pipelineId, stepId } = job.data;
     const prisma = getPrisma();
 
-    // 1. Find all steps in the same pipeline that depend on the completed step
-    const completedStepIdentity = `${packageName}@${packageVersion}`;
-
+    // 1. Find all pending steps in the same pipeline
     const pipeline = await prisma.auditPipeline.findUnique({
       where: { id: pipelineId },
       select: {

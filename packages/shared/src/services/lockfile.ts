@@ -28,23 +28,46 @@ export interface LockfileParseResult {
  * Detects format by filename.
  */
 export function parseLockfile(filePath: string): LockfileParseResult {
+  const content = readFileSync(filePath, 'utf-8');
   const filename = filePath.split('/').pop()?.toLowerCase() ?? '';
+  const format = detectLockfileFormat(content) ?? undefined;
+  return parseLockfileContent(content, format, filename);
+}
 
-  if (filename === 'package-lock.json') {
-    return parseNpmLockfile(filePath);
-  }
-  if (filename === 'pnpm-lock.yaml' || filename === 'pnpm-lock.yml') {
-    return parsePnpmLockfile(filePath);
-  }
-  if (filename === 'yarn.lock') {
-    return parseYarnLockfile(filePath);
-  }
+/**
+ * Parse a lockfile from its content.
+ * Detects format from content if not specified.
+ */
+export function parseLockfileContent(
+  content: string,
+  format?: string,
+  filename?: string
+): LockfileParseResult {
+  const detected = format ?? detectLockfileFormat(content) ?? guessFormatFromFilename(filename);
 
-  return {
-    format: 'npm',
-    entries: [],
-    errors: [`Unrecognized lockfile format: ${filename}`],
-  };
+  switch (detected) {
+    case 'npm':
+      return parseNpmLockfileContent(content);
+    case 'pnpm':
+      return parsePnpmLockfileContent(content);
+    case 'yarn':
+      return parseYarnLockfileContent(content);
+    default:
+      return {
+        format: 'npm',
+        entries: [],
+        errors: [`Unrecognized lockfile format${filename ? `: ${filename}` : ''}`],
+      };
+  }
+}
+
+function guessFormatFromFilename(filename?: string): string | null {
+  if (!filename) return null;
+  const lower = filename.toLowerCase();
+  if (lower === 'package-lock.json') return 'npm';
+  if (lower === 'pnpm-lock.yaml' || lower === 'pnpm-lock.yml') return 'pnpm';
+  if (lower === 'yarn.lock') return 'yarn';
+  return null;
 }
 
 /**
@@ -58,14 +81,13 @@ export function detectLockfileFormat(content: string): 'npm' | 'pnpm' | 'yarn' |
   return null;
 }
 
-// ── npm package-lock.json parser ────────────────────────────
+// ── npm package-lock.json parser (content-based) ────────────
 
-function parseNpmLockfile(filePath: string): LockfileParseResult {
+function parseNpmLockfileContent(content: string): LockfileParseResult {
   const errors: string[] = [];
   const entries: LockfileEntry[] = [];
 
   try {
-    const content = readFileSync(filePath, 'utf-8');
     const lock = JSON.parse(content);
 
     if (!lock.packages && !lock.dependencies) {
@@ -135,14 +157,13 @@ function flattenNpmDependencies(
   }
 }
 
-// ── pnpm pnpm-lock.yaml parser ──────────────────────────────
+// ── pnpm pnpm-lock.yaml parser (content-based + v9 support) ─
 
-function parsePnpmLockfile(filePath: string): LockfileParseResult {
+function parsePnpmLockfileContent(content: string): LockfileParseResult {
   const errors: string[] = [];
   const entries: LockfileEntry[] = [];
 
   try {
-    const content = readFileSync(filePath, 'utf-8');
     const lock = parseYaml(content) as Record<string, any> | null;
 
     if (!lock?.packages) {
@@ -150,14 +171,17 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
       return { format: 'pnpm', entries: [], errors };
     }
 
-    // pnpm packages key format: /package-name@version
+    // pnpm packages key format:
+    //   v5/v6: /package-name@version  (leading slash)
+    //   v9:    package-name@version    (no leading slash for unscoped)
+    //          /@scope/name@version     (leading slash for scoped)
     for (const [key, rawInfo] of Object.entries(lock.packages)) {
       const info = rawInfo as Record<string, any>;
-      // Skip package group entries (end with another /)
-      if (!key.startsWith('/')) continue;
+      // Skip package group entries
+      if (!key) continue;
 
-      // Parse: /package-name@version or /@scope/name@version
-      const match = key.match(/^\/((?:@[^/]+\/)?[^@/]+)@(.+)$/);
+      // Parse: [/]package-name@version or [/]@scope/name@version
+      const match = key.match(/^\/?((?:@[^/]+\/)?[^@/]+)@(.+)$/);
       if (!match) continue;
 
       const packageName = match[1];
@@ -167,7 +191,6 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
       // Extract integrity from resolution
       const resolution = info.resolution ?? {};
       const integrity = resolution.integrity ?? '';
-      // H-2: Leave integrity empty if not in lockfile — do not fabricate
 
       const dependencies = info.dependencies ? Object.keys(info.dependencies) : undefined;
       entries.push({
@@ -186,15 +209,13 @@ function parsePnpmLockfile(filePath: string): LockfileParseResult {
   return { format: 'pnpm', entries, errors };
 }
 
-// ── yarn.lock parser ────────────────────────────────────────
+// ── yarn.lock parser (content-based) ────────────────────────
 
-function parseYarnLockfile(filePath: string): LockfileParseResult {
+function parseYarnLockfileContent(content: string): LockfileParseResult {
   const errors: string[] = [];
   const entries: LockfileEntry[] = [];
 
   try {
-    const content = readFileSync(filePath, 'utf-8');
-
     // Yarn lockfile format: blocks separated by blank lines
     // Each block starts with a quoted package name specifier
     // e.g., "package-name@^1.0.0":
