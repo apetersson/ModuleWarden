@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Fetch ModuleWarden models directly from HuggingFace into a defined location.
 #
-# Run this on the Leonardo LOGIN node (it has internet). The weights land in
-# $MODELS_DIR on scratch and the GPU job reads them from there. Do NOT route the
-# weights through a laptop: the bf16 is ~56 GB and the disk fills fast.
+# Run this on the Leonardo serial/login node. The weights land in $MODELS_DIR on
+# scratch and the GPU job reads them from there. Do NOT route the weights through a
+# laptop: the bf16 is ~56 GB and the disk fills fast.
+#
+# Leonardo needs the HTTP proxy for outbound internet, or HuggingFace is
+# unreachable. Export it first (credentials in docs/leonardo-docs/slides.md):
+#   export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
 #
 # Sizes (measured 2026-05-30 from the HF API):
 #   Decepticon bf16 (vLLM)        ~55.6 GB

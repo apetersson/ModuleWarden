@@ -20,7 +20,11 @@ directly.
 
 ## Fetch on Leonardo
 
+Leonardo needs the HTTP proxy for outbound internet, or HuggingFace is unreachable.
+Export it first (credentials in `docs/leonardo-docs/slides.md`):
+
 ```
+export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
 MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-bf16   # vLLM serving
 MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-gguf   # llama.cpp / smaller
 MODELS_DIR=$SCRATCH/models ./fetch-models.sh --auditor-base      # base we abliterate

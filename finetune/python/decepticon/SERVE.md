@@ -97,59 +97,59 @@ The technique ids stay pinned by the deterministic mapper; the GGUF only narrate
 them. If the endpoint is not configured, the client raises rather than faking a
 narrative (no silent degrade).
 
-## On Leonardo HPC (Slurm + Apptainer + vLLM)
+## On Leonardo HPC (per docs/leonardo-docs)
 
-Leonardo (CINECA) is Slurm-scheduled with A100 64 GB nodes and uses Apptainer, not
-Docker. On HPC the natural serving choice is vLLM on the bf16 safetensors, since
-the bf16 model is already present for the auditor fine-tune. You do not need the
-GGUF or ollama there.
+Leonardo (CINECA) is Slurm-scheduled. GPUs are on the `boost_usr_prod` booster
+partition with the hackathon reservation `s_tra_ncc`. It runs containers via
+Singularity, and outbound internet needs the Leonardo HTTP proxy. vLLM is served
+from the official vllm-openai Singularity image, not a bare module. Model is the
+bf16 repo (`llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved`), not
+the GGUF.
 
-Model for vLLM: the bf16 repo, not the GGUF.
-`llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved`
+One-time prep on the serial partition (no GPU): set the proxy, pull the vLLM image,
+fetch the model.
 
-Preflight first, on the login node, no GPU needed:
+    # outbound internet needs the proxy. Credentials are in docs/leonardo-docs/slides.md
+    export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
 
-    python -m finetune.python.decepticon.config_check
-    # expect READY (model_endpoint is WARN until vLLM is up)
-
-Fetch the model into scratch from the login node (pinned; see MODELS.md):
+    srun --partition=lrd_all_serial --time 04:00:00 --mem=16G --pty \
+        singularity pull --name vllm-openai.sif docker://docker.io/vllm/vllm-openai:0.2.1-cu129
 
     MODELS_DIR=$SCRATCH/models finetune/python/decepticon/fetch-models.sh --decepticon-bf16
 
-The weights come straight from HuggingFace, not via a laptop or Nextcloud (the bf16
-is ~56 GB). A staging copy of `fetch-models.sh` also lives at
-`ZeroToOne_Data/models/` on Nextcloud if you prefer to grab it there.
+The weights come straight from HuggingFace (proxy on), not via a laptop or
+Nextcloud (the bf16 is ~56 GB). A staging copy of `fetch-models.sh` also lives at
+`ZeroToOne_Data/models/` on Nextcloud.
 
-Serve with vLLM (OpenAI-compatible) inside a GPU job:
+Preflight on the login node, no GPU needed:
 
-    python -m vllm.entrypoints.openai.api_server \
-        --model $MODELS_DIR/decepticon-heretic-v2-bf16 \
-        --served-model-name heretic-v2 \
-        --host 0.0.0.0 --port 8081
+    python -m finetune.python.decepticon.config_check   # READY, model_endpoint WARN until vLLM is up
 
-    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://$(hostname):8081/v1
-    export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2
-
-A minimal Slurm job that serves, waits, preflights, then generates:
+Slurm job that serves, waits, preflights, then generates:
 
     #!/bin/bash
     #SBATCH --partition=boost_usr_prod
-    #SBATCH --gres=gpu:1
-    #SBATCH --time=00:30:00
-    module load python cuda
-    python -m vllm.entrypoints.openai.api_server \
-        --model "$MODEL_DIR" --served-model-name heretic-v2 \
-        --host 0.0.0.0 --port 8081 &
+    #SBATCH --reservation=s_tra_ncc
+    #SBATCH --nodes=1
+    #SBATCH --ntasks-per-node=1
+    #SBATCH --gpus-per-task=1
+    #SBATCH --cpus-per-task=8       # Leonardo fair share: 8 * gpus-per-task
+    #SBATCH --mem=120GB             # Leonardo fair share: 120GB * gpus-per-task
+    #SBATCH --time=0:30:00
+    SIF=$SCRATCH/vllm-openai.sif
+    singularity exec --nv --bind $SCRATCH:/scratch "$SIF" \
+        python3 -m vllm.entrypoints.openai.api_server \
+        --model $MODELS_DIR/decepticon-heretic-v2-bf16 \
+        --served-model-name heretic-v2 --host 0.0.0.0 --port 8081 &
     until curl -sf http://localhost:8081/v1/models >/dev/null; do sleep 5; done
     export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1
     export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2
-    python -m finetune.python.decepticon.config_check   # now expect all PASS
+    python -m finetune.python.decepticon.config_check   # now all PASS
     python -m finetune.python.decepticon.adversary -n 200 --use-model \
         --out finetune/corpus/hard-negatives.jsonl
 
-If you run vLLM from an Apptainer image, prefix with `apptainer exec --nv vllm.sif`.
-The deterministic core (coverage, adversary without `--use-model`) needs no GPU and
-runs on the login node; only `--use-model` enrichment needs the served model.
+The deterministic core (coverage, adversary without `--use-model`, the preflight)
+needs no GPU and runs on the login node; only `--use-model` enrichment needs vLLM.
 
 ## Why no abliteration step here
 
