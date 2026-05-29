@@ -103,6 +103,7 @@ export const JOB_RETRY_CONFIG: Record<
     maxRetries: 2,
     timeoutMs: 120_000,  // 2 min (DAG resolution for large trees)
     backoffMs: 15_000,
+    singletonSeconds: 60, // 60s dedup window for concurrent install triggers
   },
   'audit-pipeline-unblock': {
     maxRetries: 2,

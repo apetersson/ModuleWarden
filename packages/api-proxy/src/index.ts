@@ -47,13 +47,17 @@ async function enqueuePipelineLight(
 ): Promise<string | null> {
   try {
     const queue = await getQueue();
-    const idempotencyKey = `mw:pipeline:${packageName}:${packageVersion}:${tarballHash}`;
+    // Singleton per package+version with a short window (60s).
+    // Combined with the advisory lock in the pipeline-schedule handler,
+    // concurrent pipeline jobs from the same pnpm install will race
+    // but only one creates a pipeline; the rest bail via dedup check.
+    const singletonKey = `mw:pipeline:${packageName}@${packageVersion}`;
     return await queue.send('audit-pipeline-schedule', {
       packageName,
       packageVersion,
       tarballHash,
       auditContext,
-    }, idempotencyKey);
+    }, singletonKey);
   } catch {
     return null;
   }

@@ -13,6 +13,17 @@ interface QueueParams {
   package: string;
 }
 
+interface PipelineProgress {
+  totalSteps: number;
+  completedSteps: number;
+  pendingSteps: number;
+  readySteps: number;
+  runningSteps: number;
+  failedSteps: number;
+  blockedSteps: number;
+  cyclesDetected: number;
+}
+
 interface QueueStatusResponse {
   package: string;
   inQueue: boolean;
@@ -22,6 +33,7 @@ interface QueueStatusResponse {
   verdict?: string | null;
   enqueuedAt?: string | null;
   completedAt?: string | null;
+  pipeline?: PipelineProgress;
   message: string;
 }
 
@@ -81,8 +93,7 @@ export async function registerQueueStatusRoute(app: FastifyInstance): Promise<vo
       });
 
       if (!pv || pv.reviewJobs.length === 0) {
-        // Package has never been imported — tell user it's pending
-        // Try to fetch upstream to get latest version info
+        // No ReviewJob yet — check if there's an active pipeline for this package
         let latestVersion: string | undefined;
         try {
           const upstream = await fetchUpstreamPackument(packageName);
@@ -90,9 +101,64 @@ export async function registerQueueStatusRoute(app: FastifyInstance): Promise<vo
             latestVersion = upstream['dist-tags']?.latest ?? Object.keys(upstream.versions).sort().pop();
           }
         } catch {
-          // Upstream fetch is best-effort for the queue-status page
+          // Upstream fetch is best-effort
         }
 
+        // Look for a pipeline that covers this package
+        const existingPipeline = await prisma.auditPipeline.findFirst({
+          where: { rootPackageName: packageName, status: 'IN_PROGRESS' as any },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, totalSteps: true, createdAt: true, status: true },
+        });
+
+        // Also check if this package appears as a step in any pipeline
+        const pipelineStep = existingPipeline ? null : await prisma.auditPipelineStep.findFirst({
+          where: { packageName, pipeline: { status: 'IN_PROGRESS' as any } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            linearOrder: true,
+            pipeline: { select: { id: true, totalSteps: true, rootPackageName: true, createdAt: true } },
+          },
+        });
+
+        if (existingPipeline || pipelineStep) {
+          const pipeline = existingPipeline ?? pipelineStep!.pipeline;
+          const stepCount = await prisma.auditPipelineStep.count({
+            where: { pipelineId: pipeline.id },
+          });
+          const completedSteps = await prisma.auditPipelineStep.count({
+            where: { pipelineId: pipeline.id, status: { in: ['ALLOWED', 'BLOCKED', 'QUARANTINED'] as any } },
+          });
+          const runningSteps = await prisma.auditPipelineStep.count({
+            where: { pipelineId: pipeline.id, status: 'RUNNING' as any },
+          });
+
+          const response: QueueStatusResponse = {
+            package: packageName,
+            inQueue: true,
+            hasBeenAudited: false,
+            status: runningSteps > 0 ? 'in-progress' : 'pending',
+            ...(latestVersion !== undefined ? { latestVersion } : {}),
+            enqueuedAt: pipeline.createdAt.toISOString(),
+            pipeline: {
+              totalSteps: pipeline.totalSteps,
+              completedSteps,
+              pendingSteps: stepCount - completedSteps - runningSteps,
+              readySteps: 0,
+              runningSteps,
+              failedSteps: 0,
+              blockedSteps: 0,
+              cyclesDetected: 0,
+            },
+            message: `Package ${packageName} is in the audit pipeline. ` +
+              `${completedSteps}/${pipeline.totalSteps} dependency steps completed. ` +
+              `Retry the install after all steps complete.`,
+          };
+          return reply.send(response);
+        }
+
+        // No pipeline either — genuinely not queued
         const response: QueueStatusResponse = {
           package: packageName,
           inQueue: false,
@@ -167,6 +233,52 @@ export async function registerQueueStatusRoute(app: FastifyInstance): Promise<vo
             `Retry the install to trigger an audit.`;
       }
 
+      // ── Pipeline progress ────────────────────────────────────
+      // Look up the most recent AuditPipeline for this package and
+      // report step-level progress.
+      const pipeline = await prisma.auditPipeline.findFirst({
+        where: { rootPackageName: packageName },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          totalSteps: true,
+          steps: {
+            select: { status: true },
+          },
+        },
+      });
+
+      let pipelineProgress: PipelineProgress | undefined;
+      if (pipeline) {
+        const stepStatuses = pipeline.steps.map((s: { status: string }) => s.status);
+        pipelineProgress = {
+          totalSteps: pipeline.totalSteps,
+          completedSteps: stepStatuses.filter((s) => s === 'ALLOWED' || s === 'BLOCKED' || s === 'QUARANTINED').length,
+          pendingSteps: stepStatuses.filter((s) => s === 'PENDING').length,
+          readySteps: stepStatuses.filter((s) => s === 'READY').length,
+          runningSteps: stepStatuses.filter((s) => s === 'RUNNING').length,
+          failedSteps: stepStatuses.filter((s) => s === 'FAILED').length,
+          blockedSteps: stepStatuses.filter((s) => s === 'BLOCKED' || s === 'QUARANTINED').length,
+          cyclesDetected: 0, // stored on pipeline metadata — best-effort
+        };
+
+        // Update the status message to include pipeline progress
+        if (['pending', 'in-progress'].includes(status) && pipelineProgress.totalSteps > 1) {
+          const done = pipelineProgress.completedSteps;
+          const total = pipelineProgress.totalSteps;
+          const running = pipelineProgress.runningSteps;
+          if (running > 0) {
+            message = `Package ${packageName} is in the audit pipeline. ` +
+              `${done}/${total} dependency steps completed, ${running} currently running. ` +
+              `Retry the install after all steps complete.`;
+          } else {
+            message = `Package ${packageName} is in the audit pipeline. ` +
+              `${done}/${total} dependency steps completed. ` +
+              `Please wait — check back here for progress updates.`;
+          }
+        }
+      }
+
       const response: QueueStatusResponse = {
         package: packageName,
         inQueue: ['QUEUED', 'PENDING', 'RUNNING'].includes(reviewJob.status),
@@ -176,6 +288,7 @@ export async function registerQueueStatusRoute(app: FastifyInstance): Promise<vo
         verdict: decision?.verdict ?? null,
         enqueuedAt: reviewJob.createdAt.toISOString(),
         completedAt: auditRun?.completedAt?.toISOString() ?? null,
+        ...(pipelineProgress ? { pipeline: pipelineProgress } : {}),
         message,
       };
 
