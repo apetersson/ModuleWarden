@@ -1,0 +1,181 @@
+# Leonardo Hackathon Video — Audio Transcript
+
+Source video: `/Users/andreas/Downloads/immich-20260529_232800/20260529_214421.mp4`
+
+Transcribed with local Whisper (`small.en`). Timestamped outputs are also stored in `transcript/` as `.vtt`, `.srt`, `.tsv`, and `.json`.
+
+## Transcript
+
+So once you've found your startup, let's say, you can actually get access free of charge
+to these supercomputers.
+So this is fantastic and this is something that we also pass on to a couple of the better
+approaches.
+And today we'll be dealing with Leonardo, number 10, the top 500 list.
+That might maybe change because the top 500 list is updated every six months.
+So that will be updated in June, again, so maybe it's a dropout of the top 10, but now
+we can still say, we can still claim to be on one of the top 10 supercomputers.
+Okay, so how does that work?
+Well, we're a bit behind schedule and I promise I won't take too long but just to give you
+a rough idea.
+So once you log on to one of these HPC machines, you end up on what is called a login node.
+So you don't want to do, you don't ever want to do any heavy lifting there.
+So no number crunching, no heavy compute on the login nodes, otherwise you'll get an angry
+email from the system.
+Well, in your case, that will be, we'll get the angry email, so we don't want that, so
+no number crunching on the login nodes.
+So the login nodes are there to just prepare your scripts.
+You can download the models that you need, just get ready for the actual work that needs
+to be done.
+But once you're actually ready to fine tune a trainer model, you want to use the compute
+nodes.
+These are the ones for the number crunching and these are also the ones that have the
+GPUs available.
+How do you connect at all to one of these login nodes?
+Well, this is usually done through SSH and this is also what you'll be using here.
+So through the Linux command line.
+So just in case you don't know what SSH is, well, with that you create an encrypted tunnel
+to the machine, in this case to one of these mentioned login nodes, where port 22 is listening
+by default.
+And basically, you can also use this to transfer your files.
+So in case you need to transfer files, instead of SSH you use SCP, but that's the same protocol
+behind that and you might want to copy stuff to and from the machine.
+This is how you do it.
+Basically to connect with SSH, you can connect to any of the login nodes.
+Leonardo's got login 1, 2, 5 and 7 for whatever reason, I don't know, the Italians can't
+count.
+I have no idea what's going on like that.
+In case you want to keep that random, you can just say, okay, login and leave the rest
+away, login.leonardo.chinica.it, then you'll just be assigned a login node that's got
+the most space available.
+But just in case you want to work with, there were tools as Tmax for example, then you might
+actually want to know on which login node you end up on and then you choose your login
+node.
+Okay, usually, by the way, you need the two-factor authentication, so in case you're a regular
+user, Leonardo wants to become one, you've still got that hurdle to take, not in this
+case, because these are basically trained usernames that you'll get.
+Okay, when it comes to software, there's some pre-installed software, HPC, but we usually
+do not recommend that software, the reason is that the software stack is not maintained
+as regularly as it should be, so you'll probably want to create your own environments.
+When it comes to environments, we usually recommend PXE, in case you don't know PXE,
+PXE is just a fantastic package manager, it's insanely fast, because it's got that insanely
+fast dependency solver programmed in Rust, if you know UB, PXE is a lot like UB, so that'll
+probably be the weapon of your choice there.
+Alternatively, you can work with containers, HPC systems do not use Docker, the reason
+is that you don't get root access, so instead you can go with singularity, or sometimes
+it's called app-tainer, depending on which vendor it's from, basically you can pull any
+Docker container, so if you have a Docker container already out there, then that's super
+useful, the reason why these containers are used on HPC is because they give you one large
+file, so you've got everything in that large file, not like with the environments where
+you've got lots of little files which parallel file systems don't like that much, but other
+than that, personally I'd go with PXE more than these containers, if you have, as I said,
+a finished Docker image, then it's easy to pull, really easy to do, as well as you can
+see here, but if you want to build your own container, it takes some time, so yeah, I
+could go with PXE in that case then.
+Okay, so then how do you send off the job from the logger nodes to the compute nodes?
+Well, you do this through a slum script, a slum script is basically a batch script with
+some extra parameters, but we might ask what is slum, well slum is just a scheduler that
+you have on these machines, because usually if you send off the job, you end in a queue,
+depending on how much resources you need, for how long you need it for, you end up in
+the queue, and as soon as the resources become available, your job starts to run, so that's
+what slum is for then.
+So right at the top of your batch script, you've got these parameters for slum, these
+are not commented out, so that's how it's supposed to be, with hash as batch, so these
+are all the directives that slum gets.
+So what you need to mention there is the partition that you're working on, so that will always
+be on the booster partition on Leonardo, these are the ones with the GPU, so these are the
+ones that you need.
+Now we've got a reservation in place, that's why we've got a reservation here, s underscore
+trial underscore ncc, with a reservation that means you can stick the queue basically, so
+we have got 100 GPUs in place, these GPUs are arranged in what is called a node, so
+one node has got four GPUs on Leonardo, and essentially what that means is we can say
+per team you've got one node available in the reservation.
+Now make sure that you do not use more than one node in the reservation, otherwise that
+would be unfair, let's have fair play and all the same chances, so per team one node
+is fine.
+If you want to use more than one node, you can actually also do so, and just comment
+that out, the reservation, and you'll end up like every other Leonardo user in the queue,
+so that means you might have to wait a little bit until your job begins to run, it might
+be a long time, it might be a short time, you never know, actually on the weekend it
+shouldn't be too bad, but you can try it out without the reservation as well.
+So here in this case, in this slums group we chose just one node, we chose just one
+task for this particular node, and only one GPU for this task, so this is a one GPU job.
+We asked for 120 gigs of memory, now this is not the GPU memory, bear in mind, so that's
+not the VRAM, that's the regular RAM, so on Leonardo we say okay, allocate that fairly,
+so basically take 120 gigs per GPU that you have, so you can go up to four times that
+amount if you have four GPUs, and by the way the GPUs of Leonardo have 64 gigs of RAM,
+there are A100 GPUs from NVIDIA with 64 gigs of RAM. Okay, the CPUs per task,
+yeah, it's also you can multiply by the number of GPUs that you have, if you only have one
+GPU then you can again first share and take eight of these CPUs. Now if you are outside of the queue
+don't forget to set the time, because actually also do it inside of their reservation as well,
+always set the time, it's just a good practice, the reason being is depending on how long you
+think that job will run for, you get through the queue quicker or not, so if you do not set the
+time, SLURM assumes that this job will run for 24 hours, and then you might be waiting for quite
+some time, so always just for good practice make sure you set the time, as a matter of fact on,
+yeah, as a matter of fact within a reservation actually if you do not set it, that's within
+the reservation, the job will stop after 30 minutes because that's the cutoff time, okay,
+so make sure you set that time before you send off your job. Okay, so what you have then after that
+is just what you have in a regular bash script, so for example in this case we want to use our
+pixi environment, and we want to run something with this pixi environment, which is to define
+that here in an extra variable, you do not need this manifest path to the pixi environment,
+if you have your pixi tunnel within the folder that you're working in, where that
+job script is as well, so only if that pixi environment is somewhere else you need to provide
+the path to that as well, and then of course you just run your python script or whatever you like
+to run, this is how it would look like with a singularity container, so very similar, you execute
+that singularity container and you provide the image of this container, so if you use more than
+one GPU, okay, how would that look like? Obviously we'd set this to two, we'd increase the RAM,
+we'd increase the CPUs, the rest is the same, how about if we go to four GPUs, well you might have
+guessed it, just these three numbers change accordingly, what about if you want to use more
+than one node, well in that case as I already mentioned, and it's just because you'll get the
+slides afterwards, make sure that you get rid of this reservation, it would be unfair otherwise.
+Okay, just some useful slowing commands in case you've never worked with slowing, so with sbatch
+you send off that that slow script, by the way there's another way you can also use your compute
+nodes that's interactively, instead of sbatch you'd write srun and then you provide the resources
+that you need, including also the time that you need that for when you get an interactive
+session on a compute node. Now once you send off a job with sbatch you want to know is it already
+running or not, so what's going on, so you could check that with a queue, with sq minus minus me,
+that lets you know whether your jobs are already running, and you can also have a look at the
+output just while it runs, if you want you can split the standard out and standard error, if you
+don't mention where these files should go, they're just concatenated so they're within one bit,
+and should you realize, whoops I need to cancel my job, you can always do so with scancel and the
+job id, you always see the job id if you have a look at the queue, okay so you just provide that
+job id and then that gets cancelled, and here as I mentioned srun will provide you with an
+interactive session. Okay, now coming to the storage system on Leonardo, if you look into
+Leonardo, by default you're in the home directory, but be aware that it's quite limited with 50 gigs,
+so make sure that if you download models, or repeat that several times now, make sure that
+if you download models, do this first of all in the login node, the reason is that on the compute
+node you don't have access to the internet, so do it on the login node, and make sure that you
+place the large files, so models for example in scratch, so in scratch you've got several
+terabytes, basically the whole scratch
+partition is several petabytes, so you've got lots of space there, we usually say 20 terabytes just
+to give people a rough guideline, okay so put it in in scratch, please don't use fast or work,
+that's also available if you check out the Tineca documentation, but for this particular
+project this is already in use, so please make sure that you don't don't use that,
+so home scratch in public is for you. Okay, when it comes to the login nodes there's a
+CPU time limit as well, that is 10 minutes, so if you need to download something that's especially
+true if you are dealing with singularity containers that you want to download, models usually go
+pretty quickly, but singularity containers might take some time and you might hit the max time
+limit, so you could use this partition where you have four hours, just if you need to download
+something for longer, okay, otherwise we've also worked out a bit of a, or we've provided a bit of
+a workaround, that is if you need access via the compute nodes, I already mentioned they do not
+have internet access by default, so we provide you with a proxy server on one of the login nodes,
+but just make sure that you don't use that for heavy bandwidth stuff, so don't download your
+models via that, okay, because otherwise it just that will just be chock-a-block, so just in case
+you want to use something like weights and biases or yeah anything similar to that, that's what this
+is there for, okay, so make sure to use that if you need the internet for the compute nodes,
+otherwise just everything through the login nodes. Okay, if you want to read something up quickly,
+we've got some Leonardo onboarding material out there that's on our website, it's on a hidden
+part of our website, so you know it's the AI factory website with n slash hpc minus onboarding,
+check out chapter five and six especially, that talks about these first steps and also the
+software topic that I just briefly mentioned. Other than that, there's also the Ginnica
+documentation, but this is much more thorough as you can imagine, but of course feel free to look
+that up as well, so Ginnica being the hosting entity of Leonardo and look up whatever you need
+there, and that's basically it and with that go and have fun, you will get your users and passwords
+afterwards, they'll be distributed to you, so basically you'll get a link via email, right,
+you'll get a link via email and once you click on that link, you'll end up on a page that wants
+your name and also your affiliation, so please fill that out because you also need to agree to
+the Ginnica chunks and conditions, basically you just confirm that you don't use the supercomputer
+for anything naughty, I don't know, bitcoin mining or simulating nuclear weapons or whatever,
+so that's what you're agreeing to there and just they just want to know who's working on their
+machines, okay, so this is why you need to provide your name there. This link is unique for every
+user, so once you've agreed to that and filled out that free form, you then get your username and
+password and with that an already used SSH that I've shown you here, okay, thanks a lot.

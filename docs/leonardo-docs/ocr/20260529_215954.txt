@@ -1,0 +1,7 @@
+Additional Material
+
+Our HPC Onboarding Kit contains additional information:
+- Chapter 5: First steps on LEONARDO
+- Chapter 6: Software
+
+https://ai-at.eu/hpc-onboarding/

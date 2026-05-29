@@ -1,0 +1,10 @@
+SSH Access to Leonardo
+
+Use any of the following login nodes:
+
+ssh your_username@login01-ext.leonardo.cineca.it
+ssh your_username@login02-ext.leonardo.cineca.it
+ssh your_username@login05-ext.leonardo.cineca.it
+ssh your_username@login07-ext.leonardo.cineca.it
+
+(For the hackathon, two factor authentication is not used.)

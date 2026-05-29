@@ -1,0 +1,17 @@
+Slurm: Job Scheduler
+Leonardo job script (2 GPUs)
+
+#!/bin/bash
+#SBATCH --partition=boost_usr_prod
+#SBATCH --reservation=s_tra_ncc
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gpus-per-task=2
+#SBATCH --mem=240GB
+#SBATCH --cpus-per-task=16
+#SBATCH --time=0:30:00
+
+# Construct command to run container:
+export CONTAINER="singularity exec --nv container.sif"
+
+$CONTAINER python3 script.py
