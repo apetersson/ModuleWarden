@@ -6,6 +6,7 @@ import { buildPostgresConnectionString, defaultConfig } from '@modulewarden/shar
 import { JobQueue } from '@modulewarden/worker/jobs/queue.js';
 import { registerPackumentRoute } from './routes/packument.js';
 import { registerTarballRoute } from './routes/tarball.js';
+import { registerQueueStatusRoute } from './routes/queue-status.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerInternalRoutes } from './routes/internal.js';
@@ -130,7 +131,16 @@ export async function buildServer() {
 
   // ── Registry endpoints ────────────────────────────────────────
 
-  await registerPackumentRoute(app);
+  await registerPackumentRoute(app, async (data) => {
+    return enqueuePackageReviewLight(
+      data.packageName,
+      data.packageVersion,
+      data.tarballHash,
+      data.auditContext
+    );
+  });
+
+  await registerQueueStatusRoute(app);
 
   await registerTarballRoute(
     app,

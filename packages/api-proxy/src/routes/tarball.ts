@@ -11,6 +11,17 @@ interface TarballParams {
   filename: string;
 }
 
+function registryBaseUrl(request: FastifyRequest): string {
+  const host = request.headers.host ?? 'localhost:8080';
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  const proto = typeof forwardedProto === 'string' ? forwardedProto : request.protocol;
+  return `${proto}://${host}`;
+}
+
+function queuePublicUrl(baseUrl: string, packageName: string): string {
+  return `${baseUrl}/queue/${encodeURIComponent(packageName)}`;
+}
+
 /**
  * Parse the version from a tarball filename.
  * Format: package-name-1.0.0.tgz, or @scope/package-name-1.0.0.tgz
@@ -54,12 +65,14 @@ export async function registerTarballRoute(
     async (request: FastifyRequest<{ Params: TarballParams }>, reply: FastifyReply) => {
       const { package: packageName, filename } = request.params;
       const version = parseVersionFromFilename(packageName, filename);
+      const baseUrl = registryBaseUrl(request);
 
       if (!version) {
         return reply.status(400).send({
           error: 'Invalid tarball filename',
           reason: `Could not parse version from ${filename}`,
           package: packageName,
+          statusUrl: queuePublicUrl(baseUrl, packageName),
         } satisfies RegistryError);
       }
 
@@ -75,6 +88,7 @@ export async function registerTarballRoute(
           reason: 'Could not fetch upstream package metadata',
           package: packageName,
           requestedVersion: version,
+          statusUrl: queuePublicUrl(baseUrl, packageName),
         } satisfies RegistryError);
       }
 
@@ -156,6 +170,7 @@ export async function registerTarballRoute(
               reason: 'Could not fetch tarball from backing registry',
               package: packageName,
               requestedVersion: version,
+              statusUrl: queuePublicUrl(baseUrl, packageName),
             } satisfies RegistryError);
           }
           if (!tarballResponse.ok) {
@@ -164,6 +179,7 @@ export async function registerTarballRoute(
               reason: 'Tarball not found in backing registry',
               package: packageName,
               requestedVersion: version,
+              statusUrl: queuePublicUrl(baseUrl, packageName),
             } satisfies RegistryError);
           }
           const headers = Object.fromEntries(tarballResponse.headers.entries());
@@ -186,6 +202,7 @@ export async function registerTarballRoute(
               : `Package ${packageName}@${version} is under review (quarantined)`,
             package: packageName,
             requestedVersion: version,
+            statusUrl: queuePublicUrl(baseUrl, packageName),
             cliCommand: 'modulewarden status',
           } satisfies RegistryError);
         }
@@ -198,6 +215,7 @@ export async function registerTarballRoute(
           reason: `Could not resolve integrity hash for ${packageName}@${version}. The upstream registry did not provide a valid integrity hash.`,
           package: packageName,
           requestedVersion: version,
+          statusUrl: queuePublicUrl(baseUrl, packageName),
         } satisfies RegistryError);
       }
 
@@ -227,12 +245,13 @@ export async function registerTarballRoute(
       return reply.status(404).send({
         error: 'Version not yet reviewed',
         reason: enqueued
-          ? `${packageName}@${version} has not been reviewed yet. A review has been enqueued.`
+          ? `${packageName}@${version} has not been reviewed yet. A review has been enqueued. Track progress at: ${queuePublicUrl(baseUrl, packageName)}`
           : enabledProject?.graphState === 'READY'
-            ? `${packageName}@${version} has not been reviewed yet. Unable to enqueue review.`
+            ? `${packageName}@${version} has not been reviewed yet. Unable to enqueue review. Check: ${queuePublicUrl(baseUrl, packageName)}`
             : `ModuleWarden registry is not ready for installs yet, and ${packageName}@${version} could not be enqueued for review.`,
         package: packageName,
         requestedVersion: version,
+        statusUrl: queuePublicUrl(baseUrl, packageName),
         cliCommand: 'modulewarden status',
       } satisfies RegistryError);
     }
