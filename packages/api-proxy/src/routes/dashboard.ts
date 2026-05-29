@@ -544,12 +544,24 @@ export async function registerDashboardRoutes(
     const queueNames = Object.values(JOB_TYPES);
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
-        name,
-        state,
+        j.name,
+        CASE
+          WHEN j.state IN ('created', 'retry', 'active')
+            AND rj."status" IN ('COMPLETED', 'CANCELLED', 'FAILED', 'DEAD_LETTER')
+            THEN 'settled'
+          ELSE j.state::text
+        END as state,
         COUNT(*) as cnt
       FROM "${defaultConfig().postgres.schema}"."job"
-      WHERE name = ANY($1::text[])
-      GROUP BY name, state
+      j
+      LEFT JOIN "ReviewJob" rj ON rj."id"::text = j.data->>'reviewJobId'
+      WHERE j.name = ANY($1::text[])
+      GROUP BY j.name, CASE
+        WHEN j.state IN ('created', 'retry', 'active')
+          AND rj."status" IN ('COMPLETED', 'CANCELLED', 'FAILED', 'DEAD_LETTER')
+          THEN 'settled'
+        ELSE j.state::text
+      END
     `, queueNames);
     const statsByQueue = new Map<string, Record<string, number>>();
     for (const row of rows) {

@@ -111,6 +111,7 @@ export async function registerPackumentRoute(app: FastifyInstance): Promise<void
 
       const prisma = getPrisma();
       const baseUrl = registryBaseUrl(request);
+      reply.header('Cache-Control', 'no-store');
 
       // Check project registry readiness
       const enabledProject = await prisma.project.findFirst({
