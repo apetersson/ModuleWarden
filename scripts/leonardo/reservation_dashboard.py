@@ -47,10 +47,18 @@ DEFAULT_RESERVATION = "s_tra_ncc"
 DEFAULT_LOGIN = "login01-ext.leonardo.cineca.it"
 
 # team accounts -> short role label shown next to their jobs
+# Confirmed team accounts get role labels; the rest of the shared tra26_minwinsc
+# cohort (the Leonardo group both accounts belong to) is tracked too, so no
+# teammate's job is missed whatever trainee login they submit from.
 TEAM_ROLES = {
     "a08trc01": "devops/decepticon",
     "a08trc02": "finetune/petersson",
 }
+COHORT = [
+    "a08trc01", "a08trc02", "a08trc0e", "a08trc0r", "a08trc0v", "a08trc0x",
+    "a08trc11", "a08trc13", "a08trc14", "a08trc16", "a08trc17", "a08trc21",
+    "a08trc22", "a08trc23",
+]
 
 FREE_STATES = {"idle", "resv"}
 BUSY_STATES = {"mix", "alloc", "comp"}
@@ -253,7 +261,7 @@ def render(data, reservation, accounts, login, c) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Leonardo team queue dashboard")
     ap.add_argument("--reservation", default=DEFAULT_RESERVATION)
-    ap.add_argument("--accounts", default=",".join(TEAM_ROLES),
+    ap.add_argument("--accounts", default=",".join(COHORT),
                     help="comma-separated team usernames to flag")
     ap.add_argument("--watch", type=int, metavar="SECS",
                     help="refresh every SECS seconds (Ctrl+C to stop)")
