@@ -5,9 +5,11 @@
 # scratch and the GPU job reads them from there. Do NOT route the weights through a
 # laptop: the bf16 is ~56 GB and the disk fills fast.
 #
-# Leonardo needs the HTTP proxy for outbound internet, or HuggingFace is
-# unreachable. Export it first (credentials in docs/leonardo-docs/slides.md):
-#   export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
+# Run this on a Leonardo LOGIN/SERIAL node. Those have direct outbound internet
+# (verified 2026-05-30: HTTP 200 to huggingface.co from the login node), so no proxy
+# is needed. The old HTTP proxy in docs/leonardo-docs/slides.md is for COMPUTE nodes
+# only and its credentials rotate (they 401 once the proxy restarts), so do not rely
+# on it here. Compute nodes have no internet; always stage on the login node first.
 #
 # Sizes (measured 2026-05-30 from the HF API):
 #   Decepticon bf16 (vLLM)        ~55.6 GB
@@ -45,8 +47,8 @@ if [ "$want_bf16$want_gguf$want_base" = "000" ]; then
   exit 2
 fi
 
-command -v huggingface-cli >/dev/null 2>&1 || {
-  echo "huggingface-cli missing. Install: pip install -U 'huggingface_hub[cli]'"
+command -v hf >/dev/null 2>&1 || {
+  echo "hf CLI missing. Install: pip install -U 'huggingface_hub[cli]'"
   exit 1
 }
 mkdir -p "$MODELS_DIR"
@@ -56,13 +58,13 @@ mkdir -p "$MODELS_DIR"
 # MODEL_CACHE=$SCRATCH/models as the HF cache, so set MODELS_DIR=$SCRATCH/models.
 dl_cache() {  # repo
   echo ">> $1 -> HF cache under $MODELS_DIR"
-  huggingface-cli download "$1" --cache-dir "$MODELS_DIR"
+  hf download "$1" --cache-dir "$MODELS_DIR"
 }
 # raw GGUF file for local llama.cpp (not the HF cache layout)
 dl_file() {  # repo subdir extra...
   local repo="$1" sub="$2"; shift 2
   echo ">> $repo -> $MODELS_DIR/$sub"
-  huggingface-cli download "$repo" "$@" --local-dir "$MODELS_DIR/$sub"
+  hf download "$repo" "$@" --local-dir "$MODELS_DIR/$sub"
 }
 
 [ "$want_bf16" = 1 ] && dl_cache "$DEC_BF16_REPO"

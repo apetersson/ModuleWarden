@@ -48,7 +48,7 @@ LOG_DIR="${SCRATCH_DIR}/vllm-logs"
 mkdir -p "${MODEL_CACHE}" "${LOG_DIR}" "$(dirname "${VLLM_SIF}")"
 
 # Point to the model directory (binded into container at /model)
-MODEL_DIR="${SCRATCH_DIR}/models/Huihui-Qwen3.6-27B-abliterated"
+MODEL_DIR="${SCRATCH_DIR}/models/huihui-qwen3.6-27b-abliterated"
 MODEL_NAME="${MW_VLLM_MODEL_NAME:-huihui-qwen3.6-27b-abliterated}"
 PORT="${MW_VLLM_PORT:-8000}"
 HOST="${MW_VLLM_HOST:-0.0.0.0}"

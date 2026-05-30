@@ -97,57 +97,77 @@ The technique ids stay pinned by the deterministic mapper; the GGUF only narrate
 them. If the endpoint is not configured, the client raises rather than faking a
 narrative (no silent degrade).
 
-## On Leonardo HPC (reuse scripts/leonardo, do not run a parallel job)
+## On Leonardo HPC (validated 2026-05-30 on a08trc01)
 
-Andreas already has the Leonardo deploy in `scripts/leonardo/`. Decepticon reuses
-it. The serve script is parameterized, so pointing it at the abliterated checkpoint
-is a one-variable override (`MW_VLLM_MODEL`). vLLM runs on a compute node via
-Singularity (TP=4 across 4 A100s, port 8000); you reach it locally through an SSH
-tunnel on port 8081. The model downloads inside the job through the Leonardo HTTP
-proxy, so no manual fetch is required (`fetch-models.sh` is an optional login-node
-pre-cache).
+Decepticon serves the heretic-v2 GGUF with llama.cpp. The GGUF is pre-staged in each
+account's scratch at `$SCRATCH/models/decepticon-heretic-v2-gguf/` (a08trc01 and
+a08trc02). Re-fetch on the login node (direct internet, no proxy):
+`MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-gguf`.
 
-Model: `huihui-ai/Huihui-Qwen3.6-27B-abliterated`, the chosen pre-abliterated
-checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it.
+Two GPU constraints had to be solved together. Both paths below are validated end to
+end (build/serve, `/health`, and `model_client` narrating the pinned chain
+T1195.002 -> T1552.001 -> T1041):
 
-1. Deploy vLLM with the abliterated checkpoint. The model is already pre-staged in
-   each account's scratch, so point at the local path (not the repo id) to avoid a
-   re-download through the proxy on the compute node:
+- `qwen35` is a hybrid attention+SSM (Mamba-style) arch that only the latest llama.cpp
+  can build. The CUDA-matched `llama-cpp-python` cu124 wheel (0.3.23) reads the GGUF
+  metadata then fails to load it.
+- The A100 driver is 535.x / CUDA 12.2. The prebuilt `*-cuda` llama.cpp container ships
+  a newer CUDA with no sm_80 cubin, so it PTX-JITs at warmup and dies with "a PTX JIT
+  compilation failed".
 
-    MW_VLLM_MODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated \
-    MW_VLLM_MODEL_NAME=qwen3.6-27b-abliterated \
-    sbatch scripts/leonardo/slurm-vllm.sh
+### GPU (recommended, about 44 tok/s)
 
-   (Pre-staged at `/leonardo_scratch/large/usertrain/<user>/models/huihui-qwen3.6-27b-abliterated`
-   for both a08trc01 and a08trc02. To re-fetch: `fetch-models.sh --decepticon-bf16`
-   on the login node, or `huggingface-cli download huihui-ai/Huihui-Qwen3.6-27B-abliterated --local-dir $SCRATCH/models/huihui-qwen3.6-27b-abliterated`.)
+Build the latest llama.cpp against Leonardo's native CUDA 12.2 toolkit with
+`CMAKE_CUDA_ARCHITECTURES=80`. Native sm_80 SASS means no PTX JIT (runs on the 12.2
+driver), and latest-source means qwen35 builds. Two Leonardo quirks: the cuda/12.2
+module is gcc-8.5 based and does not put nvcc on PATH, so point at the toolkit
+directly; and gcc 8.5 keeps `std::filesystem` in a separate lib, so add `-lstdc++fs`.
+Build on a compute node (the login node OOM-kills heavy builds).
 
-2. Find the node and open the tunnel (localhost:8081 maps to node:8000):
+    git clone --depth 1 https://github.com/ggml-org/llama.cpp $SCRATCH/llama.cpp-src   # login node, has internet
+    # then in a GPU job:
+    CUROOT=/leonardo/prod/opt/compilers/cuda/12.2/none
+    export PATH=$CUROOT/bin:$PATH LD_LIBRARY_PATH=$CUROOT/lib64:$LD_LIBRARY_PATH
+    cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF \
+          -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
+          -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs
+    cmake --build build -j 32 --target llama-server
+    build/bin/llama-server -m "$G" --host 127.0.0.1 --port 8000 --ctx-size 8192 --n-gpu-layers 999
 
-    squeue --me
-    scripts/leonardo/tunnel.sh <compute-node>
+`finetune/python/slurm/leonardo/decepticon_gpu_build_serve.slurm` is the validated
+build+serve+narrate job (builds once, then the binary is cached for re-runs).
 
-3. Health-check, then point Decepticon at the tunnel:
+### CPU (no build, about 2-3 tok/s)
 
-    scripts/leonardo/vllm-health-check.sh http://localhost:8081
-    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1
-    export DECEPTICON_MODEL_ENDPOINT_MODEL=qwen3.6-27b-abliterated
+If you would rather not build, serve on CPU with the prebuilt latest CPU image. Fine
+for low-volume offense narration.
 
-4. Preflight, then generate:
+    cd $SCRATCH
+    export SINGULARITY_CACHEDIR=$SCRATCH/.sing_cache SINGULARITY_TMPDIR=$SCRATCH/.sing_tmp
+    singularity pull llamacpp-cpu.sif docker://ghcr.io/ggml-org/llama.cpp:server
+    G=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+    singularity exec --bind $SCRATCH --env LD_LIBRARY_PATH=/app $SCRATCH/llamacpp-cpu.sif \
+      /app/llama-server -m "$G" --host 127.0.0.1 --port 8000 --ctx-size 8192 --n-gpu-layers 0 -t 32
 
-    python -m finetune.python.decepticon.config_check        # model_endpoint now PASS
-    python -m finetune.python.decepticon.adversary -n 200 --use-model \
-        --out finetune/corpus/hard-negatives.jsonl
+`finetune/python/slurm/leonardo/decepticon_smoke.slurm` is the validated CPU reference job.
 
-The auditor uses the same chosen checkpoint `huihui-ai/Huihui-Qwen3.6-27B-abliterated`
-(pre-abliterated per CLAUDE.md, then SFT LoRA), so no in-repo abliteration step is
-needed. The deterministic Decepticon core (coverage, adversary without `--use-model`,
-the preflight) needs no GPU and runs on the login node.
+### Point Decepticon at the server (either path)
 
-Security note: `scripts/leonardo/` currently has the HTTP proxy credentials inline.
-The repo is private so it is contained, but those belong in `.leonardo-access` or an
-env file (as the Leonardo login password already does), with the committed copies
-scrubbed.
+    export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://127.0.0.1:8000/v1
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=qwen3.6-27b-heretic-v2
+    python -m finetune.python.decepticon.config_check        # model_endpoint PASS
+    python -m finetune.python.decepticon.adversary -n 200 --use-model --out finetune/corpus/hard-negatives.jsonl
+
+heretic-v2 is a reasoning model whose chat template emits a `<think>` block, so the
+narration can land in `reasoning_content` with an empty `content`. `model_client`
+falls back to `reasoning_content`, so the narration is never dropped.
+
+The deterministic Decepticon core (coverage, adversary without `--use-model`, the
+preflight) needs no model and runs on the login node.
+
+Note: the HTTP proxy creds committed in `docs/leonardo-docs/slides.md` are stale (they
+401) and unnecessary, since login nodes reach HuggingFace directly. Treat the committed
+copy as needing a scrub; secrets belong in `.leonardo-access`, not git.
 
 ## Why no abliteration step here
 
