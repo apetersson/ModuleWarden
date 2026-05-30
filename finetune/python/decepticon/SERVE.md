@@ -100,22 +100,19 @@ narrative (no silent degrade).
 ## On Leonardo HPC (reuse scripts/leonardo, do not run a parallel job)
 
 Andreas already has the Leonardo deploy in `scripts/leonardo/`. Decepticon reuses
-it. The serve script is parameterized, so pointing it at the abliterated checkpoint
-is a one-variable override (`MW_VLLM_MODEL`). vLLM runs on a compute node via
-Singularity (TP=4 across 4 A100s, port 8000); you reach it locally through an SSH
-tunnel on port 8081. The model downloads inside the job through the Leonardo HTTP
-proxy, so no manual fetch is required (`fetch-models.sh` is an optional login-node
-pre-cache).
+it. `slurm-vllm.sh` hardcodes the model dir at
+`$SCRATCH/models/huihui-qwen3.6-27b-abliterated` (bind-mounted into the container at
+`/model`) and serves it under the name `huihui-qwen3.6-27b-abliterated`. vLLM runs
+on a compute node via Singularity (TP=4 across 4 A100s, port 8000); you reach it
+locally through an SSH tunnel on port 8081.
 
 Model: `huihui-ai/Huihui-Qwen3.6-27B-abliterated`, the chosen pre-abliterated
-checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it.
+checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it. It
+is pre-staged on both accounts' scratch at that path, so the job loads it locally
+without re-downloading.
 
-1. Deploy vLLM with the abliterated checkpoint. The model is already pre-staged in
-   each account's scratch, so point at the local path (not the repo id) to avoid a
-   re-download through the proxy on the compute node:
+1. Deploy vLLM (the model dir and served name are set in the script):
 
-    MW_VLLM_MODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated \
-    MW_VLLM_MODEL_NAME=qwen3.6-27b-abliterated \
     sbatch scripts/leonardo/slurm-vllm.sh
 
    (Pre-staged at `/leonardo_scratch/large/usertrain/<user>/models/huihui-qwen3.6-27b-abliterated`
@@ -131,7 +128,7 @@ checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it
 
     scripts/leonardo/vllm-health-check.sh http://localhost:8081
     export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1
-    export DECEPTICON_MODEL_ENDPOINT_MODEL=qwen3.6-27b-abliterated
+    export DECEPTICON_MODEL_ENDPOINT_MODEL=huihui-qwen3.6-27b-abliterated  # must match slurm-vllm.sh served name
 
 4. Preflight, then generate:
 
