@@ -1,4 +1,4 @@
-"""Tests for the deterministic underwriter-assistant agent.
+"""Tests for the deterministic risk-review assistant agent.
 
 The router has no LLM dependency and is the path used during the live
 demo, so it must be stable across runs.
@@ -101,16 +101,16 @@ def test_handle_query_freeform_offers_help():
 
 
 def test_underwriting_memo_per_verdict():
-    """Lookup output is the Control Evidence Memo with tier + premium/exclusion."""
+    """Lookup output is the Control Evidence Memo with tier + adopt/wait/avoid decision."""
     block_turn = handle_query("postmark-mcp@1.0.16")
     md = block_turn.response_md
     assert "Control Evidence Memo" in md
     assert "Risk tier" in md
-    assert "DECLINE" in md
-    assert "Premium / exclusion" in md
+    assert "AVOID" in md
+    assert "Decision:" in md
     allow_turn = handle_query("lodash@4.17.21")
-    assert "ACCEPT" in allow_turn.response_md
-    assert "credit" in allow_turn.response_md.lower()
+    assert "ADOPT" in allow_turn.response_md
+    assert "adopt" in allow_turn.response_md.lower()
 
 
 def test_block_memo_includes_attack_kill_chain():

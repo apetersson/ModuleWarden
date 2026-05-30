@@ -1,4 +1,4 @@
-"""Tests for the model-backed underwriting path.
+"""Tests for the model-backed risk-review path.
 
 Verifies the centerpiece: the fine-tuned model narrates the verdict, but
 the verdict is ALWAYS pinned by the gate/report and the model can never
@@ -62,7 +62,7 @@ def test_model_narrates_but_verdict_stays_pinned(monkeypatch):
     def fake_complete(*, system_prompt, messages, **kw):
         captured["system"] = system_prompt
         captured["user"] = messages[-1]["content"]
-        return "DECLINE. Elevated supply-chain exposure; recommend exclusion."
+        return "AVOID. Elevated supply-chain exposure; do not adopt yet."
 
     monkeypatch.setattr(model_client, "is_configured", lambda: True)
     monkeypatch.setattr(model_client, "complete", fake_complete)
@@ -73,13 +73,13 @@ def test_model_narrates_but_verdict_stays_pinned(monkeypatch):
     # Verdict comes from the report, never the model.
     assert turn.evidence["verdict"] == "block"
     # Model prose leads; pinned memo is retained beneath as the audit trail.
-    assert "DECLINE. Elevated" in turn.response_md
+    assert "AVOID. Elevated" in turn.response_md
     assert "Control Evidence Memo" in turn.response_md
     # The model was handed the pinned verdict and told not to change it.
     assert '"verdict": "block"' in captured["user"]
     assert "do not change the verdict" in captured["user"]
-    # The underwriter system prompt was actually loaded and sent.
-    assert "Underwriter Assistant" in captured["system"]
+    # The risk-review system prompt was actually loaded and sent.
+    assert "Risk Review Assistant" in captured["system"]
 
 
 def test_endpoint_error_is_surfaced_not_silent(monkeypatch):
@@ -93,7 +93,7 @@ def test_endpoint_error_is_surfaced_not_silent(monkeypatch):
     assert turn.route == "router"
     assert turn.evidence.get("endpoint_error")
     # Deterministic memo still renders the real verdict.
-    assert "DECLINE" in turn.response_md
+    assert "AVOID" in turn.response_md
     assert turn.evidence["verdict"] == "block"
 
 

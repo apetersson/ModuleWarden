@@ -1,9 +1,9 @@
-"""OpenAI-compatible chat-completion client for the underwriter assistant.
+"""OpenAI-compatible chat-completion client for the risk review assistant.
 
 The conversational assistant pins the verdict deterministically (the gate
 plus the audit report are the source of truth) and then, when a model
 endpoint is configured, asks the fine-tuned model to narrate that pinned
-result in underwriter language. The model never sources the verdict; it
+result in risk-review language. The model never sources the verdict; it
 only explains the pinned decision.
 
 Endpoint resolution (first match wins), so the chat reuses the exact
