@@ -164,7 +164,7 @@ export interface PackageVersionDetail {
       job_id: string;
     }>;
     forecast_job_ids: string[];
-  } | null;
+  } | null | undefined;
 }
 
 export interface PromptUsage {

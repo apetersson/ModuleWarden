@@ -732,10 +732,12 @@ export async function registerDashboardRoutes(
       const temporalArtifact = evidenceRows.find((e) => String(e.name ?? '') === 'temporal_evidence.json');
       if (temporalArtifact?.content) {
         try {
-          const content = typeof temporalArtifact.content === 'string'
+          const raw = typeof temporalArtifact.content === 'string'
             ? JSON.parse(temporalArtifact.content)
             : temporalArtifact.content;
-          detail.temporalEvidence = content as PackageVersionDetail['temporalEvidence'];
+          if (raw != null) {
+            detail.temporalEvidence = raw as PackageVersionDetail['temporalEvidence'];
+          }
         } catch { /* temporal evidence parse error – ignore */ }
       }
 

@@ -25,14 +25,17 @@ COPY --from=deps /app/packages/api-proxy/node_modules /app/packages/api-proxy/no
 COPY --from=deps /app/packages/worker/node_modules /app/packages/worker/node_modules
 COPY --from=deps /app/packages/shared/node_modules /app/packages/shared/node_modules
 COPY --from=deps /app/packages/prisma-client/node_modules /app/packages/prisma-client/node_modules
+COPY --from=deps /app/packages/temporal-forecast/node_modules /app/packages/temporal-forecast/node_modules
 COPY --from=deps /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/tsconfig.base.json /app/
 COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
+COPY packages/temporal-forecast packages/temporal-forecast
 COPY packages/worker packages/worker
 COPY packages/api-proxy packages/api-proxy
 RUN pnpm --filter @modulewarden/prisma-client generate
 RUN pnpm --filter @modulewarden/shared build
 RUN pnpm --filter @modulewarden/prisma-client build
+RUN pnpm --filter @modulewarden/temporal-forecast build
 RUN pnpm --filter @modulewarden/worker build
 RUN pnpm --filter @modulewarden/api-proxy build
 EXPOSE 8080
