@@ -4,24 +4,27 @@ Hackathon submission materials for ModuleWarden v2. Target: the Zero-One
 Hack FORECAST track, partner Sybilion. The pitch frames ModuleWarden as
 probabilistic forecasting plus the agent layer that acts on it.
 
-Product one-liner: ModuleWarden forecasts the probability that a dependency
-a developer is about to pull into the company codebase is a supply-chain
-attack vector, and an agent acts on it at submission time. The thing we
-forecast is the version DELTA, not the cold package. The deterministic
-delta-gate decides; the model narrates. The threat model is internal: the
-lazy submitter and the disgruntled submitter.
+Product one-liner: ModuleWarden uses the Sybilion forecast to rank
+dependencies by growth and blast-radius trajectory; a deterministic
+delta-gate detects the known-bad and an agent acts on the verdict at
+submission time. The forecast prioritizes review; the gate detects and
+decides; the model narrates. The thing the forecast ranks is keyed off the
+version DELTA, not the cold package. The threat model is internal: the lazy
+submitter and the disgruntled submitter.
 
 ## Files
 
 - `track-reframes.md`: per-track framing. Sybilion FORECAST is the primary
   target; UNIQA and Infineon are demoted fallback reframes.
-- `underwriter-economics.md`: one-pager for the insurance application (a
-  downstream actor acting on the forecast). Anchors every number to NAIC
-  2024, Coalition MDR, Verizon DBIR 2024, Sonatype, and Munich Re reports.
-  Cited at the bottom.
-- `insurance-economics-slides.md`: two-slide insert (Slide A "the math, one
-  customer" and Slide B "why the carrier wins too") sized for 50 seconds of
-  speaker time. These are the agent-layer application slides.
+- `archive-insurance/underwriter-economics.md`: ARCHIVED one-pager for the
+  downstream insurance application. Not in the current deck. Anchors every
+  number to NAIC 2024, Coalition MDR, Verizon DBIR 2024, Sonatype, and
+  Munich Re reports. Cited at the bottom. Kept only as a Q&A fallback for a
+  commercial judge who presses on who buys this.
+- `archive-insurance/insurance-economics-slides.md`: ARCHIVED two-slide
+  insert (Slide A "the math, one customer" and Slide B "why the carrier
+  wins too"). These are NOT in the deck anymore; the live deck slides 6 and
+  7 are the trajectory-ranking slide and the honest-uncertainty slide.
 - `slide-deck.md`: 12-slide ModuleWarden deck. Lead is the forecast: a
   static classifier on the cold package floors at AUROC 0.54 on this corpus,
   so the signal is in the delta and the deterministic gate, not the model,
@@ -38,15 +41,18 @@ The deck is the submission artifact. Speaker rotation:
 - Slide 11 (eval methodology): held in reserve, only shown if a judge
   asks how the model numbers were generated.
 
-The insurance-economics slides (Slide A and Slide B in
-`insurance-economics-slides.md`) appear as slides 6 and 7 in the deck.
-Andreas presents both; total speaker time around 50 seconds.
+Deck slides 6 and 7 are the decision-11 slides: Slide 6 "Review by
+trajectory" (dependencies ranked by Sybilion forecast growth and band) and
+Slide 7 "Honest about uncertainty" (the negative result on detecting a
+dying or compromised package). The insurance-economics slides (Slide A and
+Slide B) now live in `archive-insurance/insurance-economics-slides.md` and
+are NOT in the deck; they are a Q&A fallback only.
 
 ## Citation provenance
 
-All economic claims trace back to public industry reports. See the
-"Sources cited" section at the bottom of `underwriter-economics.md` for
-the full list with URLs.
+All economic claims in the archived insurance fallback trace back to public
+industry reports. See the "Sources cited" section at the bottom of
+`archive-insurance/underwriter-economics.md` for the full list with URLs.
 
 The honest caveats section in the same file is load-bearing for the
 pitch: the 142k EUR baseline is illustrative (anchored to the Austrian

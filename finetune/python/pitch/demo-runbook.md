@@ -149,21 +149,26 @@ did."
 Click the "Risk portfolio" nav tab (`#risk-portfolio`). The five panels
 render:
 
-1. Portfolio summary: 250 monitored orgs, EUR portfolio at risk, 49 percent
-   weighted risk score
+1. Dependencies ranked by forecasted blast-radius trajectory: which deps
+   are climbing toward critical fastest across 250 monitored orgs
 2. Correlated exposure: 41 percent touched by 2026-class npm compromise
 3. Incident replays: 3 Postgres decision rows
-4. Avoided downside: expected loss drops EUR 9.02M to EUR 7.89M once the
-   gate adopts, waits, or avoids each install
+4. What the gate already caught: install deltas the deterministic gate
+   adopted, waited on, or blocked before they reached a build
 5. Insider risk panel: LLM-suggested installs caught in the last 30 days
+
+(The downstream-insurance view of this same data, expected loss avoided in
+EUR, lives in the archived insurance one-pager and is a one-line fallback
+only.)
 
 Say: "Most npm security stops the attacker outside the firewall. This
 stops the developer inside who let Copilot suggest a malicious package, or
 the contractor who pulled in an unchecked dependency. Same gate, same
 evidence, same Postgres lineage. Verizon DBIR puts 74 percent of breaches
-on the human element. This view is the forecast across a portfolio: which
-orgs carry the most supply-chain risk, and what the gate already caught
-before any of it became cost."
+on the human element. This view ranks dependencies by forecasted
+trajectory: which ones are climbing toward critical, so a reviewer vets
+them first, and what the gate already caught before any of it became a
+problem."
 
 ### Step 4: Replay the clean baseline (proves the gate is not just BLOCK)
 
@@ -223,16 +228,17 @@ Walk back to the slide deck. Andreas advances to the next slide.
 For when judges or sponsors walk up to the booth between rounds. Whoever
 is at the booth says this:
 
-"ModuleWarden forecasts the supply-chain risk of every npm install delta
-and acts on it at submission time. It is a self-hosted registry gate that
-produces an auditable decision history for every install. Postgres decision
-lineage, per-job Docker isolation with prompt secrecy, schema-versioned
-audit reports, admin overrides with full provenance. Every block produces a
-row a risk reviewer can pull up and read why the forecast acted. We replay
-three real incidents and prove the gate would have blocked the bad release
-without a denylist. Want to see it? I will block the September postmark-mcp
-incident on this laptop in 20 seconds, then open the Risk portfolio view
-that forecasts supply-chain risk across a whole org."
+"ModuleWarden's deterministic gate detects the known-bad on every install
+delta; the Sybilion forecast ranks which dependencies to review first by
+trajectory. It is a self-hosted registry gate that produces an auditable
+decision history for every install. Postgres decision lineage, per-job
+Docker isolation with prompt secrecy, schema-versioned audit reports, admin
+overrides with full provenance. Every block produces a row a risk reviewer
+can pull up and read why the gate acted. We replay three real incidents and
+prove the gate would have blocked the bad release without a denylist. Want
+to see it? I will block the September postmark-mcp incident on this laptop
+in 20 seconds, then open the Risk portfolio view that ranks org
+dependencies by forecasted trajectory."
 
 If they say yes, run steps 1 through 3 of the demo. If they say no, hand
 them a card with the URL and one line:
