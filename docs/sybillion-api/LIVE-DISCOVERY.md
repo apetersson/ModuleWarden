@@ -70,6 +70,19 @@ driver lake is built for commodity and macro series, not software adoption.
   `created_at` was null in the submit body, so read it from `GET /forecasts/:id`
   or `GET /jobs` for the timestamp.
 
+## Account correction (read this first)
+
+The numbers in the "stranded tail" and spend sections below were measured against
+a PERSONAL 50 EUR signup-trial account, reached via the stale `SYBILION_API_KEY`
+that was in `keys.txt`. That is NOT the hackathon account. The real hackathon
+account (a different key) holds a 10,000 EUR `hackathon_zero_one_2026` grant at
+tier 4 (verified live 2026-05-30, balance ~10,040 EUR, expires 2026-06-02).
+`keys.txt` has been repointed to the hackathon key. So the "91 percent used / hard
+floor" framing applies only to the depleted trial sub-account; the hackathon
+credit is effectively unlimited for this work, and the large forecast run happens
+on it. The hold-ceiling mechanic below is still a real API behavior, it just was
+not the real constraint.
+
 ## The credit has a stranded tail (the hold ceiling)
 
 You cannot spend trial credit down to zero on forecasts. `POST /forecasts`
