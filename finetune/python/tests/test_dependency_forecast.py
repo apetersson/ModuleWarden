@@ -13,6 +13,7 @@ import pytest
 from finetune.python.serving.dependency_forecast import (
     forecast_dependency_tree,
     parse_dependencies,
+    scan_depth_for_volatility,
     summarize,
 )
 
@@ -248,3 +249,103 @@ def test_summarize_risk_percentage_matches_result():
     # submission_risk 0.75 renders as 75.0 percent.
     assert "75.0 percent" in text
     assert math.isclose(result["submission_risk"], 0.75)
+
+
+# --- band-aware interval roll-up (#2) ------------------------------------
+
+
+def _band(low, high):
+    """Build a stub band function returning fixed (low, high) for every dep."""
+
+    def _bander(dep):
+        return (low, high)
+
+    return _bander
+
+
+def test_no_band_fn_interval_collapses_to_point():
+    deps = ["a@1", "b@1"]
+    result = forecast_dependency_tree(deps, _const_score(0.5))
+    interval = result["submission_risk_interval"]
+    # With no band, low == high == point and width is zero.
+    assert interval["low"] == pytest.approx(result["submission_risk"])
+    assert interval["high"] == pytest.approx(result["submission_risk"])
+    assert interval["width"] == pytest.approx(0.0)
+    assert result["high_volatility"] == []
+
+
+def test_band_fn_produces_interval_around_point():
+    deps = ["a@1", "b@1"]
+    result = forecast_dependency_tree(
+        deps, _const_score(0.5), band_fn=_band(0.4, 0.6)
+    )
+    interval = result["submission_risk_interval"]
+    # low roll-up: 1 - 0.6*0.6 = 0.64 ; high: 1 - 0.4*0.4 = 0.84.
+    assert interval["low"] == pytest.approx(0.64)
+    assert interval["high"] == pytest.approx(0.84)
+    assert interval["width"] == pytest.approx(0.20)
+    assert interval["low"] <= result["submission_risk"] <= interval["high"]
+
+
+def test_wide_band_dep_routes_to_human():
+    deps = ["calm@1", "noisy@1"]
+    # calm has a tight band, noisy a band wider than the 0.30 default.
+    def bander(dep):
+        return (0.1, 0.15) if dep["name"] == "calm" else (0.1, 0.7)
+
+    result = forecast_dependency_tree(deps, _const_score(0.2), band_fn=bander)
+    routed = {e["name"] for e in result["high_volatility"]}
+    assert routed == {"noisy"}
+    by_name = {e["name"]: e for e in result["per_dep"]}
+    assert by_name["noisy"]["route_to_human"] is True
+    assert by_name["calm"]["route_to_human"] is False
+
+
+def test_band_point_pulled_inside_band():
+    # Point 0.9 but band says (0.1, 0.2); the point must stay inside its band.
+    deps = ["x@1"]
+    result = forecast_dependency_tree(deps, _const_score(0.9), band_fn=_band(0.1, 0.2))
+    entry = result["per_dep"][0]
+    assert entry["p_low"] <= entry["probability"] <= entry["p_high"]
+    assert entry["p_high"] == pytest.approx(0.9)
+
+
+def test_band_fn_that_raises_degrades_to_point():
+    def bad_band(dep):
+        raise RuntimeError("flaky band")
+
+    deps = ["x@1"]
+    result = forecast_dependency_tree(deps, _const_score(0.3), band_fn=bad_band)
+    entry = result["per_dep"][0]
+    assert entry["p_low"] == pytest.approx(0.3)
+    assert entry["p_high"] == pytest.approx(0.3)
+
+
+def test_summarize_mentions_band_and_routing():
+    deps = ["a@1", "b@1"]
+    result = forecast_dependency_tree(deps, _const_score(0.5), band_fn=_band(0.1, 0.8))
+    text = summarize(result)
+    assert "forecast band" in text
+    assert "route" in text
+
+
+# --- scan_depth_for_volatility (#5) --------------------------------------
+
+
+def test_scan_depth_levels():
+    assert scan_depth_for_volatility(0.05)["depth"] == "shallow"
+    assert scan_depth_for_volatility(0.15)["depth"] == "standard"
+    assert scan_depth_for_volatility(0.40)["depth"] == "deep"
+
+
+def test_scan_depth_multiplier_orders():
+    shallow = scan_depth_for_volatility(0.01)["scan_multiplier"]
+    standard = scan_depth_for_volatility(0.15)["scan_multiplier"]
+    deep = scan_depth_for_volatility(0.50)["scan_multiplier"]
+    assert shallow < standard < deep
+
+
+def test_scan_depth_bad_input_falls_back_to_standard():
+    assert scan_depth_for_volatility(float("nan"))["depth"] == "standard"
+    assert scan_depth_for_volatility(-1.0)["depth"] == "standard"
+    assert scan_depth_for_volatility("junk")["depth"] == "standard"
