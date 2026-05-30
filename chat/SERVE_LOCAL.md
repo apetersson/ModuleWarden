@@ -1,9 +1,9 @@
 # Flip the live-model badge green for rehearsal
 
-The chat narrates the underwriting verdict with a live model when a model
+The chat narrates the risk-review verdict with a live model when a model
 endpoint is configured. The verdict itself is always pinned by the
 deterministic gate plus the audit report; the model only puts it in
-underwriter language. That means ANY OpenAI-compatible endpoint makes the
+risk-review language. That means ANY OpenAI-compatible endpoint makes the
 badge green and the demo stays safe, because the model can never change the
 verdict (a test asserts this).
 

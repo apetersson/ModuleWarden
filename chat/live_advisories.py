@@ -1,7 +1,7 @@
 """Live advisory lookups for arbitrary npm packages (read-only, metadata only).
 
 Turns the "I have no dossier for that package" shrug into a real answer: when
-an underwriter types any package name, hit two authoritative live sources and
+a risk reviewer types any package name, hit two authoritative live sources and
 report what they say.
 
   - GitHub Advisory Database (GHSA) REST API: reviewed + malware advisories
@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-_UA = "ModuleWarden-UnderwriterAssistant/0.1 (+https://github.com/apetersson/ModuleWarden)"
+_UA = "ModuleWarden-RiskReviewAssistant/0.1 (+https://github.com/apetersson/ModuleWarden)"
 _GHSA_API = "https://api.github.com/advisories"
 _OSSF_CONTENTS = "https://api.github.com/repos/ossf/malicious-packages/contents/osv/malicious/npm/"
 

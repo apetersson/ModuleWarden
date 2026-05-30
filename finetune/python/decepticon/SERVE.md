@@ -110,11 +110,17 @@ pre-cache).
 Model: `huihui-ai/Huihui-Qwen3.6-27B-abliterated`, the chosen pre-abliterated
 checkpoint per CLAUDE.md (Apache 2.0, bf16). Decepticon and the auditor share it.
 
-1. Deploy vLLM with the abliterated checkpoint:
+1. Deploy vLLM with the abliterated checkpoint. The model is already pre-staged in
+   each account's scratch, so point at the local path (not the repo id) to avoid a
+   re-download through the proxy on the compute node:
 
-    MW_VLLM_MODEL=huihui-ai/Huihui-Qwen3.6-27B-abliterated \
+    MW_VLLM_MODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated \
     MW_VLLM_MODEL_NAME=qwen3.6-27b-abliterated \
     sbatch scripts/leonardo/slurm-vllm.sh
+
+   (Pre-staged at `/leonardo_scratch/large/usertrain/<user>/models/huihui-qwen3.6-27b-abliterated`
+   for both a08trc01 and a08trc02. To re-fetch: `fetch-models.sh --decepticon-bf16`
+   on the login node, or `huggingface-cli download huihui-ai/Huihui-Qwen3.6-27B-abliterated --local-dir $SCRATCH/models/huihui-qwen3.6-27b-abliterated`.)
 
 2. Find the node and open the tunnel (localhost:8081 maps to node:8000):
 

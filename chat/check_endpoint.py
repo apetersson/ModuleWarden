@@ -25,7 +25,7 @@ def main() -> int:
     if cfg is None:
         print("DETERMINISTIC MODE - no model endpoint configured.")
         print("  The chat renders the exact Control Evidence Memo (real verdict,")
-        print("  tier, exclusion, evidence). This is demo-safe and offline.")
+        print("  tier, decision, evidence). This is demo-safe and offline.")
         print("  To enable live narration, set MW_MODEL_ENDPOINT_BASE_URL")
         print("  (+ _API_KEY / _MODEL) or OPENAI_*. See chat/SERVE_LOCAL.md.")
         return 0

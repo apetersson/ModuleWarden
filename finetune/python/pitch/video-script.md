@@ -60,7 +60,7 @@ deterministic policy engine handles 80 percent and is the verdict authority.
 Our fine-tuned auditor produces the audit report for the rest, running in an
 isolated container with prompt secrecy. DeepSeek V3 is the second opinion on the QUARANTINE
 band. Every decision lands in Postgres with prompt version, model profile,
-and supersedes pointer. Underwriting-grade evidence."
+and supersedes pointer. An auditable decision history for every install."
 
 **Music:** Builds.
 
@@ -92,12 +92,13 @@ Same response whether the install came from CI, a developer, or Copilot."
 **Visual:** Three-up:
 1. SecLens-R 4-arm eval matrix from `finetune/python/eval/results/` with
    the actual Saturday training numbers.
-2. The admin dashboard's Underwriter tab showing the portfolio impact view.
+2. The admin dashboard's Risk portfolio tab showing the supply-chain risk
+   forecast across the portfolio.
 3. URL bar: `github.com/apetersson/ModuleWarden`.
 
 **Narrator:** "Trained on Leonardo. Sixty-four A100s. Held-out catch rate
-plus the underwriter view that drops into a UNIQA cyber-insurance claim
-file. Open source. Live now."
+plus the risk portfolio view that forecasts supply-chain risk across a
+whole org. Open source. Live now."
 
 **Music:** Drops out.
 
@@ -114,8 +115,8 @@ github.com/apetersson/ModuleWarden
 
 Logo (a hexagonal shield with a stop sign inside) fades in below the URL.
 
-**Narrator:** "ModuleWarden. The twelfth section of your underwriting
-questionnaire."
+**Narrator:** "ModuleWarden. Forecast the supply-chain risk, then act on
+it, before it becomes cost."
 
 **Music:** One final low bass note. Silence.
 
@@ -133,7 +134,7 @@ questionnaire."
   the production environment.
 - The architecture diagram (0:20 to 0:32). Draw it once in Excalidraw or
   tldraw, screen-record the draw, then trim.
-- The eval numbers and underwriter view (0:45 to 0:55). Run the eval
+- The eval numbers and risk portfolio view (0:45 to 0:55). Run the eval
   matrix Saturday afternoon, screenshot the dashboard panels.
 
 **What we do NOT record on demo night:**

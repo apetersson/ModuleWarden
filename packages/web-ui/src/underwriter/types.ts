@@ -1,21 +1,22 @@
 /**
- * Underwriter view shared types.
+ * Risk portfolio view shared types.
  *
  * Mock data lives in `mockData.ts` (sourced from `mock/portfolio-250.json`).
  * In a follow-up wiring pass these shapes are returned by
- * `GET /admin/underwriter/portfolio` per the existing checkAdmin pattern.
+ * `GET /admin/risk-portfolio/portfolio` per the existing checkAdmin pattern.
  */
 
-export interface InsurerRow {
-  insurer_id: string;
+export interface OrganizationRow {
+  org_id: string;
   name: string;
   sector: 'manufacturing' | 'finance' | 'healthcare' | 'retail' | 'hospitality' | 'services';
-  gross_premium_eur: number;
-  loss_ratio: number;
+  annual_contract_value_eur: number;
+  /** Forecast supply-chain risk, 0 (clean) to 1 (high). */
+  risk_score: number;
   region: string;
-  tail_exposure_eur: number;
-  /** True if the insurer touched the 2026-class npm compromise scenario. */
-  exposed_to_scenario: boolean;
+  potential_breach_cost_eur: number;
+  /** True if the org was touched by the 2026-class npm compromise scenario. */
+  touched_by_scenario: boolean;
 }
 
 export interface IncidentRow {
@@ -31,12 +32,10 @@ export interface IncidentRow {
   timestamp: string;
 }
 
-export interface PricingRow {
+export interface RiskDeltaRow {
   scenario: 'pre_modulewarden' | 'post_modulewarden';
-  premium_eur: number;
   expected_loss_eur: number;
-  loss_ratio: number;
-  control_credit_pct: number;
+  risk_score: number;
 }
 
 export interface InsiderInstallTrigger {
@@ -47,9 +46,9 @@ export interface InsiderInstallTrigger {
 }
 
 export interface PortfolioKPIs {
-  total_insureds: number;
-  total_gwp_eur: number;
-  weighted_loss_ratio: number;
-  exposed_count: number;
-  exposed_pct: number;
+  total_orgs: number;
+  total_potential_breach_cost_eur: number;
+  weighted_risk_score: number;
+  touched_count: number;
+  touched_pct: number;
 }
