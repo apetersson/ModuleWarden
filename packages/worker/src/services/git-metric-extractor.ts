@@ -323,6 +323,9 @@ export class GitMetricExtractor {
     // Handle git+https://, git://, etc.
     let cleaned = url.replace(/^git\+/, '').replace(/\.git$/, '');
 
+    // Normalize git:// protocol to https:// (GitHub disabled git:// in 2022)
+    cleaned = cleaned.replace(/^git:\/\//, 'https://');
+
     // Handle GitHub shorthand: "owner/repo"
     if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(cleaned)) {
       cleaned = `https://github.com/${cleaned}`;
