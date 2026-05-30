@@ -49,8 +49,12 @@ MODEL_CACHE="${SCRATCH_DIR}/models"
 LOG_DIR="${SCRATCH_DIR}/vllm-logs"
 mkdir -p "${MODEL_CACHE}" "${LOG_DIR}"
 
-# Point to the model directory (binded into container at /model)
-MODEL_DIR="${SCRATCH_DIR}/models/huihui-qwen3.6-27b-abliterated"
+# Point to the model directory (binded into container at /model). Prefer the shared
+# de-duplicated copy in $WORK (survives the 40-day scratch purge, read by both project
+# accounts); fall back to the per-user scratch copy. Override with MW_MODEL_DIR.
+WORK_MODELS="/leonardo_work/EUHPC_D30_031/models"
+MODEL_DIR="${MW_MODEL_DIR:-${WORK_MODELS}/huihui-qwen3.6-27b-abliterated}"
+[ -d "${MODEL_DIR}" ] || MODEL_DIR="${SCRATCH_DIR}/models/huihui-qwen3.6-27b-abliterated"
 MODEL_NAME="${MW_VLLM_MODEL_NAME:-huihui-qwen3.6-27b-abliterated}"
 PORT="${MW_VLLM_PORT:-8000}"
 HOST="${MW_VLLM_HOST:-0.0.0.0}"
