@@ -1,0 +1,25 @@
+# ── ModuleWarden · Website CI (runs on gitlab.capacity.at) ─
+# Push to glab → CI builds & pushes image to registry.capacity.at
+# On server3: docker pull registry.capacity.at/andreas/modulewarden/website:latest
+
+stages:
+  - build
+
+variables:
+  REGISTRY: registry.capacity.at
+  IMAGE_NAME: $REGISTRY/andreas/modulewarden/website
+
+website:build:
+  stage: build
+  image: docker:27-dind
+  services:
+    - docker:27-dind
+  rules:
+    - changes:
+        - website/**/*
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHA website/
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHA
+    - docker tag $IMAGE_NAME:$CI_COMMIT_SHA $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:latest
