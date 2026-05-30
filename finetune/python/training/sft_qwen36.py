@@ -14,7 +14,8 @@ Key differences from sft_lora.py:
   - trl 1.x: SFTConfig + SFTTrainer(processing_class=...) (not tokenizer=)
 
 Env: MWMODEL (local model dir), MWCORPUS (sft-records jsonl), MWOUT (adapter out),
-MW_EPOCHS (default 2), MW_MAX_STEPS (optional cap for a smoke), MW_MAX_LEN (2048).
+MW_EPOCHS (default 2), MW_MAX_STEPS (optional cap for a smoke), MW_MAX_LEN (2048),
+MW_LORA_R (16), MW_LORA_ALPHA (32), MW_LORA_DROPOUT (0.05), MW_GRAD_ACCUM (8).
 """
 import json
 import os
@@ -29,6 +30,10 @@ OUT = os.environ.get("MWOUT", os.path.join(os.environ.get("SCRATCH", "/tmp"), "q
 EPOCHS = float(os.environ.get("MW_EPOCHS", "2"))
 MAX_STEPS = int(os.environ.get("MW_MAX_STEPS", "-1"))
 MAX_LEN = int(os.environ.get("MW_MAX_LEN", "2048"))
+LORA_R = int(os.environ.get("MW_LORA_R", "16"))
+LORA_ALPHA = int(os.environ.get("MW_LORA_ALPHA", "32"))
+LORA_DROPOUT = float(os.environ.get("MW_LORA_DROPOUT", "0.05"))
+GRAD_ACCUM = int(os.environ.get("MW_GRAD_ACCUM", "8"))
 
 
 def log(m):
@@ -68,8 +73,8 @@ def main():
     log("LoRA")
     from peft import LoraConfig, get_peft_model
     model = get_peft_model(model, LoraConfig(
-        r=16, lora_alpha=32, lora_dropout=0.05, task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        r=LORA_R, lora_alpha=LORA_ALPHA, lora_dropout=LORA_DROPOUT, task_type="CAUSAL_LM",
+        target_modules="all-linear",
     ))
     model.print_trainable_parameters()
 
@@ -92,7 +97,7 @@ def main():
     log("SFTTrainer (trl 1.x)")
     from trl import SFTConfig, SFTTrainer
     args = SFTConfig(
-        output_dir=OUT, per_device_train_batch_size=1, gradient_accumulation_steps=8,
+        output_dir=OUT, per_device_train_batch_size=1, gradient_accumulation_steps=GRAD_ACCUM,
         num_train_epochs=EPOCHS, max_steps=MAX_STEPS, learning_rate=2e-4,
         logging_steps=5, bf16=True, report_to=[], max_length=MAX_LEN,
         save_strategy="epoch", gradient_checkpointing=True, warmup_ratio=0.03,
