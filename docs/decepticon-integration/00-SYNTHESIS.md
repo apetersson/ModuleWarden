@@ -2,7 +2,7 @@
 
 Five agents (tech architecture, track fit, competitive, demo/exec, model
 training) analyzed how to integrate the Decepticon red-team framework into
-ModuleWarden for Zero-One Hack Track 02. Full per-agent docs: 01-05 in this
+ModuleWarden for the Zero-One Hack Sybilion FORECAST track. Full per-agent docs: 01-05 in this
 folder. This file is the consolidation plus the "are you sure" second pass.
 
 ## The premise correction (read first)
@@ -70,7 +70,7 @@ TIER 1 - build now, safe, no execution, no new deps (~5-8h):
   ordered ATT&CK kill chain (tactic, technique id, technique name,
   procedure). Pure Python.
 - wire into the report/chat: inject the kill chain into the pinned evidence
-  so the underwriter memo and the model narration cite technique ids.
+  so the evidence memo and the model narration cite technique ids.
 - `demo/`: a static ATT&CK replay step that degrades gracefully (mirror the
   existing optional-proxy pattern in `safe_demo.sh`); no Decepticon process.
 - honest framing edits to the deck/site: "MITRE ATT&CK kill-chain mapping",
@@ -91,8 +91,8 @@ Neo4j, executing any npm tarball or the attack-catalog injection templates.
 ## Competitive line (honest version)
 
 "ModuleWarden is the only supply-chain gate that produces offense-validated,
-MITRE ATT&CK-mapped attack-chain evidence - the artifact a cyber underwriter
-can price, not just a score they have to trust." Socket/Snyk/Sonatype do not
+MITRE ATT&CK-mapped attack-chain evidence - the artifact a security team can
+act on, not just a score they have to trust." Socket/Snyk/Sonatype do not
 close the offense/defend loop for npm packages; Snyk's offensive product
 (Evo) covers first-party app code, not third-party packages. The claim rests
 on mapping + the quarantine workflow, never on live-executing malware.

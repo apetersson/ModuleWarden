@@ -16,7 +16,7 @@ The gate runs 5 deterministic rules: release-age >= 14 days, install-script bloc
 
 ### Chat: the agent layer that acts on the forecast
 
-`chat/app.py` is a Streamlit underwriter (plus a CLI) that answers package questions in plain language with the gate verdict pinned. It talks to any OpenAI-compatible endpoint via `MW_MODEL_ENDPOINT_BASE_URL/_API_KEY/_MODEL` or `OPENAI_*`, and falls back to a deterministic Control Evidence Memo when no endpoint is set, so the demo never goes dark. A judge can type any package name and get a grounded answer.
+`chat/app.py` is a Streamlit conversational agent (plus a CLI) that answers package questions in plain language with the gate verdict pinned. It talks to any OpenAI-compatible endpoint via `MW_MODEL_ENDPOINT_BASE_URL/_API_KEY/_MODEL` or `OPENAI_*`, and falls back to a deterministic Control Evidence Memo when no endpoint is set, so the demo never goes dark. A judge can type any package name and get a grounded answer.
 
 ### Three injection-defense layers
 
@@ -34,7 +34,7 @@ The adaptive thesis: the model is fine-tuned once, but layers 2 and 3 update wit
 
 ### Live GHSA / OSSF advisory hook
 
-`chat/live_advisories.py` does read-only string lookups against GHSA and OSSF advisories, gated by `MW_LIVE_ADVISORIES=1`. This lets the underwriter answer for any package a judge types, not just the ones we pre-loaded.
+`chat/live_advisories.py` does read-only string lookups against GHSA and OSSF advisories, gated by `MW_LIVE_ADVISORIES=1`. This lets the conversational agent answer for any package a judge types, not just the ones we pre-loaded.
 
 ### Production packages/ monorepo
 
@@ -64,7 +64,7 @@ Everything underneath is green. 69 tests pass (`python -m pytest finetune/python
 
 All commands run from the repo root. Secrets live in `~/keys.txt` and the `.env` template only - never commit them. Set `GITHUB_TOKEN`, `MW_MODEL_ENDPOINT_*` (or `OPENAI_*`), and the vast.ai key from those sources before running.
 
-Chat demo. Launch the conversational underwriter, then verify the live-model badge lights up.
+Chat demo. Launch the conversational agent, then verify the live-model badge lights up.
 
 ```bash
 streamlit run chat/app.py

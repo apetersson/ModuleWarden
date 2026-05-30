@@ -184,10 +184,24 @@ def narrate_attack_chain(kill_chain: dict, *, package: str | None = None) -> str
     change it. Raises ModelEndpointError if no GGUF endpoint is configured (the
     caller decides whether to fall back to the deterministic chain text).
     """
+    technique_ids = kill_chain.get("technique_ids") or []
+    if not technique_ids:
+        # The gate flagged a capability the deterministic mapper does not cover, so no
+        # technique is pinned. Do NOT send an empty chain to the model -- it could
+        # invent techniques, breaking the pin-only contract. Return a deterministic
+        # line; the gate verdict stands on its own. (Surfaced by red-teaming the gate
+        # with Decepticon: an uncovered capability yields an empty chain, and an empty
+        # chain handed to the model is the one place "never invent" could fail.)
+        suffix = f" for {package}" if package else ""
+        return (
+            f"No MITRE ATT&CK techniques are pinned{suffix}: the deterministic mapper "
+            "found no covered capability in the flagged signals, so there is no kill "
+            "chain to narrate. The gate verdict stands without a narrated chain."
+        )
     pinned = {
         "package": package,
         "chain": kill_chain.get("chain"),
-        "technique_ids": kill_chain.get("technique_ids"),
+        "technique_ids": technique_ids,
         "steps": kill_chain.get("steps"),
     }
     user_msg = (
@@ -197,4 +211,8 @@ def narrate_attack_chain(kill_chain: dict, *, package: str | None = None) -> str
     return complete(
         system_prompt=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
+        # heretic-v2 reasons before it answers (chain-of-thought first, final answer
+        # after). The 700-token default is eaten by reasoning and content comes back
+        # empty; give the narrative real headroom so it lands in content.
+        max_tokens=4000,
     )

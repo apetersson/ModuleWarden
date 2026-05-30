@@ -89,3 +89,13 @@ def test_narrate_attack_chain_raises_when_unconfigured(monkeypatch):
     chain = {"chain": "Initial Access -> Exfiltration", "technique_ids": ["T1195.002", "T1041"], "steps": []}
     with pytest.raises(mc.ModelEndpointError):
         mc.narrate_attack_chain(chain, package="evil-pkg@1.2.3")
+
+
+def test_narrate_empty_chain_returns_deterministic_without_model(monkeypatch):
+    # An empty pinned chain (gate flagged a capability the mapper does not cover) must
+    # NOT reach the model, which could invent techniques. It returns a deterministic
+    # line even with no endpoint configured, proving it short-circuits before the call.
+    _clear_env(monkeypatch)
+    out = mc.narrate_attack_chain({"technique_ids": [], "steps": [], "chain": ""}, package="evil-pkg@9.9.9")
+    assert "No MITRE ATT&CK techniques are pinned" in out
+    assert "evil-pkg@9.9.9" in out

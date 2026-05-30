@@ -37,5 +37,5 @@ RESOLVED:
 
 REMAINING:
 - Coordinate job submission and shared $WORK writes between a08trc01 and a08trc02 (one project, one 25-node reservation, shared pool).
-- SECURITY: the proxy credential removed in bc7e9a2 still lives in the public-repo git history. Flag for rotation, or accept it as a time-boxed internal proxy. Decision needed.
+- SECURITY: the proxy credential removed in bc7e9a2 still lives in the git history. The repo is PRIVATE (verified: gh api isPrivate=true), so it is contained to collaborators, not publicly exposed. Recommendation: rotate after the hackathon as hygiene; accept the contained risk during it. (Corrected from an earlier "public-repo" note.)
 <!-- SECTION:NOTES:END -->
