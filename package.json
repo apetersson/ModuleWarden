@@ -15,6 +15,7 @@
     "dev:ui": "pnpm --filter @modulewarden/web-ui dev",
     "dev": "docker compose up -d && echo 'Services started'",
     "start:openai": "cp .env.openai .env && bash scripts/bring-up.sh --skip-tunnel-check",
+    "start:deepseek": "cp .env.deepseek .env && bash scripts/bring-up.sh --skip-tunnel-check",
     "start:leonardo": "cp .env.leonardo .env && bash scripts/bring-up.sh",
     "stop": "docker compose down",
     "generate": "pnpm --filter @modulewarden/prisma-client generate",
