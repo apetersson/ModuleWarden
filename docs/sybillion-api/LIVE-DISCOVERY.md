@@ -70,6 +70,17 @@ driver lake is built for commodity and macro series, not software adoption.
   `created_at` was null in the submit body, so read it from `GET /forecasts/:id`
   or `GET /jobs` for the timestamp.
 
+## The credit has a stranded tail (the hold ceiling)
+
+You cannot spend trial credit down to zero on forecasts. `POST /forecasts`
+reserves a worst-case HOLD of up to 5.00 EUR before running, and if
+`available_eur_cents` is below that ceiling the submit is rejected with `402
+Payment Required`, even though the actual settle would be ~1 EUR. We hit this at
+4.57 EUR remaining: four 12-month-horizon forecasts all returned 402. So the
+last ~5 EUR of a trial grant is stranded behind the per-forecast hold until a
+top-up lifts the balance back over the ceiling. We used 45.43 of the 50 EUR
+grant (about 91 percent); the remainder is locked, not unspent by choice.
+
 ## Spend this session
 
 About 5.20 EUR of trial credit (4.85 of it the one drivers call, 0.35 the
