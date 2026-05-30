@@ -21,12 +21,23 @@ dependencies = [
 
 [project.optional-dependencies]
 training = [
+    # transformers 4.46 / trl 0.12 path for the text Qwen2.5 models (sft_lora.py)
     "torch>=2.3",
     "transformers>=4.45",
     "accelerate>=0.34",
     "datasets>=2.20",
     "peft>=0.13",
     "trl>=0.11",
+]
+training-qwen36 = [
+    # Qwen3.6 (qwen3_5 VLM) path, validated on Leonardo 4x A100 (sft_qwen36.py).
+    # needs torch>=2.6 (a torch-2.6 container) for transformers 5.9; bf16, no bnb.
+    "torch>=2.6",
+    "transformers==5.9.0",
+    "trl==1.5.1",
+    "peft==0.19.1",
+    "accelerate==1.13.0",
+    "datasets==4.8.5",
 ]
 eval = [
     "torch>=2.3",
