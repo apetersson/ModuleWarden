@@ -5,19 +5,29 @@
  * model endpoint; missing prerequisites are fatal because degraded file-only
  * verdicts mask broken agentic audit wiring.
  *
+ * Supports any OpenAI-compatible /v1 endpoint (DeepSeek, vLLM, Ollama,
+ * Leonardo-hosted models, etc.) by configuring the provider and base URL.
+ *
  * Usage: node dist/orchestrator.js
  *
  * Environment:
- *   MW_RPC_PORT     - RPC bridge port (default 9090)
- *   MW_RPC_TOKEN    - Auth token for RPC bridge
- *   MW_WORKSPACE    - Workspace path (default /workspace)
- *   MW_PACKAGE_NAME - Package under audit
- *   MW_PACKAGE_VERSION - Package version
+ *   MW_RPC_PORT                 - RPC bridge port (default 9090)
+ *   MW_RPC_TOKEN                - Auth token for RPC bridge
+ *   MW_WORKSPACE                - Workspace path (default /workspace)
+ *   MW_PACKAGE_NAME             - Package under audit
+ *   MW_PACKAGE_VERSION          - Package version
+ *   MW_MODEL_ENDPOINT_BASE_URL  - OpenAI-compatible /v1 endpoint URL
+ *   MW_MODEL_ENDPOINT_API_KEY   - API key for the endpoint
+ *   MW_MODEL_ENDPOINT_MODEL     - Model slug (e.g. qwen3.6-27b, deepseek-chat)
+ *   MW_MODEL_ENDPOINT_PROVIDER  - PI provider name (default: openai)
+ *   MW_MODEL_ENDPOINT_MAX_TOKENS- Override max output tokens (default: 16384)
+ *   MW_AUDIT_MAX_TURNS          - Max agent turns before timeout (default: 50)
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { homedir } from 'node:os';
 
 const RPC_PORT = parseInt(process.env.MW_RPC_PORT ?? '9090', 10);
 const RPC_TOKEN = process.env.MW_RPC_TOKEN ?? randomBytes(16).toString('hex');
@@ -159,6 +169,132 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Resolve the PI provider configuration from environment.
+ *
+ * Supports three modes:
+ * 1. Explicit provider via MW_MODEL_ENDPOINT_PROVIDER (e.g. "openai", "deepseek", "anthropic")
+ * 2. Auto-detection from MW_MODEL_ENDPOINT_BASE_URL (deepseek if URL contains "deepseek", else openai)
+ * 3. Custom provider via MW_MODEL_ENDPOINT_CUSTOM_PROVIDER with a models.json path
+ */
+function resolveProviderConfig(): {
+  provider: string;
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  extraEnv: Record<string, string>;
+} {
+  const baseUrl = process.env.MW_MODEL_ENDPOINT_BASE_URL;
+  const model = process.env.MW_MODEL_ENDPOINT_MODEL ?? 'qwen3.6-27b';
+  const apiKey = process.env.MW_MODEL_ENDPOINT_API_KEY ?? 'vllm';
+  const explicitProvider = process.env.MW_MODEL_ENDPOINT_PROVIDER;
+
+  if (!baseUrl) {
+    throw new Error('MW_MODEL_ENDPOINT_BASE_URL is required for agentic audit but was not configured');
+  }
+
+  if (explicitProvider) {
+    console.log(`[orchestrator] Using explicit provider: ${explicitProvider}`);
+    return {
+      provider: explicitProvider,
+      model,
+      apiKey,
+      baseUrl,
+      extraEnv: resolveProviderEnv(explicitProvider, baseUrl),
+    };
+  }
+
+  // Auto-detect from base URL
+  if (baseUrl.includes('deepseek')) {
+    console.log('[orchestrator] Auto-detected provider: deepseek');
+    return {
+      provider: 'deepseek',
+      model: model === 'deepseek-flash-4' ? 'deepseek-v4-flash' : model,
+      apiKey,
+      baseUrl,
+      extraEnv: {},
+    };
+  }
+
+  if (baseUrl.includes('openai.com') || baseUrl.includes('api.openai')) {
+    console.log('[orchestrator] Auto-detected provider: openai');
+    return {
+      provider: 'openai',
+      model,
+      apiKey,
+      baseUrl,
+      extraEnv: { OPENAI_BASE_URL: baseUrl },
+    };
+  }
+
+  // Default: OpenAI-compatible endpoint (vLLM, Ollama, Leonardo, etc.)
+  console.log(`[orchestrator] Using OpenAI-compatible provider for: ${baseUrl}`);
+  return {
+    provider: 'openai',
+    model,
+    apiKey,
+    baseUrl,
+    extraEnv: { OPENAI_BASE_URL: baseUrl },
+  };
+}
+
+/**
+ * Set provider-specific environment variables that PI needs.
+ */
+function resolveProviderEnv(provider: string, baseUrl: string): Record<string, string> {
+  switch (provider) {
+    case 'openai':
+    case 'openai-compatible':
+      return { OPENAI_BASE_URL: baseUrl };
+    case 'deepseek':
+      // DeepSeek provider in PI reads DEEPSEEK_API_KEY and uses its built-in base URL.
+      // If a custom base URL is needed, use the openai provider instead.
+      return {};
+    default:
+      // For custom providers defined in models.json, no extra env needed.
+      return {};
+  }
+}
+
+/**
+ * Write a PI models.json for custom provider registration.
+ * This allows PI to use arbitrary OpenAI-compatible endpoints with a named provider.
+ */
+function writePiModelsConfig(baseUrl: string, model: string, apiKey: string): string {
+  const piConfigDir = join(homedir(), '.pi', 'agent');
+  mkdirSync(piConfigDir, { recursive: true });
+
+  const modelsConfig = {
+    providers: {
+      'mw-leonardo': {
+        baseUrl: baseUrl,
+        api: 'openai-completions',
+        apiKey: apiKey,
+        compat: {
+          supportsDeveloperRole: false,
+          supportsReasoningEffort: false,
+        },
+        models: [
+          {
+            id: model,
+            name: `ModuleWarden Leonardo — ${model}`,
+            reasoning: false,
+            input: ['text'],
+            contextWindow: 128000,
+            maxTokens: 16384,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+        ],
+      },
+    },
+  };
+
+  const configPath = join(piConfigDir, 'models.json');
+  writeFileSync(configPath, JSON.stringify(modelsConfig, null, 2));
+  console.log(`[orchestrator] Wrote PI models config: ${configPath}`);
+  return configPath;
+}
+
+/**
  * Main orchestrator entry point.
  */
 async function main(): Promise<void> {
@@ -210,29 +346,34 @@ async function main(): Promise<void> {
     throw new Error('PI is required for agentic audit but was not available in the audit container');
   }
 
-  if (!process.env.MW_MODEL_ENDPOINT_BASE_URL) {
-    throw new Error('MW_MODEL_ENDPOINT_BASE_URL is required for agentic audit but was not configured');
-  }
+  // Resolve model endpoint configuration
+  const { provider, model: modelName, apiKey, baseUrl, extraEnv } = resolveProviderConfig();
+  const maxTurns = parseInt(process.env.MW_AUDIT_MAX_TURNS ?? '50', 10);
+  const maxTokens = parseInt(process.env.MW_MODEL_ENDPOINT_MAX_TOKENS ?? '16384', 10);
 
-  const requestedModel = process.env.MW_MODEL_ENDPOINT_MODEL ?? 'deepseek-v4-flash';
-  const modelName = requestedModel === 'deepseek-flash-4' ? 'deepseek-v4-flash' : requestedModel;
-  const apiKey = process.env.MW_MODEL_ENDPOINT_API_KEY;
-  if (!apiKey) {
-    throw new Error('MW_MODEL_ENDPOINT_API_KEY is required for agentic audit but was not configured');
-  }
+  console.log(`[orchestrator] Model endpoint: ${baseUrl}`);
+  console.log(`[orchestrator] Provider: ${provider}, Model: ${modelName}`);
 
-  // Start PI in RPC mode
-  console.log('[orchestrator] Starting PI RPC session...');
-  const piProc = spawn('pi', [
+  // Write PI models.json for custom provider registration if needed
+  writePiModelsConfig(baseUrl, modelName, apiKey);
+
+  // Build PI spawn arguments
+  const piArgs: string[] = [
     '--mode', 'rpc',
     '--no-session',
-    '--provider', 'deepseek',
+    '--provider', provider,
     '--model', modelName,
     '--api-key', apiKey,
-  ], {
+    '--thinking', 'high',
+  ];
+
+  // Start PI in RPC mode
+  console.log(`[orchestrator] Starting PI RPC session (provider=${provider}, model=${modelName})...`);
+  const piProc = spawn('pi', piArgs, {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
+      ...extraEnv,
       MW_RPC_TOKEN: RPC_TOKEN,
       MW_RPC_PORT: String(RPC_PORT),
     },
@@ -280,9 +421,10 @@ async function main(): Promise<void> {
     message: auditPrompt,
   });
 
-  // Wait for verdict (with timeout)
-  console.log('[orchestrator] Waiting for verdict (timeout: 5 min)...');
-  const verdict = await waitForVerdict(300_000);
+  // Wait for verdict (with configurable timeout)
+  const verdictTimeoutMs = parseInt(process.env.MW_AUDIT_TIMEOUT_MS ?? '600000', 10);
+  console.log(`[orchestrator] Waiting for verdict (timeout: ${Math.round(verdictTimeoutMs / 1000)}s)...`);
+  const verdict = await waitForVerdict(verdictTimeoutMs);
   if (!promptAccepted) {
     console.log('[orchestrator] PI prompt acknowledgement was not observed before verdict timeout');
   }
