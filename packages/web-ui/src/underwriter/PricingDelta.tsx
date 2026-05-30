@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
-import { pricingRows } from './mockData';
+import { riskDeltaRows } from './mockData';
 
 const cardStyle: React.CSSProperties = {
   background: '#1e293b',
@@ -30,17 +30,22 @@ const captionStyle: React.CSSProperties = {
 };
 
 export function PricingDelta() {
-  const data = pricingRows.map((row) => ({
-    name: row.scenario === 'pre_modulewarden' ? 'Pre' : 'Post',
-    expected_loss_M: row.expected_loss_eur / 1_000_000,
-    premium_K: row.premium_eur / 1000,
+  const data = riskDeltaRows.map((row) => ({
+    name: row.scenario === 'pre_modulewarden' ? 'Before gate' : 'After gate',
+    avoided_loss_M: row.expected_loss_eur / 1_000_000,
+    risk_pct: row.risk_score * 100,
     fill: row.scenario === 'pre_modulewarden' ? '#ef4444' : '#22c55e',
   }));
 
+  const before = riskDeltaRows.find((r) => r.scenario === 'pre_modulewarden');
+  const after = riskDeltaRows.find((r) => r.scenario === 'post_modulewarden');
+  const avoidedM =
+    before && after ? (before.expected_loss_eur - after.expected_loss_eur) / 1_000_000 : 0;
+
   return (
     <div style={cardStyle}>
-      <div style={headerStyle}>Pricing delta</div>
-      <div style={titleStyle}>Expected loss, before vs after</div>
+      <div style={headerStyle}>Risk reduction</div>
+      <div style={titleStyle}>Avoided downside, before vs after gating</div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 16, right: 16, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="#334155" />
@@ -51,9 +56,9 @@ export function PricingDelta() {
             contentStyle={{ background: '#0f172a', border: '1px solid #334155' }}
             formatter={(value: number) => `EUR ${value.toFixed(2)}M`}
           />
-          <Bar dataKey="expected_loss_M" fill="#94a3b8">
+          <Bar dataKey="avoided_loss_M" fill="#94a3b8">
             <LabelList
-              dataKey="expected_loss_M"
+              dataKey="avoided_loss_M"
               position="top"
               formatter={(label: number) => `EUR ${label.toFixed(2)}M`}
               style={{ fill: '#f1f5f9', fontSize: 12, fontWeight: 600 }}
@@ -62,8 +67,8 @@ export function PricingDelta() {
         </BarChart>
       </ResponsiveContainer>
       <p style={captionStyle}>
-        Premium drops EUR 142K to EUR 121K. Expected loss drops EUR 9.02M to EUR 7.89M.
-        Coalition 12.5 percent MDR control credit applied; loss ratio improves 49 percent to 28.5 percent.
+        Expected loss drops EUR 9.02M to EUR 7.89M once the gate adopts, waits, or avoids each install.
+        That is EUR {avoidedM.toFixed(2)}M of avoided downside. Forecast risk improves 49 percent to 28.5 percent.
       </p>
     </div>
   );

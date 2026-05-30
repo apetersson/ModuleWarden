@@ -31,9 +31,9 @@ and a fix-by time.
   returns the api-proxy health payload
 - [ ] Dashboard boots: `cd packages/web-ui && pnpm dev` then visit
   `http://localhost:5173`. All 6 nav tabs (Dashboard, Queue, Prompts,
-  Campaigns, Evaluation, Underwriter) render without console errors.
-- [ ] Underwriter view loads. Verify all 5 panels render with mock
-  portfolio data.
+  Campaigns, Evaluation, Risk portfolio) render without console errors.
+- [ ] Risk portfolio view loads (`#risk-portfolio`). Verify all 5 panels
+  render with mock portfolio data.
 - [ ] All three offline incidents run:
   `python -m demo.run_incident_replay --list` then replay each.
 - [ ] Fresh Control Evidence Memo exists at

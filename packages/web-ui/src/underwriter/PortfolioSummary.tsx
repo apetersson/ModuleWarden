@@ -59,28 +59,28 @@ export function PortfolioSummary() {
   return (
     <div style={cardStyle}>
       <div style={headerStyle}>Portfolio summary</div>
-      <div style={titleStyle}>Austrian SME tech-heavy cyber book</div>
+      <div style={titleStyle}>Austrian SME tech-heavy portfolio</div>
       <div style={kpiGrid}>
         <div>
-          <div style={metricLabel}>Insureds</div>
-          <div style={metricValue}>{kpis.total_insureds}</div>
+          <div style={metricLabel}>Monitored orgs</div>
+          <div style={metricValue}>{kpis.total_orgs}</div>
         </div>
         <div>
-          <div style={metricLabel}>Gross written premium</div>
+          <div style={metricLabel}>Portfolio at risk</div>
           <div style={metricValue}>
-            EUR {fmtEur(kpis.total_gwp_eur)}
-            <span style={metricUnit}>/yr</span>
+            EUR {fmtEur(kpis.total_potential_breach_cost_eur)}
+            <span style={metricUnit}>downside</span>
           </div>
         </div>
         <div>
-          <div style={metricLabel}>Weighted loss ratio</div>
-          <div style={metricValue}>{(kpis.weighted_loss_ratio * 100).toFixed(1)}%</div>
+          <div style={metricLabel}>Weighted risk score</div>
+          <div style={metricValue}>{(kpis.weighted_risk_score * 100).toFixed(1)}%</div>
         </div>
         <div>
           <div style={metricLabel}>Touched by scenario</div>
           <div style={metricValue}>
-            {kpis.exposed_count}
-            <span style={metricUnit}>({(kpis.exposed_pct * 100).toFixed(0)}%)</span>
+            {kpis.touched_count}
+            <span style={metricUnit}>({(kpis.touched_pct * 100).toFixed(0)}%)</span>
           </div>
         </div>
       </div>

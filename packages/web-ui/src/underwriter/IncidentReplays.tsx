@@ -50,16 +50,23 @@ function verdictColor(verdict: string) {
   return '#22c55e';
 }
 
+/** User-facing forecast-decision labels for the underlying gate verdicts. */
+const VERDICT_LABEL: Record<string, string> = {
+  BLOCK: 'AVOID',
+  QUARANTINE: 'WATCH',
+  ALLOW: 'ADOPT',
+};
+
 export function IncidentReplays() {
   return (
     <div style={cardStyle}>
-      <div style={headerStyle}>Incident replays</div>
+      <div style={headerStyle}>Decision history</div>
       <div style={titleStyle}>Live Postgres decision rows</div>
       <table style={tableStyle}>
         <thead>
           <tr>
             <th style={thStyle}>Package</th>
-            <th style={thStyle}>Verdict</th>
+            <th style={thStyle}>Decision</th>
             <th style={thStyle}>MDR</th>
             <th style={thStyle}>Evidence</th>
             <th style={thStyle}>Prompt</th>
@@ -72,7 +79,7 @@ export function IncidentReplays() {
                 <code>{row.package}@{row.version}</code>
               </td>
               <td style={{ ...tdStyle, color: verdictColor(row.verdict), fontWeight: 600 }}>
-                {row.verdict}
+                {VERDICT_LABEL[row.verdict] ?? row.verdict}
               </td>
               <td style={tdStyle}>{row.mdr_qualifying ? 'Yes' : 'No'}</td>
               <td style={tdStyle}>{row.evidence_ref_count} refs</td>
