@@ -30,6 +30,24 @@ volume (the blast-radius proxy). Every number is from a real forecast response
 - The backtest MAPE is real and varies, 7.6 percent (chalk) to 27.9 percent
   (date-fns). We show the spread; the gate, not the forecast, owns the verdict.
 
+## Unfittable is itself a signal (from the Decepticon red-team)
+
+The sharpest objection is the explosive-climber blind spot: if the forecast
+fails on the steepest-growth packages, the ranking misses exactly the
+dependencies with the fastest-rising blast radius. The honest answer is not to
+hide them, it is to treat the failure as information. A package the forecast
+cannot even fit (zod's ~440,000x range) is, by that fact, volatile enough to
+deserve immediate review. So a forecast-unfittable package is not dropped from
+the queue, it is promoted to a hard-priority "route to the gate plus a human
+now" tier. The forecast failing to fit a package is a top-priority flag, not a
+gap. This keeps the thesis intact: the forecast prioritizes what it can fit, and
+its own failure prioritizes the rest.
+
+The other red-team points we concede plainly: this is a prototype run of six
+packages, not a validated ranking against review yield, and the log-volume
+weight is there to stop a giant from masking a mid-tier climber, not as a proven
+optimum. The band width is the signal we act on, wide band routes to a human.
+
 ## Honest notes
 
 - Cost: six forecasts in this set, about 6.89 EUR of trial credit, balance 12.40
