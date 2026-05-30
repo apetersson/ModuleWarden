@@ -10,26 +10,33 @@ only comes out if a judge asks about model methodology.
 
 This deck targets the Zero-One Hack FORECAST track, partner Sybilion:
 probabilistic forecasting and the agent layer that acts on it. The product
-one-liner: ModuleWarden forecasts the probability that a dependency a
-developer is about to pull into the company codebase is a supply-chain
-attack vector, and an agent acts on it at submission time. The threat model
-is internal: the lazy submitter who pulls an unaudited package because
-Copilot suggested it, and the disgruntled submitter who slips a poisoned
-version into a PR on purpose.
+one-liner: ModuleWarden uses the Sybilion forecast to RANK a team's
+dependencies by forecasted growth and blast-radius trajectory, so a security
+team reviews the ones climbing toward critical first, while they are still
+small enough to vet. The deterministic gate is the detector; the forecast
+sets the review order. The threat model is internal: the lazy submitter who
+pulls an unaudited package because Copilot suggested it, and the disgruntled
+submitter who slips a poisoned version into a PR on purpose.
 
 The deck is structured around ModuleWarden v2: an agentic version-DELTA
-gate for npm dependencies. The thing we forecast is the change between the
-version already in the lockfile and the version the developer just asked
-for, not the cold package. Every install routes through the registry proxy;
-every gate decision pairs an `AuditDossier` (deterministic evidence) with an
-`AuditReport` (model narration + cited findings + a probability); every allow
-is scoped to the exact tarball hash. The deterministic DELTA-gate is the
-verdict authority; the fine-tuned auditor model narrates the forecast, it
-never decides. That split is forced by the data: a static classifier on the
-cold package floors at AUROC 0.54 on this corpus, so the signal is in the
-delta and the gate, not the model, holds authority. The story is the gate as
-a verifiable, attestable forecasting control with an agent acting on the
-forecast, not any single model.
+gate for npm dependencies. The Sybilion forecast does one job: it ranks a
+team's dependencies by forecasted growth and blast-radius trajectory, so the
+review queue starts with the ones climbing toward critical. The forecast does
+NOT detect danger and does NOT output an attack-vector probability. The gate
+detects, on its own deterministic rules, by diffing the version already in the
+lockfile against the version the developer just asked for. Every install routes
+through the registry proxy; every gate decision pairs an `AuditDossier`
+(deterministic evidence) with an `AuditReport` (model narration + cited
+findings); every allow is scoped to the exact tarball hash. The deterministic
+DELTA-gate is the verdict authority; the fine-tuned auditor model narrates the
+evidence, it never decides. That split is forced by the data: a static
+classifier on the cold package floors at AUROC 0.54 on this corpus, so the
+signal is in the delta and the gate, not the model, holds authority. And we
+concede a second measured limit honestly: we tested whether the forecast can
+detect a dying or dangerous package directly, it cannot, and we show the data.
+The story is the gate as a verifiable, attestable detection control, with the
+forecast setting the review order and an agent acting on the verdict, not any
+single model.
 
 ---
 
@@ -44,17 +51,19 @@ event-stream in 2018, ua-parser-js in 2021, the eslint-scope
 compromise, the Lottiefiles incident. The pattern is the same: trusted
 maintainer, one bad version, thousands of installs in the window
 between push and patch. And most of the time, the install request
-comes from inside the firewall. That is the threat model we forecast
+comes from inside the firewall. That is the threat model we work
 against: the lazy submitter who asked Copilot for a CSV parser and got
 three unaudited packages, and the disgruntled submitter who slips a
 poisoned version into a PR on purpose. So we frame it as a forecasting
-problem. A developer is about to pull a dependency version into the
-company codebase. Forecast the probability that this specific version
-delta is a supply-chain attack vector, then have an agent act on the
-forecast before the tarball lands. Verizon DBIR puts 74 percent of
-breaches on the human element. AI-assisted coding amplifies the insider
-vector. ModuleWarden forecasts at the submission boundary and acts on
-the forecast."
+problem, but not the obvious one. The question worth forecasting is which
+of your hundreds of dependencies is about to become that load-bearing
+package nobody questions. We rank them by forecasted growth and the
+trajectory of their blast radius, so the security team reviews the ones
+climbing toward critical first, while they are still small enough to vet.
+The gate detects the known-bad on its own rules; the forecast sets the
+order. Verizon DBIR puts 74 percent of breaches on the human element.
+AI-assisted coding amplifies the insider vector. ModuleWarden catches the
+next critical package on the way up and acts at the submission boundary."
 
 **Visual:** Timeline. X-axis: 2018 to 2026. Each named incident as a
 labeled dot, sized by estimated affected installs. postmark-mcp on the
@@ -72,8 +81,9 @@ right with a red ring around it.
   insider vector
 - Internal threat model: the lazy submitter (unaudited Copilot suggestion)
   and the disgruntled submitter (deliberate poisoned PR)
-- The decision is a submit-time forecast: probability the version delta is
-  an attack vector, then an agent acts on it before the tarball lands
+- The forecast ranks dependencies by forecasted growth and blast-radius
+  trajectory, so the team reviews the rising-critical ones first; the gate
+  detects and an agent acts on the verdict before the tarball lands
 
 **Judges' question this answers:** "Why does this problem matter right now?"
 
@@ -82,17 +92,18 @@ right with a red ring around it.
 ## Slide 2 - Three classes of supply-chain risk
 
 **Speaker note:** "Most tools answer 'is this package vulnerable?' after
-the install. ModuleWarden forecasts 'should this install happen at all?'
-before the tarball reaches a developer machine. Here is the honest finding
-that shaped the whole architecture. We trained a static classifier on the
+the install. ModuleWarden's gate answers 'should this install happen at all?'
+before the tarball reaches a developer machine, and the forecast tells the
+team which packages to put in front of that gate first. Here is the honest
+finding that shaped the detection side. We trained a static classifier on the
 cold package, the way you would expect, and it floors at AUROC 0.54 on this
 corpus. That is barely above a coin flip. The reason is the benchmark setup:
 benign is the first-patched release of the same package, so the classifier
 has to separate a malicious version from its own clean sibling on cold
 features alone. That is hard on purpose, and it is the point. The signal is
-not in the cold package. The signal is in the DELTA between versions. So we
-forecast the delta, and the deterministic delta-gate, not the model, holds
-verdict authority. The decisions still split into three classes. Class A:
+not in the cold package. The signal is in the DELTA between versions. So the
+deterministic delta-gate detects on the delta, and the gate, not the model,
+holds verdict authority. The decisions still split into three classes. Class A:
 compromised maintainer publishes a malicious version of a legitimate
 package. Class B: a CVE-style vulnerability ships in an upgraded version.
 Class C: a brand-new package with no predecessor to diff against. Each class
@@ -107,7 +118,7 @@ verdict (block / quarantine / quarantine).
 
 **Bullets:**
 - Honest finding: a static classifier on the COLD package floors at AUROC
-  0.54 on this corpus. This is WHY we forecast the delta, not the package.
+  0.54 on this corpus. This is WHY the gate detects on the delta, not the package.
 - Class A: compromised maintainer, lifecycle script hijack, exfil pattern
 - Class B: CVE-introducing or CVE-fixing diff between two real versions
 - Class C: cold-start package with no predecessor for diffing
@@ -121,7 +132,7 @@ verdict (block / quarantine / quarantine).
 ## Slide 3 - Architecture
 
 **Speaker note:** "Three layers, one architecture, and the agent acts on
-the forecast at the end. Top layer: the deterministic 5-rule delta-gate
+the gate verdict at the end. Top layer: the deterministic 5-rule delta-gate
 handles roughly 80 percent of decisions with zero LLM involvement. Release
 age, lifecycle script triage, SRI checksum, source-match, allowlist. Free
 and fast. This is the verdict authority. The gate decides; the model
@@ -129,8 +140,8 @@ narrates. We do not let the model decide, because on the held-out severe
 cases the model's block-recall is 0 percent, so the deterministic gate has
 to hold authority. Middle layer: our fine-tuned auditor model runs the
 remaining 20 percent inside a per-job Docker container with run-scoped RPC
-tokens and prompt secrecy guaranteed. It produces the narrated forecast and
-a probability, never a binding verdict. The audit container never sees DB credentials, Verdaccio
+tokens and prompt secrecy guaranteed. It produces the narrated evidence
+report, never a binding verdict. The audit container never sees DB credentials, Verdaccio
 credentials, or the audit prompts; the client never sees the prompts
 either. Bottom layer: DeepSeek V3 hosted is consulted as a second
 opinion on QUARANTINE-band decisions only, about 5 percent of total.
@@ -138,7 +149,7 @@ When the two models disagree, the supersedes pointer captures the
 escalation and routes to admin override. This is the reinsurance
 pattern: primary writes the policy, secondary provides the second
 opinion on borderline cases. Self-hosted, on-premise, no SaaS round
-trip on the primary path. And the agent layer acts on the forecast at
+trip on the primary path. And the agent layer acts on the gate verdict at
 submission time: block, quarantine to admin review, or admit with an
 evidence memo."
 
@@ -428,28 +439,29 @@ are not overfit?"
 ## Slide 12 - Ask
 
 **Speaker note:** "Three asks. First, a forecasting research collaboration
-with Sybilion. Our delta-gate is a tractable instance of submit-time risk
-forecasting with an agent acting on the forecast, and the honest signal is
-in the delta, not the cold object (which floors at AUROC 0.54 here). We want
-to take the forecasting methodology to the harder surfaces in your domain.
-Second, a structured 6-to-8 week pilot with a downstream actor who acts on
-the forecast: a cyber underwriting team on a defined cohort of
-software-reliant insureds, with explicit KPIs: block precision, override
+with Sybilion. Your forecast already separates a rising dependency from a
+fading one, which is what lets us rank by trajectory. The security-native
+drivers, the signals that tell software adoption apart from commodity demand,
+that is the new surface to build together; your driver lake came back
+commodity and macro for npm. We want to take that ranking signal to the
+harder dependency surfaces in your domain. Second, a structured 6-to-8 week
+pilot with a downstream actor: a cyber underwriting team on a defined cohort
+of software-reliant insureds, with explicit KPIs: block precision, override
 burden, evidence usefulness for underwriting review, and feasibility of
 attaching control language to a renewal questionnaire. This is the worked
-application of acting on the forecast. Third, outcome-based pilot funding or
-compute support tied to scaling the model on block-recall, the metric that
-matters and the one the 27B Leonardo run earns. None of this is generic.
-Each ask is what we need to turn ModuleWarden from a hackathon prototype
-into a production submit-time forecasting control with an agent acting on
-the forecast."
+application of acting on the gate verdict and the memo. Third, outcome-based
+pilot funding or compute support tied to scaling the model on block-recall,
+the metric that matters and the one the 27B Leonardo run earns. None of this
+is generic. Each ask is what we need to turn ModuleWarden from a hackathon
+prototype into a production submit-time detection control, with the forecast
+ranking the review queue and an agent acting on the verdict."
 
 **Visual:** Three icons with one-line asks underneath. Handshake (pilot),
 clipboard (product partnership), gears (outcome funding).
 
 **Bullets:**
-- Forecasting research collaboration: take the delta-gate methodology to
-  Sybilion's harder forecasting surfaces
+- Forecasting research collaboration: build software-ecosystem drivers so the
+  trajectory ranking sharpens past the commodity/macro driver lake
 - Structured 6-8 week pilot with a downstream actor (cyber underwriting);
   explicit KPIs; paid if scoped against measurable outcomes
 - Outcome-based pilot funding or compute support, tied to scaling the model
