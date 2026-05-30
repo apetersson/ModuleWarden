@@ -29,6 +29,28 @@ export async function fetchUpstreamPackument(packageName: string): Promise<NpmPa
 }
 
 /**
+ * Fetch the FULL (unabbreviated) packument from upstream npm.
+ * The abbreviated format (application/vnd.npm.install-v1+json) omits
+ * metadata fields like repository, homepage, license needed for git
+ * metric extraction.
+ */
+export async function fetchUpstreamPackumentFull(packageName: string): Promise<NpmPackument | null> {
+  try {
+    const response = await fetch(`${NPM_REGISTRY}/${encodeURIComponent(packageName)}`);
+
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Upstream registry returned ${response.status} for ${packageName}`);
+    }
+
+    return (await response.json()) as NpmPackument;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to fetch upstream packument for ${packageName}: ${message}`, { cause: err });
+  }
+}
+
+/**
  * Fetch a tarball from the upstream npm registry.
  * Returns the raw response for streaming to the client or Verdaccio.
  */

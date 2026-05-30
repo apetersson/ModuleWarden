@@ -1,7 +1,7 @@
 import { getPrisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
 import { logger } from '@modulewarden/shared/services/logger';
-import { fetchUpstreamPackument, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
+import { fetchUpstreamPackument, fetchUpstreamPackumentFull, fetchUpstreamTarball } from '@modulewarden/shared/services/upstream';
 import type { JobQueue } from '../jobs/queue.js';
 import { ContainerRunner, type ContainerInputs } from '../services/container-runner.js';
 import { assembleAuditInstructions, buildContainerInstructionFile } from '../services/prompt-pack.js';
@@ -164,7 +164,7 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
 
     // 4. Extract git metrics if not already cached (best-effort, non-blocking)
     try {
-      const packument = await fetchUpstreamPackument(packageName);
+      const packument = await fetchUpstreamPackumentFull(packageName);
       const repoField = (packument as Record<string, unknown> | null)?.repository as { url?: string } | undefined;
       const versionRepo = (packument?.versions?.[packageVersion] as Record<string, unknown> | undefined)?.repository as { url?: string } | undefined;
       const repoUrl = repoField?.url ?? versionRepo?.url ?? null;
