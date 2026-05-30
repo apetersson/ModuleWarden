@@ -106,7 +106,9 @@ inference; the launcher also prints wall clock including the Slurm queue + alloc
 Account-agnostic, paths derive from `$SCRATCH`. On a fresh account the decepticon path
 self-bootstraps: the launcher clones llama.cpp and a cmake on the login node, and the
 first run builds llama.cpp on the GPU node (about 10 min, one-time, then cached). The
-auditor path uses the fine-tune env, so run `prep-qwen36.slurm` once first.
+auditor path also self-bootstraps: on first use the launcher builds a small dedicated
+transformers venv (`mw-audit-venv`) in a serial job, kept separate from the fine-tune
+env (`mwenv57b`) so it is not disturbed by training jobs that rebuild that env.
 
 Measured on a08trc01 (1x A100-64GB): decepticon (heretic-v2 GGUF) loads in about 5.7s
 and the auditor (huihui bf16) in about 25s; both answer a short prompt in well under a

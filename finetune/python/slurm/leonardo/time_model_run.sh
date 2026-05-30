@@ -73,13 +73,18 @@ if [ "$MODEL" = decepticon ]; then
   LOAD=$(sub "$T0" "$T1"); INFER=$(sub "$T1" "$T2"); TOTAL=$(sub "$T0" "$T2")
 
 elif [ "$MODEL" = auditor ]; then
-  # huihui-Qwen3.6-27B-abliterated bf16 loaded via transformers (the fine-tune env)
-  VENV=$SCRATCH/mwenv57b/bin/python
+  # huihui-Qwen3.6-27B-abliterated bf16 via transformers. Prefer the dedicated stable
+  # venv (mw-audit-venv); fall back to the fine-tune env (mwenv57b) only if that is the
+  # only one present. mwenv57b gets rebuilt by other jobs and flickers, so it is not
+  # the first choice for a reliable timing run.
   SIF=$SCRATCH/pytorch57.sif
-  if [ ! -x "$VENV" ] || [ ! -f "$SIF" ]; then
-    echo "auditor path needs the fine-tune env (pytorch57.sif + mwenv57b)."
-    echo "Run the prep job once first:  sbatch finetune/python/slurm/leonardo/prep-qwen36.slurm"
-    echo "(the decepticon path needs none of this and self-builds.)"
+  VENV=""
+  [ -f "$SCRATCH/mw-audit-venv/pyvenv.cfg" ] && VENV=$SCRATCH/mw-audit-venv/bin/python
+  [ -z "$VENV" ] && [ -e "$SCRATCH/mwenv57b/bin/python" ] && VENV=$SCRATCH/mwenv57b/bin/python
+  if [ ! -f "$SIF" ] || [ -z "$VENV" ]; then
+    echo "auditor needs a transformers env. Build the dedicated stable one once (~3 min):"
+    echo "    sbatch finetune/python/slurm/leonardo/audit_venv_prep.slurm"
+    echo "(or wait for your fine-tune env mwenv57b to settle). decepticon needs none of this."
     exit 1
   fi
   export TM_PROMPT="$PROMPT" TM_MAXTOK="$MAXTOK" MWMODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated
