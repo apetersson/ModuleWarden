@@ -92,6 +92,16 @@ Each beat below is one shot.
 
 ---
 
+## Beat 8b - The review queue, at scale
+
+| Field | Content |
+|---|---|
+| SECTION | The forecast, at scale |
+| ON-SCREEN / VISUAL | A ranked table of 46 npm packages by blast radius. Two rows pulse: semver and minimatch, both about 2.5 billion downloads a month. semver's forecast band is narrow, tagged auto-clear; minimatch's is wide, tagged route to a human. A counter reads 18 to a reviewer, 28 cleared, one live run. |
+| VOICEOVER | We ran it live across 46 packages. semver and minimatch are the same size, about 2.5 billion downloads a month each. The forecast still separates them. semver's band is tight, so it auto-clears. minimatch's is wide, so a human looks at it. Eighteen routed to a reviewer, twenty-eight cleared themselves. Same blast radius, the forecast decides who gets your attention. |
+
+---
+
 ## Beat 9 - The honesty beat
 
 | Field | Content |

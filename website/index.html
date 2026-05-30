@@ -321,7 +321,11 @@
         </tbody>
       </table>
     </div>
-    <p class="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">Four of six route to a human because the forecast band is wider than the median: it prioritizes, it does not pretend precision. And when the forecast cannot fit a package at all, like an explosive climber spanning five orders of magnitude, that failure is itself a hard-priority signal: the package routes straight to the gate plus a human, it is not dropped. The deterministic gate still owns the verdict. Reproducible with <a href="https://github.com/apetersson/ModuleWarden/blob/main/demo/forecast_review_queue.py" class="underline text-emerald-300 hover:text-emerald-200">forecast_review_queue.py</a>; full table in <a href="https://github.com/apetersson/ModuleWarden/blob/main/docs/sybillion-api/REVIEW-QUEUE.md" class="underline text-emerald-300 hover:text-emerald-200">REVIEW-QUEUE.md</a>.</p>
+    <p class="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">Several route to a human because the forecast band is wider than the median: it prioritizes, it does not pretend precision. The deterministic gate still owns the verdict. Reproducible with <a href="https://github.com/apetersson/ModuleWarden/blob/main/demo/forecast_review_queue.py" class="underline text-emerald-300 hover:text-emerald-200">forecast_review_queue.py</a>; full table in <a href="https://github.com/apetersson/ModuleWarden/blob/main/docs/sybillion-api/REVIEW-QUEUE.md" class="underline text-emerald-300 hover:text-emerald-200">REVIEW-QUEUE.md</a>.</p>
+    <div class="mt-8 rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-6">
+      <p class="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-3 mono">Scaled to 46 packages, live</p>
+      <p class="text-slate-300 leading-relaxed">The sharpest case at scale: <span class="font-semibold text-slate-100">semver</span> and <span class="font-semibold text-slate-100">minimatch</span> are both about 2.5 billion downloads a month, the same blast radius. The forecast separates them anyway. semver's band is tight, 97 percent, so it auto-clears; minimatch's is wide, 160 percent, so it routes to a human. Same size, the forecast does the triage. Across all 46, eighteen routed to a reviewer and twenty-eight cleared themselves, on one live run of about 105 euros of Sybilion budget.</p>
+    </div>
   </div>
 </section>
 
