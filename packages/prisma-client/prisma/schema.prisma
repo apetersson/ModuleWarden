@@ -516,3 +516,22 @@ enum AuditStepStatus {
   QUARANTINED
   FAILED
 }
+
+// ── Git Metric Cache ──────────────────────────────────────────────
+// Caches git-history metrics extracted by the worker per package version.
+// Each row holds a complete monthly time series for one metric type.
+// The audit container reads these cached series instead of re-extracting.
+
+model GitMetricCache {
+  id             String   @id @default(uuid())
+  packageName    String
+  packageVersion String
+  metricType     String   // "commits" | "contributors" | "code_quality" | "downloads"
+  timeseries     Json     // { "YYYY-MM-01": number, ... }
+  repoUrl        String?
+  commitCount    Int?
+  extractedAt    DateTime @default(now())
+
+  @@unique([packageName, packageVersion, metricType])
+  @@index([packageName, packageVersion])
+}
