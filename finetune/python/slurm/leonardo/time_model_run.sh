@@ -29,14 +29,23 @@ if [ -z "${SLURM_JOB_ID:-}" ]; then
 fi
 
 if [ "$MODEL" = decepticon ]; then
-  # heretic-v2 qwen35 GGUF served by a source-built llama.cpp (native CUDA 12.2, sm_80)
-  GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+  # heretic-v2 qwen35 GGUF served by a source-built llama.cpp (native CUDA 12.2, sm_80).
+  # Prefer the shared de-duplicated $WORK copy (survives the 40-day scratch purge, read
+  # by both project accounts); fall back to per-user scratch.
+  GGUF=/leonardo_work/EUHPC_D30_031/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+  [ -f "$GGUF" ] || GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
   SRC=$SCRATCH/llama.cpp-src
   BIN=$SRC/build/bin/llama-server
+  # gcc/12.2.0 module is the supported CUDA 12.2 host compiler (filesystem in libstdc++);
+  # fall back to system g++ if absent, and add -lstdc++fs only when the host gcc is < 9.
+  module load gcc/12.2.0 2>/dev/null || true
   CUROOT=/leonardo/prod/opt/compilers/cuda/12.2/none      # matches the A100 driver (CUDA 12.2)
+  export CUDAToolkit_ROOT=$CUROOT CUDACXX=$CUROOT/bin/nvcc
   export PATH=$CUROOT/bin:${SCRATCH}/cmake/bin:$PATH
   export LD_LIBRARY_PATH=$CUROOT/lib64:${LD_LIBRARY_PATH:-}
   CMAKE=$SCRATCH/cmake/bin/cmake; [ -x "$CMAKE" ] || CMAKE=cmake
+  HOSTCXX=$(command -v g++); GCCMAJ=$("$HOSTCXX" -dumpversion 2>/dev/null | cut -d. -f1)
+  STDFS=""; [ "${GCCMAJ:-0}" -lt 9 ] && STDFS="-DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs"
 
   # one-time build (untimed): native sm_80 SASS so the 12.2 driver never JITs PTX,
   # and latest source so the qwen35 hybrid-SSM arch builds. gcc 8.5 needs -lstdc++fs.
@@ -47,8 +56,8 @@ if [ "$MODEL" = decepticon ]; then
     cd "$SRC" || exit 1
     "$CMAKE" -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF \
         -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DLLAMA_BUILD_TESTS=OFF \
-        -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
-        -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs 2>&1 | tail -3 || { echo "cmake config failed"; exit 1; }
+        -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DCMAKE_CUDA_HOST_COMPILER="$HOSTCXX" \
+        $STDFS 2>&1 | tail -3 || { echo "cmake config failed"; exit 1; }
     "$CMAKE" --build build --config Release -j "${SLURM_CPUS_PER_TASK:-16}" --target llama-server 2>&1 | grep --line-buffered -E "%\]|error|Error" | tail -40
     [ -x "$BIN" ] || { echo "BUILD FAILED"; exit 1; }
     echo ">>> build done, cached at $BIN"
@@ -87,7 +96,10 @@ elif [ "$MODEL" = auditor ]; then
     echo "(or wait for your fine-tune env mwenv57b to settle). decepticon needs none of this."
     exit 1
   fi
-  export TM_PROMPT="$PROMPT" TM_MAXTOK="$MAXTOK" MWMODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated
+  # prefer the shared $WORK copy of the auditor bf16; fall back to per-user scratch
+  MWMODEL=/leonardo_work/EUHPC_D30_031/models/huihui-qwen3.6-27b-abliterated
+  [ -d "$MWMODEL" ] || MWMODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated
+  export TM_PROMPT="$PROMPT" TM_MAXTOK="$MAXTOK" MWMODEL
   OUT=$(singularity exec --nv --bind "$SCRATCH" "$SIF" "$VENV" - 2>&1 <<'PY'
 import os, time, torch
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM

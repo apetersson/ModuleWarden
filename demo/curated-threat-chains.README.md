@@ -17,8 +17,8 @@ Provenance and honesty:
   and NOT a live Decepticon engagement. Nothing here was executed.
 - The deterministic verdict authority remains the gate
   (`finetune/python/decepticon/mapper.py` maps live capability signals to
-  ATT&CK). This file is curated demo narrative for famous packages, used to
-  enrich the underwriter story, not to source a verdict.
+  ATT&CK). This file is curated demo narrative for famous packages, used for
+  blast-radius / loss-path enrichment, not to source a verdict.
 
 Source: ported from an early apiary-starter scaffold during the 2026-05-29
 decoy cleanup; the scaffold itself was retired (it kept misleading analysis

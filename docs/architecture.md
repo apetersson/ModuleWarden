@@ -241,7 +241,7 @@ baselines are established.
 ┌─────────────────────────────────────────────────────┐
 │          Model Endpoint Operator (Trusted)           │
 │                                                      │
-│  OpenAI-compatible API (local or external H100)      │
+│  OpenAI-compatible API (local or Leonardo A100)      │
 │  Receives prompts as part of inference               │
 │  Prompts not protected from this operator in v1     │
 └─────────────────────────────────────────────────────┘
@@ -417,7 +417,7 @@ npm/pnpm/yarn client
         ▼
 ┌──────────────────────────────┐
 │  OpenAI-compatible endpoint   │
-│  (local or external H100)     │
+│  (local or Leonardo A100)     │
 └──────────────────────────────┘
 ```
 
