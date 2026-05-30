@@ -38,18 +38,16 @@ volume (the blast-radius proxy). Every number is from a real forecast response
   series) to 27.9 percent (date-fns, volatile). We show the spread rather than
   the best case; the gate, not the forecast, owns the verdict.
 
-## Unfittable is itself a signal (from the Decepticon red-team)
+## Correction: there is no explosive-climber blind spot
 
-The sharpest objection is the explosive-climber blind spot: if the forecast
-fails on the steepest-growth packages, the ranking misses exactly the
-dependencies with the fastest-rising blast radius. The honest answer is not to
-hide them, it is to treat the failure as information. A package the forecast
-cannot even fit (zod's ~440,000x range) is, by that fact, volatile enough to
-deserve immediate review. So a forecast-unfittable package is not dropped from
-the queue, it is promoted to a hard-priority "route to the gate plus a human
-now" tier. The forecast failing to fit a package is a top-priority flag, not a
-gap. This keeps the thesis intact: the forecast prioritizes what it can fit, and
-its own failure prioritizes the rest.
+An earlier version of this doc claimed the forecast "cannot fit" explosive
+climbers (zod's ~440,000x range) and reframed that failure as a hard-priority
+signal. That was wrong. The failures were artifacts of a broken setup: a tier-0
+trial account plus extraction bugs in the feeder. On the real tier-4 hackathon
+account with the fixed extraction, forecasts succeed at roughly 98 percent
+(48 of 49 in a live batch), and the steep climbers fit fine. So the "unfittable
+is a signal" reframe is withdrawn. The forecast does not drop the fast-growing
+packages; it ranks them like any other.
 
 The other red-team points we concede plainly: this is a prototype run of six
 packages, not a validated ranking against review yield, and the log-volume
