@@ -322,7 +322,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queueProvider
         promptPackVersion?: string;
       };
     }>('/verdict', async (request, reply) => {
-      const { verdict, riskSummary, scores, piSessionId } = normalizeVerdictBody(request.body as Record<string, unknown>);
+      const { verdict, riskSummary, scores, piSessionId, promptPackVersion } = normalizeVerdictBody(request.body as Record<string, unknown>);
       if (!verdict) return reply.status(400).send({ error: 'Missing verdict' });
 
       const prisma = getPrisma();
@@ -355,6 +355,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queueProvider
           reasonSummary: riskSummary,
           actorType: 'AGENT',
           piSessionId: piSessionId ?? null,
+          promptVersion: promptPackVersion ?? null,
           scores: scores,
         },
         select: { id: true },

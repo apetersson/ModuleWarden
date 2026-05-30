@@ -22,7 +22,7 @@
  *   MW_MODEL_ENDPOINT_PROVIDER  - Endpoint/provider label (default: mw-leonardo for OpenAI-compatible endpoints)
  *   MW_MODEL_ENDPOINT_MAX_TOKENS- Override max output tokens (default: 2048)
  */
-import { appendFileSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { AuditVerdict, RpcToolResult } from '@modulewarden/shared/services/rpc-tools';
@@ -591,6 +591,18 @@ async function main(): Promise<void> {
   }
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  // Write initial-prompt.md for dashboard prompt-provenance tracking.
+  // Extract the provenance header from instructions.md (everything before
+  // the first "## " section heading, which is the prompt-pack content).
+  const instructionsPath = join(WORKSPACE, 'instructions.md');
+  if (existsSync(instructionsPath)) {
+    const instructions = readFileSync(instructionsPath, 'utf-8');
+    const contentBoundary = instructions.indexOf('\n## ');
+    const header = contentBoundary > 0 ? instructions.slice(0, contentBoundary) : instructions;
+    writeFileSync(join(OUTPUT_DIR, 'initial-prompt.md'), header.trim() + '\n');
+  }
+
   const sessionLogPath = join(OUTPUT_DIR, 'pi-session.log');
   const sessionErrorLogPath = join(OUTPUT_DIR, 'pi-session-error.log');
   writeFileSync(sessionLogPath, [

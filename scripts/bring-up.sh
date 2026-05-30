@@ -1,20 +1,21 @@
 #!/bin/bash
-# ── ModuleWarden: Full Stack Bring-Up with Leonardo ──────────
+# ── ModuleWarden: Full Stack Bring-Up ────────────────────────
 #
-# Starts the complete ModuleWarden stack locally, configured to use
-# Leonardo-hosted vLLM (qwen3.6 27b) for agentic audit research.
+# Starts the complete ModuleWarden stack locally. Configure by setting
+# .env before calling this script (use pnpm start:openai or pnpm start:leonardo).
 #
 # Prerequisites:
-#   1. vLLM deployed on Leonardo: ./scripts/leonardo/deploy-vllm.sh
-#   2. SSH tunnel active:          ./scripts/leonardo/tunnel.sh
-#   3. Docker daemon running
+#   1. Docker daemon running
+#   2. .env configured with model endpoint, Verdaccio, and auth settings
+#   3. (Leonardo only) vLLM deployed + SSH tunnel active
 #
 # Usage:
-#   ./scripts/bring-up.sh [--build] [--profile local-model-endpoint]
+#   ./scripts/bring-up.sh [--build] [--profile local-model-endpoint] [--skip-tunnel-check]
 #
 # Options:
-#   --build     Rebuild Docker images before starting
-#   --profile   Additional docker compose profiles
+#   --build               Rebuild Docker images before starting
+#   --profile             Additional docker compose profiles
+#   --skip-tunnel-check   Don't check for the Leonardo SSH tunnel
 
 set -euo pipefail
 
@@ -23,16 +24,30 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
-echo "=== ModuleWarden: Bring-Up with Leonardo ==="
+echo "=== ModuleWarden: Full Stack Bring-Up ==="
 echo ""
+
+# ── Parse flags first (before checks that depend on them) ───
+BUILD_FLAG=""
+PROFILE_ARGS=""
+SKIP_TUNNEL_CHECK=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --build) BUILD_FLAG="--build" ;;
+        --profile) PROFILE_ARGS="--profile $2"; shift ;;
+        --skip-tunnel-check) SKIP_TUNNEL_CHECK=true ;;
+        *) echo "Unknown flag: $1"; exit 1 ;;
+    esac
+    shift
+done
 
 # ── Check prerequisites ─────────────────────────────────────
 
 # Ensure .env exists
 if [ ! -f .env ]; then
     echo "ERROR: .env file not found."
-    echo "Run: cp .env.leonardo-example .env"
-    echo "Then edit .env if needed."
+    echo "Run: pnpm start:openai   (for OpenAI / remote API backends)"
+    echo " or: pnpm start:leonardo (for Leonardo HPC backend)"
     exit 1
 fi
 
@@ -55,43 +70,42 @@ require_env MW_MODEL_ENDPOINT_MODEL
 require_env MW_VERDACCIO_URL
 require_env MW_VERDACCIO_TOKEN
 
-# Check SSH tunnel
-TUNNEL_HOST="${MW_MODEL_ENDPOINT_BASE_URL}"
-TUNNEL_URL="${TUNNEL_HOST}"
-echo "Checking model endpoint: ${TUNNEL_URL}..."
-
-if curl -s --connect-timeout 5 "${TUNNEL_URL}/models" > /dev/null 2>&1; then
-    echo "  Model endpoint is reachable."
-else
-    echo "  WARNING: Model endpoint is not reachable at ${TUNNEL_URL}"
-    echo "  Make sure the SSH tunnel is up:"
-    echo "    ./scripts/leonardo/tunnel.sh"
-    echo ""
-    read -rp "  Continue anyway? [y/N] " yn
-    if [[ ! "${yn}" =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
-fi
-
 # ── Build audit-runner image ────────────────────────────────
 echo ""
 echo "Building audit-runner image..."
+echo "  [1/3] Compiling TypeScript..."
 pnpm --filter @modulewarden/audit-runner build 2>&1 | tail -3
+echo "  [2/3] Bundling RPC server..."
 pnpm --filter @modulewarden/audit-rpc-server bundle 2>&1 | tail -3
-docker compose build audit-runner 2>&1 | tail -5
+echo "  [3/3] Building Docker image (may take ~60s)..."
+docker compose build audit-runner
 echo "  Done."
 
-# ── Parse flags ─────────────────────────────────────────────
-BUILD_FLAG=""
-PROFILE_ARGS=""
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --build) BUILD_FLAG="--build" ;;
-        --profile) PROFILE_ARGS="--profile $2"; shift ;;
-        *) echo "Unknown flag: $1"; exit 1 ;;
-    esac
-    shift
-done
+# ── Check model endpoint (skip for non-Leonardo backends) ───
+TUNNEL_HOST="${MW_MODEL_ENDPOINT_BASE_URL}"
+TUNNEL_URL="${TUNNEL_HOST}"
+# host.docker.internal only resolves inside Docker — swap to localhost for host-side checks
+CHECK_URL="${TUNNEL_URL/host.docker.internal/localhost}"
+if [ "${SKIP_TUNNEL_CHECK}" = true ]; then
+    echo ""
+    echo "Skipping model endpoint reachability check."
+    echo "  Endpoint: ${TUNNEL_URL}"
+else
+    echo ""
+    echo "Checking model endpoint: ${CHECK_URL}..."
+    if curl -s --connect-timeout 5 "${CHECK_URL}/models" > /dev/null 2>&1; then
+        echo "  Model endpoint is reachable."
+    else
+        echo "  WARNING: Model endpoint is not reachable at ${TUNNEL_URL}"
+        echo "  If using Leonardo, make sure the SSH tunnel is up:"
+        echo "    ./scripts/leonardo/tunnel.sh"
+        echo ""
+        read -rp "  Continue anyway? [y/N] " yn
+        if [[ ! "${yn}" =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+fi
 
 # ── Start the stack ─────────────────────────────────────────
 echo ""
@@ -117,10 +131,14 @@ echo "Monitor:"
 echo "  docker compose logs -f worker"
 echo "  docker compose ps"
 echo ""
-echo "Model endpoint (Leonardo via SSH tunnel):"
+echo "Model endpoint:"
 echo "  ${TUNNEL_URL}"
-echo "  Health: ./scripts/leonardo/vllm-health-check.sh"
+if [ "${SKIP_TUNNEL_CHECK}" != true ]; then
+    echo "  Health: ./scripts/leonardo/vllm-health-check.sh"
+fi
 echo ""
 echo "Stop:"
 echo "  docker compose down"
-echo "  ./scripts/leonardo/tunnel.sh  # Ctrl+C to stop tunnel"
+if [ "${SKIP_TUNNEL_CHECK}" != true ]; then
+    echo "  ./scripts/leonardo/tunnel.sh  # Ctrl+C to stop tunnel"
+fi

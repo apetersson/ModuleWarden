@@ -25,6 +25,8 @@ if [ -f "${REPO_ROOT}/../.leonardo-access" ]; then
     source "${REPO_ROOT}/../.leonardo-access"
 elif [ -f "${HOME}/.leonardo-env" ]; then
     source "${HOME}/.leonardo-env"
+elif [ -f "${HOME}/keys.txt" ]; then
+    LEONARDO_USERNAME===$(grep '^LEONARDO_USERNAME==NAME=' "${HOME}/keys.txt" | head -1 | cut -d= -f2-)
 fi
 
 LEONARDO_USERNAME==="${LEONARDO_USERNAME==:-${USERNAME:-}}"
@@ -80,6 +82,8 @@ if command -v autossh &>/dev/null; then
         -o "ServerAliveCountMax=3" \
         -o "ExitOnForwardFailure=yes" \
         -o "StrictHostKeyChecking=accept-new" \
+        -o "PubkeyAuthentication=no" \
+        -o "PreferredAuthentications=password" \
         -L "${LOCAL_PORT}:${NODE}:${REMOTE_PORT}" \
         "${LEONARDO_USERNAME==}@${LEONARDO_LOGIN}"
     
@@ -97,6 +101,8 @@ else
             -o "ServerAliveCountMax=3" \
             -o "ExitOnForwardFailure=yes" \
             -o "StrictHostKeyChecking=accept-new" \
+            -o "PubkeyAuthentication=no" \
+            -o "PreferredAuthentications=password" \
             -L "${LOCAL_PORT}:${NODE}:${REMOTE_PORT}" \
             "${LEONARDO_USERNAME==}@${LEONARDO_LOGIN}" \
             2>&1 | tee -a "${REPO_ROOT}/.leonardo-tunnel.log"
