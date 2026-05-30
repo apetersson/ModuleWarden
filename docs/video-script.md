@@ -33,31 +33,31 @@ Each beat below is one shot.
 
 ## Beat 3 - The defense: guard the registry
 
-| Field | Content |
-|---|---|
-| SECTION | Defense |
-| ON-SCREEN / VISUAL | A diagram: developer, then the artifact registry in the middle, then the codebase. A shield drops onto the registry node. Label it "ModuleWarden." |
-| VOICEOVER | So we guard the one interface every package has to cross. The artifact registry. The service you pull your packages from. One code review you kick off by hand is useful. Twenty that run automatically on every submission don't get tired. |
+| Field | Content                                                                                                                                                                                                                                                                                                                                          |
+|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SECTION | Defense                                                                                                                                                                                                                                                                                                                                          |
+| ON-SCREEN / VISUAL | A diagram: developer, then the artifact registry in the middle, then the codebase. A shield drops onto the registry node. Label it "ModuleWarden."                                                                                                                                                                                               |
+| VOICEOVER | So we guard the one interface every package has to cross. The artifact registry. The service you pull your packages from. You actiate it with a single line of code globally on your machine or just for one project. One code review which you kick off by hand is useful. With ModuleGuard: twenty that run automatically on every submission. |
 
 ---
 
 ## Beat 4 - The audit: evidence first, verdict second
 
-| Field | Content |
-|---|---|
-| SECTION | Defense |
-| ON-SCREEN / VISUAL | An audit in progress. Evidence artifacts appear one by one: `static-checks.json`, `advisory-search.json`, `package-info.json`, `capability-delta.json`. Then a structured verdict card stamps: BLOCK with cited evidence lines below. |
-| VOICEOVER | Every new version triggers a full audit. We collect the evidence first — static checks for exec calls and obfuscation, advisory database lookups, capability extraction, dependency diffs against the previous version. Then the model reads that evidence and returns a structured verdict. ALLOW, BLOCK, or QUARANTINE. Every claim cites a line of evidence. You can open the audit session and read exactly what the model saw. |
+| Field | Content                                                                                                                                                                                                                                             |
+|---|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SECTION | Defense                                                                                                                                                                                                                                             |
+| ON-SCREEN / VISUAL | An audit in progress. Evidence artifacts appear one by one: `static-checks.json`, `advisory-search.json`, `package-info.json`, `capability-delta.json`. Then a structured verdict card stamps: BLOCK with cited evidence lines below.               |
+| VOICEOVER | Every new version triggers a full audit. An Agentic Reviewers looks at the code from multiple angles and can ALLOW, BLOCK, or QUARANTINE. You can open the audit session and read exactly what the model saw. |
 
 ---
 
 ## Beat 5 - Prompt packs: customizable audit instructions
 
-| Field | Content |
-|---|---|
-| SECTION | Defense |
-| ON-SCREEN / VISUAL | Prompt packs listed in the dashboard: "core-claimed-purpose," "pattern-crypto-web3," "pattern-secret-harvesting," "custom-admin-demo." One expands to show its markdown instruction body. A team member edits a section and hits save. |
-| VOICEOVER | What the model looks for is defined by prompt packs. Markdown instruction files that you can read, edit, and version. Core packs cover claimed purpose versus actual behavior, install-time execution, and known vulnerabilities. Pattern packs target specific attack classes — crypto hijack, secret harvesting, protestware. You write custom packs for your own threat model. The model reads these instructions alongside the evidence and produces the verdict. |
+| Field | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|---|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SECTION | Defense                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ON-SCREEN / VISUAL |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| VOICEOVER | What the model looks for is defined by prompt packs. Instruction files that you can read, edit, and version. Core packs cover claimed purpose versus actual behavior, install-time execution, and known vulnerabilities. Pattern packs target specific attack classes — crypto hijack, secret harvesting, protestware. You write custom packs for your own internal threat model. The model reads these instructions alongside the evidence and produces a focused the verdict. |
 
 ---
 
@@ -71,7 +71,7 @@ Each beat below is one shot.
 
 ---
 
-## Beat 7 - The model: what it does, honestly
+## Beat 7 - The model: what it does,
 
 | Field | Content |
 |---|---|
@@ -81,23 +81,14 @@ Each beat below is one shot.
 
 ---
 
-## Beat 8 - The forecast: Sybilion ranks by trajectory
 
-| Field | Content |
-|---|---|
-| SECTION | The forecast |
-| ON-SCREEN / VISUAL | A dependency list re-sorting itself. Sybilion forecast curves attach to each row: react climbing, express climbing, a deprecated package flat. The climbing ones float to the top with a "review first" tag and a growing blast-radius ring. |
-| VOICEOVER | Now the Sybilion forecast. Sybilion forecasts the demand and adoption trajectory of a dependency — probability band, named drivers, backtest. We use it to rank. The packages climbing fastest toward critical, the ones whose blast radius is growing, go to the top of the review queue while they are still small enough to vet. |
+## Beat 8 - The forecast: live implementation
 
----
-
-## Beat 8b - The forecast: live implementation
-
-| Field | Content |
-|---|---|
-| SECTION | The forecast |
-| ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "Temporal Forecast (Sybilion)" card expands — per-metric rows: commits, contributors, downloads. Each with verdict badges (collapse, uncertainty, anomaly) and a linked Sybilion job ID. Below, a composite risk badge: 40%. |
-| VOICEOVER | We ship this. For every package we audit, we clone its repo, pull monthly git history back to the first commit, grab five years of npm downloads, and send the time series to Sybilion. Sybilion returns a forecast band — point estimate, quantile range, horizon. We extract three signals: is activity collapsing? Is the band too wide to trust? Did the latest month break through it? Those feed into one risk score you can see in the audit detail, with every Sybilion job ID linked. |
+| Field | Content                                                                                                                                                                                                                                                                                                                        |
+|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SECTION | The forecast                                                                                                                                                                                                                                                                                                                   |
+| ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "Temporal Forecast (Sybilion)" card expands — per-metric rows: commits, contributors, downloads. Each with verdict badges (collapse, uncertainty, anomaly) and a linked Sybilion job ID. Below, a composite risk badge: 40%.                                |
+| VOICEOVER | We ship this. For every package we audit, we clone its repo, pull monthly git history back to the first commit, and send the time series of critical data to Sybilion. Sybilion returns Collapse Risk, Uncertaint, Anomaly. Those feed into one risk score you can see in the audit detail, with every Sybilion job ID linked. |
 
 ---
 
