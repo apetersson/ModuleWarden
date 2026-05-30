@@ -177,7 +177,10 @@ def _band_bounds(band_fn: BandFn | None, dep: dict, point: float) -> "tuple[floa
     if band_fn is None:
         return point, point
     try:
-        low, high = band_fn(dep)
+        # Pass the point estimate through so a band_fn can center its band on
+        # the dep's own probability (the parsed dep dict carries only
+        # name/version). band_fns that ignore it still work unchanged.
+        low, high = band_fn({**dep, "probability": point})
     except Exception:
         return point, point
     low = _clamp_probability(low)
