@@ -5,11 +5,14 @@ escalation matrix at the bottom. Read these before the pitch.
 
 Rule: honest answers beat aspirational answers. The track is the Zero-One
 Hack FORECAST track with Sybilion. The one-liner to anchor every answer:
-ModuleWarden forecasts the probability that a dependency a developer is
-about to pull into the company codebase is a supply-chain attack vector,
-and an agent acts on it at submission time. The thing we forecast is the
-version DELTA, not the cold package. The deterministic delta-gate decides;
-the model narrates the forecast.
+ModuleWarden uses the Sybilion forecast to rank a team's dependencies by
+forecasted growth and blast-radius trajectory, so a security team reviews the
+ones climbing toward critical first, while they are still small enough to vet.
+The forecast does NOT detect danger and does NOT output an attack-vector
+probability; the deterministic delta-gate is the detector and decides, and the
+model narrates the gate's evidence. We concede honestly that we tested whether
+the forecast detects a dying or dangerous package directly, it cannot, and we
+show the data.
 
 The honest credibility anchor, repeat it rather than dodge it: a static
 classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA
@@ -168,18 +171,20 @@ queue.
 
 ## Q5. Why these thresholds, 0.4 and 0.7?
 
-They are operating points on the forecast probability, not a measured
-accuracy claim. We do not quote an allow-precision headline because we have
-not earned one on this corpus: the cold-package classifier floors at AUROC
-0.54, and the honest forecast lives in the delta. So the thresholds are
-band definitions, not guarantees. Over 0.7 routes to block, under 0.4 routes
-to allow, and the 0.4 to 0.7 band routes to human review because that is
-where the forecast is least trustworthy. These are defaults; every customer
-can tune them. A bank might run at 0.3 allow and 0.6 block, accepting more
-quarantine load. A startup might run at 0.5 and 0.8, accepting more risk for
-lower friction. The deterministic delta-gate is still the verdict authority
-underneath the bands; the probability only sorts the model's narration into
-allow, review, or block.
+They are operating points on the model's confidence score, not a measured
+accuracy claim, and they are separate from the Sybilion forecast, which ranks
+the review queue rather than scoring a verdict. We do not quote an
+allow-precision headline because we have not earned one on this corpus: the
+cold-package classifier floors at AUROC 0.54, and the detection signal lives in
+the delta the gate diffs. So the thresholds are band definitions, not
+guarantees. Over 0.7 routes to block, under 0.4 routes to allow, and the 0.4 to
+0.7 band routes to human review because that is where the model's narration is
+least trustworthy. These are defaults; every customer can tune them. A bank
+might run at 0.3 allow and 0.6 block, accepting more quarantine load. A startup
+might run at 0.5 and 0.8, accepting more risk for lower friction. The
+deterministic delta-gate is still the verdict authority underneath the bands;
+the confidence score only sorts the model's narration into allow, review, or
+block.
 
 ---
 
@@ -244,10 +249,10 @@ Three tiers. Free OSS tier: full gate, single threshold profile,
 community model only. Team tier: 12 USD per developer per month, custom
 thresholds, private rubric, reviewer queue with Slack integration.
 Enterprise: federated training, SLA, single tenant, on-premise option.
-We are also exploring a cyber-insurance underwriting application where the
-forecast probability feeds into the actuarial model: that is closer to a
-data sale than a SaaS license, and a cyber underwriting pilot is the worked
-downstream example of an actor acting on the forecast.
+We are also exploring a cyber-insurance underwriting application where the gate
+verdict and its evidence memo feed into the actuarial model: that is closer to
+a data sale than a SaaS license, and a cyber underwriting pilot is the worked
+downstream example of an actor acting on the forecast-prioritized review.
 
 ---
 
@@ -275,7 +280,7 @@ natural pairing, but we do not pitch that on stage today.
 This is exactly our threat model: the lazy submitter who pulls an
 unaudited Copilot suggestion, and the disgruntled submitter who slips a
 poisoned version into a PR on purpose. Same gate, same evidence, same
-forecast. ModuleWarden does not care who triggered the install. The IDE,
+verdict. ModuleWarden does not care who triggered the install. The IDE,
 the developer, the CI bot, the contractor merging a PR. Every install goes
 through the same five-rule delta-gate, the same fine-tuned model narration,
 the same Postgres decision row with the same supersedes pointer. The audit_dossier.v1 contract captures the trigger

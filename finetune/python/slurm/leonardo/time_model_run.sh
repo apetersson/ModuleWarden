@@ -16,6 +16,18 @@ MAXTOK="${3:-200}"
 SCRATCH="${SCRATCH:-/leonardo_scratch/large/usertrain/$USER}"
 sub(){ awk "BEGIN{printf \"%.2f\", $2-$1}"; }   # sub A B -> B-A
 
+# HARD GUARD: this script builds llama.cpp and loads a 20-55 GB model. That must
+# happen on a COMPUTE node. Run on a Leonardo LOGIN node it will spike CPU/memory and
+# the login arbiter/OOM-killer terminates ALL your processes (including SSH) after a
+# few minutes. Refuse unless we are inside a Slurm allocation; use time_model.sh.
+if [ -z "${SLURM_JOB_ID:-}" ]; then
+  echo "ERROR: do not run time_model_run.sh directly -- it loads a model and would be"
+  echo "killed on the login node (taking your SSH session with it)."
+  echo "Launch it through the wrapper, which allocates a GPU for you:"
+  echo "    ./time_model.sh $MODEL \"$PROMPT\" ${MAXTOK}"
+  exit 1
+fi
+
 if [ "$MODEL" = decepticon ]; then
   # heretic-v2 qwen35 GGUF served by a source-built llama.cpp (native CUDA 12.2, sm_80)
   GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
@@ -30,13 +42,14 @@ if [ "$MODEL" = decepticon ]; then
   # and latest source so the qwen35 hybrid-SSM arch builds. gcc 8.5 needs -lstdc++fs.
   if [ ! -x "$BIN" ]; then
     [ -d "$SRC" ] || { echo "no llama.cpp source at $SRC -- run time_model.sh from a login node first (it clones it)"; exit 1; }
-    echo ">>> first run on this account: building llama.cpp (CUDA 12.2, sm_80). One-time, ~10 min..."
+    echo ">>> first run on this account: building llama.cpp (CUDA 12.2, sm_80) on this"
+    echo ">>> compute node. One-time, ~5 min; progress streams below, then it's cached."
     cd "$SRC" || exit 1
     "$CMAKE" -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF \
         -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DLLAMA_BUILD_TESTS=OFF \
         -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
-        -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs >/dev/null || { echo "cmake config failed"; exit 1; }
-    "$CMAKE" --build build --config Release -j "${SLURM_CPUS_PER_TASK:-16}" --target llama-server >/dev/null 2>&1
+        -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs 2>&1 | tail -3 || { echo "cmake config failed"; exit 1; }
+    "$CMAKE" --build build --config Release -j "${SLURM_CPUS_PER_TASK:-16}" --target llama-server 2>&1 | grep --line-buffered -E "%\]|error|Error" | tail -40
     [ -x "$BIN" ] || { echo "BUILD FAILED"; exit 1; }
     echo ">>> build done, cached at $BIN"
   fi
