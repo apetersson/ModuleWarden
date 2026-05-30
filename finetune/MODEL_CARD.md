@@ -73,6 +73,28 @@ empirical reason the deterministic delta-gate reads the diff and owns the
 verdict. We do not claim AUROC 0.90, calibration, or conformal coverage as a
 headline.
 
+## Evaluation discipline: every number is held-out
+
+Every metric in this card is measured on data the model never saw during
+training, on explicit train / validation / test splits. That is the point:
+held-out splits are where a model either generalizes or is exposed.
+
+- 27B narration: val loss 0.2135 and token accuracy 0.9435 are on 37 validation
+  dossiers held out of the 152-dossier set (103 train). The model writes
+  in-schema, evidence-cited reports on cases outside its training data.
+- 0.5B decision floor: the verdict-match and block-recall numbers are on a
+  separate 23-case test split (5 blocks), distinct from both the 30-case
+  validation split and the 386 train records. Fine-tuned verdict-match is 73.9%
+  on the held-out test set against 0% for the stock base. Block-recall is 0/5 on
+  that same held-out set, which is exactly why the deterministic gate, not the
+  model, owns the verdict.
+- Cold-package classifier floor: AUROC 0.5387 (cold) and about 0.60 (paired
+  delta) are on 800 balanced held-out GHSA pairs, not the training corpus.
+
+We report the held-out numbers including the ones that look bad (block-recall
+0/5, AUROC 0.54). A number that only looks good in-sample is not evidence; a
+held-out number that exposes a weakness is.
+
 ## Safety
 
 Training and evaluation read JSON text only. No npm package is downloaded,
