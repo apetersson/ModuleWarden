@@ -22,7 +22,10 @@ set -x
 SCRATCH="${SCRATCH:-/leonardo_scratch/large/usertrain/$USER}"
 SRC=$SCRATCH/llama.cpp-src
 BIN=$SRC/build/bin/llama-server
-GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+# prefer the shared de-duplicated GGUF in $WORK (survives the 40-day scratch purge),
+# fall back to the per-user scratch copy.
+GGUF=/leonardo_work/EUHPC_D30_031/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+[ -f "$GGUF" ] || GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
 PORT=8000
 
 # native CUDA 12.2 toolkit (matches driver 12.2 -> sm_80 SASS, no JIT). Prefer the
