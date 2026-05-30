@@ -1,9 +1,10 @@
 ---
 id: TASK-51
 title: 'Align pitch, docs, and website to the domain-expansion frame (decision-12)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-30 06:48'
+updated_date: '2026-05-30 06:52'
 labels: []
 dependencies: []
 ordinal: 66000
