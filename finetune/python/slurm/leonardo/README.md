@@ -67,3 +67,32 @@ low-risk pure-text option that fits 4x A100-64GB in QLoRA today. `prep.slurm`
 downloads only the 1.5B; extend its `snapshot_download` to the production model and
 pull the corpus (`sft-records-partial.jsonl` is on the team Nextcloud) before
 `train.slurm`.
+
+## Qwen3.6 fine-tune (modern stack, validated 2026-05-30)
+
+The Qwen3.6 production model is a different stack from the rehearsal/text path
+above. `Qwen/Qwen3.6-27B` and `huihui-ai/Huihui-Qwen3.6-27B-abliterated` are
+`qwen3_5` vision-language models. Fine-tuning them text-only needs:
+
+- torch >= 2.6 (transformers 5.9 imports `torch.distributed.tensor.device_mesh`),
+  so a torch-2.6 container, not the torch-2.4 one the rehearsal uses
+- transformers 5.9.0, trl 1.5.1, peft 0.19.1, accelerate 1.13.0, datasets 4.8.5
+- NO bitsandbytes (its triton modules JIT-compile at import and the runtime
+  container has no C compiler). The 27B trains in bf16 across 4x A100-64GB
+  (256GB), so 4-bit is unnecessary on this hardware
+- load with `config.language_model_only = True` to skip the vision tower; it
+  comes back as `Qwen3_5ForCausalLM` via `AutoModelForCausalLM`, `device_map=auto`
+- trl 1.x API: `SFTConfig` + `SFTTrainer(processing_class=tok)` (not `tokenizer=`)
+
+This is implemented in `finetune/python/training/sft_qwen36.py` (the legacy
+`sft_lora.py` stays the transformers-4.46 / trl-0.12 text path for Qwen2.5).
+
+Validated end to end on 4x A100: the abliterated huihui-Qwen3.6-27B loaded text-
+only, LoRA attached (79.7M trainable / 27.0B), trl trained on the cve_diff corpus
+with loss 5.83 -> 1.11. Run it:
+
+```bash
+python leo.py 'cd $HOME && sbatch prep-qwen36.slurm'    # torch-2.6 container + deps (~10 min)
+python leo.py 'cd $HOME && sbatch train-qwen36.slurm'   # bf16 LoRA SFT on 4 A100
+# overrides: MWMODEL, MWCORPUS, MWOUT, MW_EPOCHS (defaults to the staged 27B + corpus)
+```
