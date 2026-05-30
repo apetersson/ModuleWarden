@@ -2,7 +2,7 @@
 
 Zero-One Hack FORECAST track. Partner: Sybilion (probabilistic forecasting and the agent layer that acts on it).
 
-ModuleWarden forecasts the probability that a dependency a developer is about to pull into the company codebase is a supply-chain attack vector, and an agent acts on it at submission time.
+ModuleWarden screens the npm version update a developer is about to pull into the company codebase for supply-chain attack vectors, and an agent acts on the verdict at submission time.
 
 The forecast runs on the version DELTA, not the cold package. ModuleWarden intercepts npm install requests, fetches upstream package metadata, audits the change between the last-known-good version and the one being pulled, then an agent acts on the verdict (allow, block, quarantine). A deterministic gate decides; the model narrates.
 

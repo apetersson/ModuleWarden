@@ -1,7 +1,7 @@
 # Decepticon Integration: Technical Architecture
 
 **Date:** 2026-05-29
-**Context:** Zero-One Hack, Track 02, UNIQA submission (~36h window)
+**Context:** Zero-One Hack Sybilion FORECAST track (~36h window)
 **Safety constraint:** No execution of untrusted package code on this workstation.
 
 ---
@@ -15,7 +15,7 @@
 | `packages/audit-runner/src/orchestrator.ts` | **Do not touch** | Runs inside Docker, communicates via PI RPC. Decepticon is a Python SDK; mixing runtimes inside the audit container adds complexity and no demo value. |
 | `packages/worker/src/handlers/audit.ts` | **Wrapper only** | The worker calls the container runner after verdict; a post-verdict enrichment hook is safe here but evidence is already committed. |
 | `finetune/python/pipeline/dossier_builder.py` | **PRIMARY insertion point** | Pure Python, already produces `capability_deltas` from static signals. A `decepticon_mapper` call at the end of `build_dossier()` can enrich the returned dict before it is serialized. |
-| `chat/agent.py` | **Narrative layer** | `narrate_underwriting()` already calls the model with pinned facts. Decepticon-derived ATT&CK technique ids can be injected into `pinned["primary_findings"]` so the model narrates them without inventing them. |
+| `chat/agent.py` | **Narrative layer** | `narrate_underwriting()` already calls the model with pinned facts to build the reviewer evidence memo. Decepticon-derived ATT&CK technique ids can be injected into `pinned["primary_findings"]` so the model narrates them without inventing them. |
 | New Python sidecar | **NARRATE-ONLY for hack** | A `decepticon_mapper` module could live at `finetune/python/decepticon/mapper.py`. This is the build target. |
 
 ### Selected integration point
@@ -141,7 +141,7 @@ def map_dossier_to_attack(dossier: dict[str, Any]) -> list[dict[str, Any]]:
     additionalProperties: false only at the top level, not within finding items.
     Actually, the finding $def DOES use additionalProperties: false, so strip
     attack_techniques before schema validation; use it only for the chat layer
-    and the underwriting memo narrative.
+    and the reviewer evidence memo narrative.
     """
     cap_deltas: list[dict[str, Any]] = dossier.get("capability_deltas") or []
     evidence_index: list[dict[str, Any]] = dossier.get("evidence_index") or []
@@ -305,7 +305,7 @@ if attack_findings:
 
 **ATT&CK enrichment as a post-dossier pass in `dossier_builder.py`.**
 
-Rationale: The demo already has postmark-mcp-1.0.16 producing `capability_deltas` = [lifecycle_script, credential_or_env_access, network_access]. The mapper turns those three capabilities into a T1195.002 + T1552.001 + T1041 kill-chain narrative in ~50ms of pure Python, zero network calls. The chat layer then has grounded MITRE technique ids to narrate. The UNIQA underwriter persona gets a kill-chain framing ("Initial Access -> Credential Access -> Exfiltration") instead of generic capability names. This is the exact delta that makes ModuleWarden look like it has Decepticon red-team intelligence embedded, without adding any risk surface.
+Rationale: The demo already has postmark-mcp-1.0.16 producing `capability_deltas` = [lifecycle_script, credential_or_env_access, network_access]. The mapper turns those three capabilities into a T1195.002 + T1552.001 + T1041 kill-chain narrative in ~50ms of pure Python, zero network calls. The chat layer then has grounded MITRE technique ids to narrate. The reviewer or security admin gets a kill-chain framing ("Initial Access to Credential Access to Exfiltration") instead of generic capability names. (A cyber underwriter is one downstream consumer of the same memo.) This is the exact delta that makes ModuleWarden look like it has Decepticon red-team intelligence embedded, without adding any risk surface.
 
 ---
 
@@ -355,5 +355,5 @@ npm install request
         |--- pinned mitre_techniques (NEW: T1195.002 etc)
         |--- LLM narrates with ATT&CK context (does not invent verdicts)
         |
-   [Streamlit UI / CLI]  <- underwriter sees ATT&CK-framed risk memo
+   [Streamlit UI / CLI]  <- reviewer / security admin sees ATT&CK-framed evidence memo
 ```
