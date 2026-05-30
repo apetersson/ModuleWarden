@@ -82,6 +82,10 @@ Scripts in `scripts/leonardo/`:
 - `tunnel.sh` opens the autossh tunnel to the compute node.
 - `vllm-health-check.sh` hits `/v1/models`, `/health`, and a chat smoke test.
 
-For Decepticon specifically, deploy with `MW_VLLM_MODEL=huihui-ai/Huihui-Qwen3.6-27B-abliterated`
-and point `DECEPTICON_MODEL_ENDPOINT_BASE_URL` at the tunnel. See
+For Decepticon specifically, serve the heretic-v2 GGUF
+(`llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF`, `Q5_K_M`)
+with llama.cpp, not the vLLM path. Decepticon is inference-only offense narration,
+not a fine-tuned model, so it consumes the pre-abliterated GGUF as-is. Stage it on
+the login node with `./fetch-models.sh --decepticon-gguf` and point
+`DECEPTICON_MODEL_ENDPOINT_BASE_URL` at the tunnel. See
 `finetune/python/decepticon/SERVE.md`.
