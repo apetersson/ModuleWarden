@@ -11,6 +11,7 @@ docker-compose.override.yml
 audit-sessions/
 .e2e/verdaccio-storage/
 .DS_Store
+*.pid
 
 # JetBrains IDE
 .idea/
