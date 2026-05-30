@@ -22,14 +22,26 @@ set -x
 SCRATCH="${SCRATCH:-/leonardo_scratch/large/usertrain/$USER}"
 SRC=$SCRATCH/llama.cpp-src
 BIN=$SRC/build/bin/llama-server
-GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+# prefer the shared de-duplicated GGUF in $WORK (survives the 40-day scratch purge),
+# fall back to the per-user scratch copy.
+GGUF=/leonardo_work/EUHPC_D30_031/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
+[ -f "$GGUF" ] || GGUF=$SCRATCH/models/decepticon-heretic-v2-gguf/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf
 PORT=8000
 
-# native CUDA 12.2 toolkit (gcc-8.5 based, matches driver 12.2 -> sm_80 SASS, no JIT)
+# native CUDA 12.2 toolkit (matches driver 12.2 -> sm_80 SASS, no JIT). Prefer the
+# gcc/12.2.0 module as the CUDA host compiler: it is a supported CUDA 12.2 host gcc and
+# ships std::filesystem in libstdc++ proper. Falls back to system g++ if the module is
+# missing, in which case the -lstdc++fs link flag is re-added below.
+module load gcc/12.2.0 2>/dev/null || echo "warn: gcc/12.2.0 module unavailable, using system g++"
 CUROOT=/leonardo/prod/opt/compilers/cuda/12.2/none
 export CUDAToolkit_ROOT=$CUROOT CUDACXX=$CUROOT/bin/nvcc
 export PATH=$CUROOT/bin:$SCRATCH/cmake/bin:$PATH
 export LD_LIBRARY_PATH=$CUROOT/lib64:$LD_LIBRARY_PATH
+HOSTCXX=$(command -v g++)
+GCCMAJ=$("$HOSTCXX" -dumpversion 2>/dev/null | cut -d. -f1)
+# gcc < 9 keeps std::filesystem in a separate lib; only then add -lstdc++fs.
+STDFS=""; [ "${GCCMAJ:-0}" -lt 9 ] && STDFS="-DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs"
+echo "host g++ = $HOSTCXX (gcc major ${GCCMAJ:-?})"
 
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 nvcc --version | tail -1
@@ -37,15 +49,13 @@ cmake --version | head -1
 
 # ---- build once (native sm_80 SASS so the 12.2 driver never JITs PTX) ----
 if [ ! -x "$BIN" ]; then
-  echo "=== building llama.cpp (CUDA 12.2, arch sm_80, host gcc 8.5) ==="
+  echo "=== building llama.cpp (CUDA 12.2, arch sm_80, host $HOSTCXX) ==="
   cd "$SRC" || exit 1
-  # gcc 8.5 keeps std::filesystem in a separate lib (-lstdc++fs); the latest
-  # llama.cpp assumes gcc >= 9 and omits it, so add it to the link flags.
   cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF \
         -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release \
         -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON \
-        -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
-        -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs \
+        -DCMAKE_CUDA_HOST_COMPILER="$HOSTCXX" \
+        $STDFS \
         || { echo CMAKE_CONFIG_FAILED; exit 2; }
   cmake --build build --config Release -j 32 --target llama-server
   echo "BUILD_RC=$?"
