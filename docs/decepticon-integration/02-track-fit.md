@@ -4,9 +4,9 @@
 **Document scope:** How Decepticon integration maximises Forecast-track fit.
 **What this is not:** A build plan (see TRACK02-DESIGN.md) or architecture spec (see decepticon-modulewarden-integration.md).
 
-**Product one-liner:** ModuleWarden forecasts the probability that a dependency a developer is about to pull into the company codebase is a supply-chain attack vector, and an agent acts on it at submission time. We forecast the version DELTA, not the cold package. The threat model is internal: the lazy submitter who pulls a typo-squat without checking, and the disgruntled submitter who pulls a poisoned bump on purpose.
+**Product one-liner:** ModuleWarden uses the Sybilion forecast to rank a team's dependencies by forecasted growth and blast-radius trajectory, so a security team reviews the ones climbing toward critical first, while they are still small enough to vet. The forecast does not detect danger and does not output an attack-vector probability; the deterministic 5-rule DELTA-gate is the detector, and an agent acts on the verdict at submission time. The threat model is internal: the lazy submitter who pulls a typo-squat without checking, and the disgruntled submitter who pulls a poisoned bump on purpose.
 
-**Primary fit (Sybilion / FORECAST):** the deterministic 5-rule DELTA-gate is the verdict authority; the model narrates the forecast. The honest finding that anchors this: a static classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA pairs, benign = first-patched release). The signal is in the DELTA, not the package. That is exactly why gate-decides-and-model-narrates is the right architecture, not a hedge.
+**Primary fit (Sybilion / FORECAST):** the forecast ranks the team's dependencies by trajectory so the review queue starts with the rising-critical ones; the deterministic 5-rule DELTA-gate is the verdict authority and the detector; the model narrates the gate's evidence. Two honest findings anchor this. First, a static classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA pairs, benign = first-patched release); the signal is in the DELTA the gate diffs, not the cold package, which is exactly why gate-detects-and-model-narrates is the right architecture, not a hedge. Second, we backtested whether the forecast can detect a dying or dangerous package directly: it cannot, the band and slope do not separate the declining set, and we concede that with the data.
 
 **Secondary reframe (downstream application):** the conversational underwriter + Control Evidence Memo is the agent layer that acts on the forecast. It is a downstream consumer of the forecast, not the primary track entry. UNIQA-style underwriting language is retained as one way the agent acts; it is no longer the headline.
 
@@ -78,21 +78,26 @@ architecture. This analysis grounds those designs against the actual chat/ codeb
 ### Sybilion FORECAST bar: "probabilistic forecasting and the agent layer that acts on it"
 
 The judging signal is two-part:
-1. **Probabilistic forecast**: a real model that outputs a probability over a future
-   or unseen event, not a binary stamp. Here, p(this version delta introduces a
-   supply-chain attack vector). The forecast must be honest about its own limits.
+1. **Probabilistic forecast**: a real forecast that returns quantile bands over a
+   future demand trajectory, not a binary stamp. Here, the Sybilion forecast over a
+   dependency's monthly adoption demand, ranked so the rising-critical dependencies
+   sort to the top of the review queue. The forecast must be honest about its own
+   limits, and ours is: it separates rising from fading packages, but it does not
+   detect a dying or dangerous package directly, and we show the backtest that says so.
 2. **An agent that acts on the forecast**: the forecast has to drive a decision at
-   submission time, not just sit on a dashboard. ModuleWarden's agent blocks the
-   install, writes the memo, and narrates the verdict.
+   submission time, not just sit on a dashboard. The forecast sets the review order;
+   the gate detects the known-bad; ModuleWarden's agent blocks the install, writes the
+   memo, and narrates the verdict.
 
-The forecast suite exists in code: `eval/forecast_calibration.py` (calibration on
-this corpus), `serving/dependency_forecast.py` (the forecast head), and
-`serving/acting_agent.py` (the agent that acts at submission time).
+The forecast suite exists in code: `eval/forecast_calibration.py` (band and backtest
+checks on this corpus), `serving/dependency_forecast.py` (the trajectory ranker), and
+`serving/acting_agent.py` (the agent that acts on the gate verdict at submission time).
 
-The honest cold-package floor is load-bearing here, not a weakness to bury. A static
-classifier on the COLD package scores AUROC 0.54 on this corpus. That is near-random.
-It is the empirical reason we forecast the DELTA between a version and its predecessor,
-and the reason the deterministic gate, not the model, holds verdict authority.
+The honest cold-package floor is load-bearing on the detection side, not a weakness to
+bury. A static classifier on the COLD package scores AUROC 0.54 on this corpus. That is
+near-random. It is the empirical reason the gate detects on the DELTA between a version
+and its predecessor, and the reason the deterministic gate, not the model, holds verdict
+authority.
 
 ### Secondary: UNIQA underwriting as a downstream application
 
@@ -106,7 +111,7 @@ substance stays; the framing demotes it from headline to application.
 Decepticon's 16 specialist agents each carry a distinct system prompt, tool set,
 and model tier. Running them as an orchestrated swarm is model integration in the
 architectural sense: the product routes a single underwriter query through multiple
-specialist model roles (Recon → Exploitation → Analyst), each contributing a
+specialist model roles (Recon then Exploitation then Analyst), each contributing a
 structured output that the next stage consumes. This is a real architecture claim,
 not a marketing one, and it is demonstrated by the Decepticon SDK.
 
@@ -177,17 +182,22 @@ returns a kill-chain string that replaces the generic LLM narration.
 ### How this satisfies "probabilistic forecast + an agent that acts" honestly
 
 **Probabilistic forecast (honest claim):**
-- The forecast head (`serving/dependency_forecast.py`) outputs p(this version delta
-  is an attack vector), calibrated on this corpus via `eval/forecast_calibration.py`.
-- The cold-package floor (AUROC 0.54) is reported up front. The forecast is on the
-  DELTA, where the signal actually is, not on the cold package.
+- The trajectory ranker (`serving/dependency_forecast.py`) consumes the Sybilion
+  forecast over a dependency's monthly demand and orders the team's dependencies by
+  forecasted growth and blast-radius trajectory; the band width and backtest are
+  checked via `eval/forecast_calibration.py`.
+- The forecast does not output an attack-vector probability and does not detect
+  danger. We tested that directly and the band and slope do not separate the declining
+  set, so we concede it and show the backtest (MAPE 10.6 percent, the bands are real).
+- The cold-package floor (AUROC 0.54) is reported up front on the detection side. The
+  gate detects on the DELTA, where the signal actually is, not on the cold package.
 
 **An agent that acts on the forecast (honest claim):**
-- `serving/acting_agent.py` is the agent that takes the forecast and acts at
-  submission time: it blocks the install, writes the Control Evidence Memo, and
-  hands the pinned verdict to the narrator.
-- The deterministic 5-rule gate is the verdict authority. The forecast informs it;
-  the agent enforces it. The model never overrides the verdict.
+- `serving/acting_agent.py` is the agent that acts at submission time on the gate
+  verdict: it blocks the install, writes the Control Evidence Memo, and hands the
+  pinned verdict to the narrator.
+- The deterministic 5-rule gate is the verdict authority and the detector. The forecast
+  sets the review order; the agent enforces the verdict. The model never overrides it.
 
 **Conversational AI as the downstream application (honest claim):**
 - The Streamlit chat UI exists. The agent routing and Control Evidence Memo are
