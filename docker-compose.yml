@@ -112,6 +112,11 @@ services:
       MW_AUDIT_WORKSPACE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/workspaces
       MW_PRESERVE_AUDIT_SESSIONS: "true"
       MW_AUDIT_SESSION_ARCHIVE_ROOT: ${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}/audits/sessions
+      SYBILION_API_TOKEN: ${SYBILION_API_TOKEN:-}
+      SYBILION_API_BASE_URL: ${SYBILION_API_BASE_URL:-https://api.sybilion.dev}
+      SYBILION_POLL_INTERVAL_MS: ${SYBILION_POLL_INTERVAL_MS:-10000}
+      SYBILION_FORECAST_TIMEOUT_MS: ${SYBILION_FORECAST_TIMEOUT_MS:-600000}
+      TEMPORAL_FORECAST_ENABLED: ${TEMPORAL_FORECAST_ENABLED:-true}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${MW_LOCALDATA_ROOT:-../localdata}:${MW_HOST_LOCALDATA_ROOT:-/Users/andreas/code/ModuleWarden/localdata}

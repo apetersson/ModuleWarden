@@ -12,6 +12,7 @@ COPY packages/worker/package.json packages/worker/
 COPY packages/web-ui/package.json packages/web-ui/
 COPY packages/shared/package.json packages/shared/
 COPY packages/prisma-client/package.json packages/prisma-client/
+COPY packages/temporal-forecast/package.json packages/temporal-forecast/
 RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: API / Proxy ────────────────────────────────────
@@ -40,19 +41,22 @@ CMD ["node", "packages/api-proxy/dist/index.js"]
 # ── Stage 3: Worker ──────────────────────────────────────────
 FROM node:20-alpine AS worker
 RUN npm install -g pnpm@9
-RUN apk add --no-cache docker-cli openssl
+RUN apk add --no-cache docker-cli openssl git
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/packages/worker/node_modules /app/packages/worker/node_modules
 COPY --from=deps /app/packages/shared/node_modules /app/packages/shared/node_modules
 COPY --from=deps /app/packages/prisma-client/node_modules /app/packages/prisma-client/node_modules
+COPY --from=deps /app/packages/temporal-forecast/node_modules /app/packages/temporal-forecast/node_modules
 COPY --from=deps /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/tsconfig.base.json /app/
 COPY packages/shared packages/shared
 COPY packages/prisma-client packages/prisma-client
+COPY packages/temporal-forecast packages/temporal-forecast
 COPY packages/worker packages/worker
 RUN pnpm --filter @modulewarden/prisma-client generate
 RUN pnpm --filter @modulewarden/shared build
 RUN pnpm --filter @modulewarden/prisma-client build
+RUN pnpm --filter @modulewarden/temporal-forecast build
 RUN pnpm --filter @modulewarden/worker build
 EXPOSE 9090
 CMD ["node", "packages/worker/dist/index.js"]
