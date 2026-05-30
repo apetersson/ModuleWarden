@@ -89,3 +89,25 @@ not a fine-tuned model, so it consumes the pre-abliterated GGUF as-is. Stage it 
 the login node with `./fetch-models.sh --decepticon-gguf` and point
 `DECEPTICON_MODEL_ENDPOINT_BASE_URL` at the tunnel. See
 `finetune/python/decepticon/SERVE.md`.
+
+## Timing a model end to end
+
+`finetune/python/slurm/leonardo/time_model.sh` times either model on a custom prompt
+and reports load, inference, and total seconds. Run it from a login shell:
+
+    ./time_model.sh decepticon "In one sentence, what is a typosquatting attack on npm?"
+    ./time_model.sh auditor    "Is reading ~/.npmrc in a postinstall suspicious?" 300
+    #                ^model      ^your prompt (quoted)                              ^optional max_tokens
+
+It grabs a GPU on the reservation, loads the model, runs the prompt, and prints
+LOAD_SECONDS / INFERENCE_SECONDS / TOTAL_SECONDS plus the response. TOTAL is load +
+inference; the launcher also prints wall clock including the Slurm queue + allocation.
+
+Account-agnostic, paths derive from `$SCRATCH`. On a fresh account the decepticon path
+self-bootstraps: the launcher clones llama.cpp and a cmake on the login node, and the
+first run builds llama.cpp on the GPU node (about 10 min, one-time, then cached). The
+auditor path uses the fine-tune env, so run `prep-qwen36.slurm` once first.
+
+Measured on a08trc01 (1x A100-64GB): decepticon (heretic-v2 GGUF) loads in about 5.7s
+and the auditor (huihui bf16) in about 25s; both answer a short prompt in well under a
+minute total.
