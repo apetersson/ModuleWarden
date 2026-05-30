@@ -14,7 +14,7 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 |---|---|
 | SECTION | Hook |
 | ON-SCREEN / VISUAL | A popular npm package page. The maintainer avatar. Then a red badge: "new version published." Cut to a code diff where a single added lifecycle script slips into `package.json`. |
-| VOICEOVER | A package you trust gets a new release. The maintainer account is compromised, or a contributor went rogue. A careful attacker will not leave anything a static scanner can catch. The danger is not in the package. It is in what changed between two versions. |
+| VOICEOVER | A package you trust gets a new release. The maintainer account is compromised, or a contributor went rogue. A careful attacker will not leave anything a static scanner can catch. The danger is the delta. What changed between two versions. |
 
 ---
 
@@ -44,7 +44,7 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 |---|---|
 | SECTION | Defense |
 | ON-SCREEN / VISUAL | A flowchart of a deterministic gate. Boxes light up as each rule matches: "added lifecycle scripts," "capability delta," "new obfuscation," "advisory match." A VERDICT stamp lands: BLOCK. |
-| VOICEOVER | At the center is a deterministic delta-gate. It does not guess. It keys on the version delta: new lifecycle scripts, new capabilities the package never had before, fresh obfuscation, a match against a known advisory. The gate owns the verdict. It is auditable, and it emits no made-up score. |
+| VOICEOVER | At the center is a deterministic delta-gate. It keys on the version delta: new lifecycle scripts, new capabilities the package never had before, fresh obfuscation, a match against a known advisory. The gate owns the verdict. No guesswork, no made-up scores. |
 
 ---
 
@@ -84,7 +84,7 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 |---|---|
 | SECTION | The forecast |
 | ON-SCREEN / VISUAL | A dependency list re-sorting itself. Sybilion forecast curves attach to each row: react climbing, express climbing, a deprecated package flat. The climbing ones float to the top with a "review first" tag and a growing blast-radius ring. |
-| VOICEOVER | Now the Sybilion forecast. Sybilion forecasts the demand and adoption trajectory of a dependency, a probability band with named drivers and a backtest. We use it to rank. The dependencies climbing fastest toward critical, the ones whose blast radius is growing, those go to the top of the review queue while they are still small enough to vet. The forecast sets the order. It does not set the verdict. |
+| VOICEOVER | Now the Sybilion forecast. Sybilion forecasts the demand and adoption trajectory of a dependency, a probability band with named drivers and a backtest. We use it to rank. The dependencies climbing fastest toward critical, the ones whose blast radius is growing, those go to the top of the review queue while they are still small enough to vet. The forecast sets the order. The gate owns the verdict. |
 
 ---
 
@@ -94,7 +94,7 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 |---|---|
 | SECTION | The forecast |
 | ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "⏳ Temporal Forecast (Sybilion)" card expands — per-metric rows: commits, contributors, downloads. Each with verdict badges (collapse ⚠ / ✓, uncertainty, anomaly) and a linked Sybilion job ID. Below, a composite risk badge: 40%. |
-| VOICEOVER | We ship this. For every package ModuleWarden audits, we clone its repo, pull monthly git history back to the first commit, grab five years of npm downloads, and send the whole time series to Sybilion. Sybilion returns a forecast band — point estimate, quantile range, forecast horizon. We extract three signals from it: is activity collapsing to zero? Is the band so wide the forecast is guessing? Did the latest month break through it? We weight those into one risk score you can see right in the audit detail, with every Sybilion job ID linked so you can go check their work. The forecast ranks the evidence. It does not set the verdict. |
+| VOICEOVER | We ship this. For every package ModuleWarden audits, we clone its repo, pull monthly git history back to the first commit, grab five years of npm downloads, and send the whole time series to Sybilion. Sybilion returns a forecast band — point estimate, quantile range, forecast horizon. We extract three signals from it: is activity collapsing to zero? Is the band so wide the forecast is guessing? Did the latest month break through it? We weight those into one risk score you can see right in the audit detail, with every Sybilion job ID linked so you can go check their work. The forecast ranks the evidence. The gate owns the verdict. |
 
 ---
 
