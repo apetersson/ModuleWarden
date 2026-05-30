@@ -1,4 +1,4 @@
-"""Conversational underwriter assistant agent.
+"""Conversational risk review assistant agent.
 
 Two execution paths:
 
@@ -36,11 +36,11 @@ SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system.md"
 
 
 def _load_system_prompt() -> str:
-    """Load the underwriter system prompt. Wired in (was previously dead)."""
+    """Load the risk-review system prompt. Wired in (was previously dead)."""
     try:
         return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
     except OSError:
-        return "You are the ModuleWarden Underwriter Assistant."
+        return "You are the ModuleWarden Risk Review Assistant."
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ def lookup_by_incident_id(incident_id: str) -> ChatTurn:
     memo = _render_underwriting_memo(incident_id, dossier, report)
     prose, route, endpoint_error = narrate_underwriting(incident_id, dossier, report)
     # The deterministic memo is always shown (verdict is pinned). When the
-    # fine-tuned model is configured and responds, its underwriter narrative
+    # fine-tuned model is configured and responds, its risk-review narrative
     # leads, with the pinned memo beneath it as the audit trail.
     if prose:
         response_md = f"{prose.strip()}\n\n---\n\n{memo}"
@@ -235,95 +235,89 @@ def _underwriting_implication(verdict: str, risk_level: str) -> str:
     r = (risk_level or "").lower()
     if v == "block":
         return (
-            "**Underwriting implication.** This release should fail the "
-            "supply-chain section of the underwriting questionnaire. If the "
-            "client has this version on the dependency surface, "
-            "control-class credit is not applicable until the client pins "
-            "to the last-known-clean release."
+            "**Decision: AVOID.** This release fails the supply-chain "
+            "forecast. If the project has this version on the dependency "
+            "surface, do not adopt it until the project pins to the "
+            "last-known-clean release. The avoided downside is a live "
+            "compromise reaching production."
         )
     if v == "quarantine":
         return (
-            "**Underwriting implication.** Conditionally underwritable. "
-            "Add a remediation clause requiring the client to either pin "
-            "an allowlisted version, supply a maintainer attestation, or "
-            "exclude this dependency from production by policy bind."
+            "**Decision: WAIT.** Adopt only with a condition: pin an "
+            "allowlisted version, supply a maintainer attestation, or keep "
+            "this dependency out of production until it clears."
         )
     if v == "allow":
         if r in {"none", "low"}:
             return (
-                "**Underwriting implication.** Clean control signal. "
-                "Counts toward supply-chain control-class credit at "
-                "policy bind."
+                "**Decision: ADOPT.** Clean control signal. Safe to adopt "
+                "for the software supply chain."
             )
         return (
-            "**Underwriting implication.** Allowed by the gate; the model "
-            "still flags residual risk. Treat as a positive signal but "
-            "weight it by the residual risk level when computing premium "
-            "credit."
+            "**Decision: ADOPT with a watch.** Allowed by the gate; the "
+            "model still flags residual risk. Treat as a positive signal "
+            "but weight the residual risk before you adopt."
         )
     return ""
 
 
 # ---------------------------------------------------------------------------
-# Underwriting Control Evidence Memo
+# Control Evidence Memo
 #
 # The verdict is pinned by the deterministic gate + the audit report. These
-# functions translate that pinned verdict into the three fields a UNIQA
-# cyber-policy underwriter acts on: a risk tier, a premium/exclusion
-# recommendation, and the cited evidence. NONE of this is model-generated;
-# the model (when configured) narrates this card, it does not produce it.
+# functions translate that pinned verdict into the three fields a risk
+# reviewer acts on: a risk tier, an adopt / wait / avoid decision, and the
+# cited evidence. NONE of this is model-generated; the model (when
+# configured) narrates this card, it does not produce it.
 # ---------------------------------------------------------------------------
 
 
 def _underwriting_tier(verdict: str, risk_level: str) -> str:
-    """Map the pinned verdict + risk level to an underwriting decision tier."""
+    """Map the pinned verdict + risk level to a risk-review decision tier."""
     v = (verdict or "").lower()
     r = (risk_level or "").lower()
     if v == "block":
-        return "DECLINE (refer to security; supply-chain control credit withheld)"
+        return "AVOID (refer to security; do not adopt until pinned clean)"
     if v == "quarantine":
-        return "ACCEPT-WITH-CONDITIONS (remediation clause required before bind)"
+        return "WATCH (remediation step required before you adopt)"
     if v == "allow":
         if r in {"none", "low"}:
-            return "ACCEPT (clean supply-chain control signal; credit-eligible)"
-        return "ACCEPT-WITH-CONDITIONS (residual risk; partial control credit)"
-    return "REFER (verdict unavailable; manual review)"
+            return "ADOPT (clean supply-chain control signal; safe to adopt)"
+        return "WATCH (residual risk; adopt with a watch)"
+    return "WATCH (verdict unavailable; manual review)"
 
 
 def _premium_exclusion_line(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
-    """The premium-loading / exclusion recommendation for the policy file."""
+    """The adopt / wait / avoid decision line for the risk-review record."""
     v = (report.get("verdict") or "").lower()
     name = (dossier.get("package") or {}).get("name") or incident_id.rsplit("-", 1)[0]
     baseline = (dossier.get("baseline") or {}).get("version")
     clean_ref = f"@{baseline}" if baseline else " a last-known-clean release"
     if v == "block":
         return (
-            f"**Premium / exclusion.** Recommend a policy exclusion for losses "
-            f"arising from `{name}` at the audited version until the insured pins "
-            f"to {clean_ref}. Do not extend supply-chain control credit on this "
-            f"dependency while the compromise is live."
+            f"**Decision: AVOID.** Do not adopt `{name}` at the audited version "
+            f"until the project pins to {clean_ref}. The avoided downside is a "
+            f"live compromise on this dependency reaching the build while it is "
+            f"active."
         )
     if v == "quarantine":
         return (
-            f"**Premium / exclusion.** Accept with a remediation clause: the "
-            f"insured pins an allowlisted version of `{name}`, supplies a "
-            f"maintainer attestation, or excludes it from production by bind. "
-            f"Hold control credit pending remediation."
+            f"**Decision: WAIT.** Adopt only with a condition: pin an "
+            f"allowlisted version of `{name}`, supply a maintainer attestation, "
+            f"or keep it out of production until it clears."
         )
     if v == "allow":
         r = (report.get("risk_level") or "").lower()
         if r in {"none", "low"}:
             return (
-                f"**Premium / exclusion.** No loading. `{name}` is a positive "
-                f"control-class signal and is eligible for the supply-chain "
-                f"premium credit at bind."
+                f"**Decision: ADOPT.** `{name}` is a positive control signal "
+                f"and is safe to adopt for the software supply chain."
             )
         return (
-            f"**Premium / exclusion.** No exclusion, but weight the residual "
-            f"risk on `{name}` when sizing the supply-chain credit; partial "
-            f"credit only."
+            f"**Decision: ADOPT with a watch.** Weight the residual risk on "
+            f"`{name}` before you adopt; keep it on the watch list."
         )
-    return "**Premium / exclusion.** Manual underwriting review required."
+    return "**Decision: WATCH.** Manual risk review required."
 
 
 def _kill_chain_attack(dossier: dict[str, Any]) -> dict[str, Any] | None:
@@ -341,7 +335,7 @@ def _kill_chain_attack(dossier: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _kill_chain_line(dossier: dict[str, Any]) -> str | None:
-    """One-line ATT&CK attack-path summary for the underwriting memo."""
+    """One-line ATT&CK attack-path summary for the Control Evidence Memo."""
     kc = _kill_chain_attack(dossier)
     if not kc:
         return None
@@ -353,12 +347,12 @@ def _kill_chain_line(dossier: dict[str, Any]) -> str | None:
 
 
 def _decepticon_chain_line(incident_id: str, dossier: dict[str, Any]) -> str | None:
-    """Surface a Decepticon chain node's insurance_rider + blast radius.
+    """Surface a Decepticon chain node's recommended action + blast radius.
 
     When the audited package appears in the Decepticon attack-chain wiki (or
-    the curated-threat-chains.json it was seeded from), the underwriter memo
-    gains a one-line chain pattern with the observed blast radius and the
-    recommended insurance rider. Optional enrichment, never the verdict.
+    the curated-threat-chains.json it was seeded from), the Control Evidence
+    Memo gains a one-line chain pattern with the observed blast radius and the
+    recommended action. Optional enrichment, never the verdict.
 
     Guarded import, fail-soft: returns None if the wiki is unavailable so the
     demo never breaks. Looks up by package@version first (curated key), then
@@ -391,18 +385,18 @@ def _decepticon_chain_line(incident_id: str, dossier: dict[str, Any]) -> str | N
         if rider is None and blast is None:
             return None
         blast_str = f"${blast:,}" if isinstance(blast, int) and blast > 0 else "not quantified"
-        rider_str = rider or "manual underwriting review"
+        rider_str = rider or "manual risk review"
         chain_str = f" ({chain_name})" if chain_name else ""
         return (
             f"**Chain pattern{chain_str}.** Decepticon wiki match: observed "
-            f"blast radius {blast_str}; recommended rider `{rider_str}`."
+            f"blast radius {blast_str}; recommended action `{rider_str}`."
         )
     except Exception:
         return None
 
 
 def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
-    """Deterministic Control Evidence Memo, framed as an underwriting decision.
+    """Deterministic Control Evidence Memo, framed as an adopt / wait / avoid decision.
 
     Always renderable without the model. The verdict line is preserved so
     the verdict remains visible and auditable.
@@ -438,7 +432,7 @@ def _render_underwriting_memo(incident_id: str, dossier: dict[str, Any], report:
 
 
 def _render_lookup(incident_id: str, dossier: dict[str, Any], report: dict[str, Any]) -> str:
-    """Lookup output is the underwriting Control Evidence Memo."""
+    """Lookup output is the Control Evidence Memo."""
     return _render_underwriting_memo(incident_id, dossier, report)
 
 
@@ -448,7 +442,7 @@ def narrate_underwriting(
     report: dict[str, Any],
     history: list[dict[str, str]] | None = None,
 ) -> tuple[str | None, str, str | None]:
-    """Ask the fine-tuned model to narrate the PINNED memo in underwriter voice.
+    """Ask the fine-tuned model to narrate the PINNED memo in risk-reviewer voice.
 
     Returns ``(prose, route, error)``:
     - ``(text, "llm", None)`` when an endpoint is configured and responds.
@@ -475,12 +469,13 @@ def narrate_underwriting(
         "mitre_attack_kill_chain": _kill_chain_attack(dossier),
     }
     user_msg = (
-        "A UNIQA cyber-policy underwriter is assessing this applicant's "
-        "dependency. The verdict and evidence below are PINNED by the "
-        "ModuleWarden gate and are authoritative -- explain and frame them "
-        "for the underwriter, do not change the verdict or invent findings. "
-        "If mitre_attack_kill_chain is present, narrate it as the attack path "
-        "in underwriter terms; cite only those technique ids, do not invent "
+        "A risk reviewer is assessing this project's dependency with a "
+        "supply-chain forecasting tool. The verdict and evidence below are "
+        "PINNED by the ModuleWarden gate and are authoritative -- explain and "
+        "frame them for the reviewer, do not change the verdict or invent "
+        "findings. Frame the call as adopt / wait / avoid. If "
+        "mitre_attack_kill_chain is present, narrate it as the attack path "
+        "in risk-review terms; cite only those technique ids, do not invent "
         "techniques.\n\n"
         + json.dumps(pinned, indent=2, ensure_ascii=False)
     )
@@ -523,16 +518,16 @@ def _render_gate() -> str:
         "matches the tarball, and the algorithm is on the allowed list.\n"
         "5. **allowlist** -- explicit per-organization allowlist hit. "
         "Skipped when the package and version is not on the allowlist.\n\n"
-        "For an underwriter, the gate output is a structured, auditable "
-        "control signal that an insurer's evidence pack can cite without "
-        "trusting the customer's self-attestation."
+        "For a risk reviewer, the gate output is a structured, auditable "
+        "control signal that a decision record can cite without trusting "
+        "the project's self-attestation."
     )
 
 
 def _render_help() -> str:
     return (
-        "I help an underwriter reason about npm supply-chain risk on a "
-        "client account. Things I can do:\n\n"
+        "I help a risk reviewer reason about npm supply-chain risk on a "
+        "project's dependencies. Things I can do:\n\n"
         "- **Look up a package.** Try `postmark-mcp@1.0.16` or "
         "`lodash@4.17.21`.\n"
         "- **Explain the deterministic gate.** Ask `what are the gate "
@@ -541,7 +536,7 @@ def _render_help() -> str:
         "- **Summarize a real supply-chain incident.** Ask about "
         "`postmark`, `Shai-Hulud`, `event-stream`, or `lodash`.\n\n"
         "Drop a package.json or pnpm-lock.yaml into the side panel "
-        "(Streamlit UI) for a portfolio-style roll-up across an account."
+        "(Streamlit UI) for a portfolio-style roll-up across the project."
     )
 
 
@@ -550,7 +545,8 @@ def _render_live_advisory(pkg: str) -> str:
 
     Gated by MW_LIVE_ADVISORIES=1 so the test suite stays offline by default;
     the Streamlit app and CLI enable it. Fail-soft: returns "" on any error so
-    the chat never breaks on a network hiccup.
+    the chat never breaks on a network hiccup. Turns the reviewer's "no
+    dossier for that package" question into a real, sourced answer.
     """
     if os.environ.get("MW_LIVE_ADVISORIES") != "1":
         return ""
@@ -648,7 +644,7 @@ def handle_query(message: str, history: list[dict[str, str]] | None = None) -> C
         if _load_pair(incident_id) is None:
             return ChatTurn(response_md=_render_unknown(facts), evidence={"intent": "lookup_unknown"})
         # Unified path: typed lookups and the CLI get the same model-backed
-        # underwriting memo the sidebar button produces.
+        # Control Evidence Memo the sidebar button produces.
         return lookup_by_incident_id(incident_id)
 
     if intent == "lookup_unknown":
