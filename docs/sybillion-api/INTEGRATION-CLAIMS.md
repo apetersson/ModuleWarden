@@ -103,10 +103,20 @@ forecast, last 12 months retained.
 - `quantile_forecast` is returned on a probabilistic run; read and store it
   rather than collapsing to the point `forecast`.
 
+## Account state, read from the portal (2026-05-30)
+
+- Tier: Level 0 (Free). Auto-recharge: disabled.
+- Trial credit active: 26.59 EUR remaining of a 50 EUR grant, expires
+  2026-06-14. At about 3 cents per forecast that is roughly 880 forecasts, so
+  the whole demo runs inside the free trial. No auto-spend.
+
 ## CONFIRM-LIVE checklist before pitch day
 
-- [ ] Tier-0 concurrent-job cap and per-minute submit cap (portal `/tiers`).
+- [ ] Tier-0 concurrent-job cap and per-minute submit cap (portal `/tiers` page,
+      not shown on the Overview; still unread).
 - [ ] Exact quantile set returned for a probabilistic run on our key.
-- [ ] Our demo dependency series has >= 60 monthly points for a 6-month horizon.
-- [ ] `available_eur_cents` on `/me` covers the demo run (a forecast settles at
-      about 3 cents per `jobs.md`).
+- [x] Demo dependency series clears the floor: date-fns gives 88 monthly points
+      (2019-2026) via `sybilion_forecast.py`, above the 60 floor for a 6-month
+      horizon.
+- [x] Balance covers the demo: 26.59 EUR remaining, a forecast settles at about
+      3 cents (`jobs.md`).
