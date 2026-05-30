@@ -1,7 +1,7 @@
-JOB_ID=43029356
-NODE=lrdn1323
-MODEL_NAME=qwen3.6-27b
+JOB_ID=43036614
+NODE=lrdn0073
+MODEL_NAME=huihui-qwen3.6-27b-abliterated
 PORT=8000
 LOCAL_PORT=8081
 LEONARDO_USER=a08trc02
-LEONARDO_LOGIN=login01-ext.leonardo.cineca.it
+LEONARDO_LOGIN=login07-ext.leonardo.cineca.it
