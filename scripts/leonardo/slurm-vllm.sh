@@ -34,37 +34,52 @@ echo "Start: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 # ── Environment ──────────────────────────────────────────────
 
-export HTTP_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export HTTPS_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export http_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export https_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
+# Compute-node egress proxy. Only the singularity-pull fallback or a runtime HF
+# fetch needs it; the staged-image + local-model serve path below needs no network.
+# Supply it via MW_LEONARDO_PROXY in your job env or .env, never as a committed value.
+if [ -n "${MW_LEONARDO_PROXY:-}" ]; then
+    export HTTP_PROXY="${MW_LEONARDO_PROXY}" HTTPS_PROXY="${MW_LEONARDO_PROXY}"
+    export http_proxy="${MW_LEONARDO_PROXY}" https_proxy="${MW_LEONARDO_PROXY}"
+fi
 
 # ── Paths ───────────────────────────────────────────────────
 
 SCRATCH_DIR="/leonardo_scratch/large/usertrain/${USER}"
 MODEL_CACHE="${SCRATCH_DIR}/models"
-VLLM_SIF="${SCRATCH_DIR}/containers/vllm-openai-v063-cu121.sif"
 LOG_DIR="${SCRATCH_DIR}/vllm-logs"
-mkdir -p "${MODEL_CACHE}" "${LOG_DIR}" "$(dirname "${VLLM_SIF}")"
+mkdir -p "${MODEL_CACHE}" "${LOG_DIR}"
 
-# Point to the model directory (binded into container at /model)
-MODEL_DIR="${SCRATCH_DIR}/models/huihui-qwen3.6-27b-abliterated"
+# Point to the model directory (binded into container at /model). Prefer the shared
+# de-duplicated copy in $WORK (survives the 40-day scratch purge, read by both project
+# accounts); fall back to the per-user scratch copy. Override with MW_MODEL_DIR.
+WORK_MODELS="/leonardo_work/EUHPC_D30_031/models"
+MODEL_DIR="${MW_MODEL_DIR:-${WORK_MODELS}/huihui-qwen3.6-27b-abliterated}"
+[ -d "${MODEL_DIR}" ] || MODEL_DIR="${SCRATCH_DIR}/models/huihui-qwen3.6-27b-abliterated"
 MODEL_NAME="${MW_VLLM_MODEL_NAME:-huihui-qwen3.6-27b-abliterated}"
 PORT="${MW_VLLM_PORT:-8000}"
 HOST="${MW_VLLM_HOST:-0.0.0.0}"
 
-# ── Pull vLLM Singularity image (if not cached) ─────────────
+# ── vLLM Singularity image ──────────────────────────────────
+# Default to the pre-staged, world-readable image in the project work dir
+# (vLLM 0.21.0, CUDA 12.9 userspace). It runs on the 535/12.2 A100 driver via CUDA
+# 12.x minor-version compat and also covers Hopper (sm_90), so the serve is
+# GPU-arch-agnostic and needs no singularity pull. Override with MW_VLLM_SIF.
+STAGED_SIF="/leonardo_work/EUHPC_D30_031/mpfister-public/vllm-openai-v0.21.0-cu129.sif"
+VLLM_SIF="${MW_VLLM_SIF:-${STAGED_SIF}}"
+
+# Fallback: if neither the override nor the staged image is present, pull a pinned
+# image into scratch. That path needs MW_LEONARDO_PROXY set (compute-node egress).
 if [ ! -f "${VLLM_SIF}" ]; then
-    echo "Pulling vLLM Singularity image..."
-    # Pull first to /tmp then move to scratch (avoids partial downloads)
-    TMP_SIF="/tmp/vllm-openai-cu129-${SLURM_JOB_ID}.sif"
-    # v0.6.3.post1 uses CUDA 12.1 — compatible with driver 535 on Leonardo
-    singularity pull --name "${TMP_SIF}" docker://docker.io/vllm/vllm-openai:v0.6.3.post1
-    mv "${TMP_SIF}" "${VLLM_SIF}"
-    echo "vLLM image cached at ${VLLM_SIF}"
-else
-    echo "vLLM image found in cache"
+    echo "Image not found at ${VLLM_SIF}; falling back to singularity pull..."
+    VLLM_SIF="${SCRATCH_DIR}/containers/vllm-openai-v063-cu121.sif"
+    mkdir -p "$(dirname "${VLLM_SIF}")"
+    if [ ! -f "${VLLM_SIF}" ]; then
+        TMP_SIF="/tmp/vllm-openai-${SLURM_JOB_ID}.sif"
+        singularity pull --name "${TMP_SIF}" docker://docker.io/vllm/vllm-openai:v0.6.3.post1
+        mv "${TMP_SIF}" "${VLLM_SIF}"
+    fi
 fi
+echo "vLLM image: ${VLLM_SIF}"
 
 # ── Download model weights (if not cached) ──────────────────
 # Models are downloaded by the vLLM container on first run.

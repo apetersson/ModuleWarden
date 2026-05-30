@@ -34,6 +34,24 @@ if [ "$MODEL" = decepticon ]; then
   fi
 fi
 
+# --- one-time bootstrap for the auditor (transformers env), on the login node ---
+# Build a dedicated, stable venv (mw-audit-venv) so the auditor does not depend on the
+# fine-tune env (mwenv57b), which other jobs rebuild and which therefore flickers.
+# Submitted as a serial job (has internet, no login arbiter) and waited on here.
+if [ "$MODEL" = auditor ] && [ ! -f "$SCRATCH/mw-audit-venv/pyvenv.cfg" ]; then
+  PREP="$HERE/audit_venv_prep.slurm"; [ -f "$PREP" ] || PREP="$SCRATCH/audit_venv_prep.slurm"
+  if [ -f "$PREP" ]; then
+    [ "$PREP" -ef "$SCRATCH/audit_venv_prep.slurm" ] || cp -f "$PREP" "$SCRATCH/audit_venv_prep.slurm"
+    echo ">>> first auditor run: building the stable auditor venv (serial job, one-time ~3 min)..."
+    JID=$(cd "$SCRATCH" && sbatch --parsable audit_venv_prep.slurm 2>/dev/null)
+    echo ">>> venv build job ${JID:-?}; waiting for it to finish..."
+    [ -n "$JID" ] && while squeue -j "$JID" -h 2>/dev/null | grep -q .; do sleep 10; done
+    [ -f "$SCRATCH/mw-audit-venv/pyvenv.cfg" ] && echo ">>> auditor venv ready" || echo ">>> venv build incomplete; see \$SCRATCH/mw-audit-venv-*.out"
+  else
+    echo ">>> audit_venv_prep.slurm not found next to this script; build the auditor venv manually"
+  fi
+fi
+
 # make sure the on-node script is reachable on scratch (copy next to us if present)
 RUN=$SCRATCH/time_model_run.sh
 if [ -f "$HERE/time_model_run.sh" ] && [ ! "$HERE/time_model_run.sh" -ef "$RUN" ]; then

@@ -73,17 +73,22 @@ if [ "$MODEL" = decepticon ]; then
   LOAD=$(sub "$T0" "$T1"); INFER=$(sub "$T1" "$T2"); TOTAL=$(sub "$T0" "$T2")
 
 elif [ "$MODEL" = auditor ]; then
-  # huihui-Qwen3.6-27B-abliterated bf16 loaded via transformers (the fine-tune env)
-  VENV=$SCRATCH/mwenv57b/bin/python
+  # huihui-Qwen3.6-27B-abliterated bf16 via transformers. Prefer the dedicated stable
+  # venv (mw-audit-venv); fall back to the fine-tune env (mwenv57b) only if that is the
+  # only one present. mwenv57b gets rebuilt by other jobs and flickers, so it is not
+  # the first choice for a reliable timing run.
   SIF=$SCRATCH/pytorch57.sif
-  if [ ! -x "$VENV" ] || [ ! -f "$SIF" ]; then
-    echo "auditor path needs the fine-tune env (pytorch57.sif + mwenv57b)."
-    echo "Run the prep job once first:  sbatch finetune/python/slurm/leonardo/prep-qwen36.slurm"
-    echo "(the decepticon path needs none of this and self-builds.)"
+  VENV=""
+  [ -f "$SCRATCH/mw-audit-venv/pyvenv.cfg" ] && VENV=$SCRATCH/mw-audit-venv/bin/python
+  [ -z "$VENV" ] && [ -e "$SCRATCH/mwenv57b/bin/python" ] && VENV=$SCRATCH/mwenv57b/bin/python
+  if [ ! -f "$SIF" ] || [ -z "$VENV" ]; then
+    echo "auditor needs a transformers env. Build the dedicated stable one once (~3 min):"
+    echo "    sbatch finetune/python/slurm/leonardo/audit_venv_prep.slurm"
+    echo "(or wait for your fine-tune env mwenv57b to settle). decepticon needs none of this."
     exit 1
   fi
   export TM_PROMPT="$PROMPT" TM_MAXTOK="$MAXTOK" MWMODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated
-  OUT=$(singularity exec --nv --bind "$SCRATCH" "$SIF" "$VENV" - <<'PY'
+  OUT=$(singularity exec --nv --bind "$SCRATCH" "$SIF" "$VENV" - 2>&1 <<'PY'
 import os, time, torch
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM
 M = os.environ["MWMODEL"]
@@ -113,7 +118,17 @@ PY
   INFER=$(printf '%s' "$OUT" | sed -n 's/^INFER=//p')
   TOTAL=$(printf '%s' "$OUT" | sed -n 's/^TOTAL=//p')
   ANS=$(printf '%s' "$OUT" | awk '/ANS_START/{f=1;next}/ANS_END/{f=0}f')
-  [ -n "$TOTAL" ] || { echo "auditor run produced no timing; raw output:"; echo "$OUT" | tail -20; exit 1; }
+  if [ -z "$TOTAL" ]; then
+    if printf '%s' "$OUT" | grep -qiE "mwenv57b.*no such|python.*no such file|cannot open shared object|FATAL"; then
+      echo "auditor env (mwenv57b) was missing or vanished mid-run. On this account another"
+      echo "job is rebuilding the fine-tune env, so it comes and goes. Retry once that has"
+      echo "settled, or run prep-qwen36.slurm and let it finish. The decepticon path needs"
+      echo "none of this and works now."
+    else
+      echo "auditor run produced no timing; raw output:"; printf '%s\n' "$OUT" | tail -20
+    fi
+    exit 1
+  fi
 else
   echo "unknown model '$MODEL' (use: decepticon | auditor)"; exit 2
 fi
