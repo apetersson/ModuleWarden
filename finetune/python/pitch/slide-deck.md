@@ -297,6 +297,11 @@ trajectory the rank is keyed off.
 - The whole pass is cheap and we show it: a Sybilion forecast settles at about
   three EUR cents, so ranking the dependency tree costs little; the agent
   throttles under the tier's per-minute cap and a human authorizes any top-up
+- The coverage boundary, said out loud: the forecast ranks only the established
+  dependencies that clear Sybilion's monthly history floor (about five years of
+  monthly history for a six-month horizon). Everything younger is covered by the
+  gate on the delta, not the forecast. We concede that rather than let a judge
+  find it
 
 **Judges' question this answers:** "What does the forecast actually do?"
 
