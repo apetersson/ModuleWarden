@@ -135,7 +135,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--packages", nargs="*", default=DEFAULT_SET)
     p.add_argument("--submit", action="store_true")
     p.add_argument("--yes-i-will-spend", action="store_true")
+    p.add_argument("--floor-cents", type=int, default=BALANCE_FLOOR_CENTS,
+                   help="stop submitting when available balance drops below this")
+    p.add_argument("--max-new", type=int, default=MAX_NEW_SUBMITS,
+                   help="max new forecasts to submit this run")
     args = p.parse_args(argv)
+    floor_cents = args.floor_cents
+    max_new = args.max_new
 
     token = os.environ.get("SYBILION_API_TOKEN")
     records: dict[str, dict] = {}
@@ -155,11 +161,11 @@ def main(argv: list[str] | None = None) -> int:
             pending.append(pkg)
             continue
         avail = _me_available(token)
-        if avail is not None and avail < BALANCE_FLOOR_CENTS:
+        if avail is not None and avail < floor_cents:
             print(f"balance floor reached ({avail} cents); stopping submits.", file=sys.stderr)
             pending.append(pkg)
             continue
-        if new_submits >= MAX_NEW_SUBMITS:
+        if new_submits >= max_new:
             pending.append(pkg)
             continue
         print(f"forecasting {pkg} ...", file=sys.stderr)
