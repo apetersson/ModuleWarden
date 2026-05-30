@@ -32,9 +32,10 @@ RESOLVED:
 - gcc: Decepticon build now uses the gcc/12.2.0 module host compiler with a version-guarded -lstdc++fs fallback (commit 534b3f0). gcc/12.2.0 confirmed available.
 - Model de-dup: rsync of both models (52G abliterated + 19G GGUF) from a08trc01 $SCRATCH to shared $WORK=/leonardo_work/EUHPC_D30_031/models (group-shared, no purge, 2.3T free). slurm-vllm.sh now prefers the $WORK copy with a $SCRATCH fallback (commit 534b3f0). Also gives a08trc02 a copy he did not have.
 
+- ollama path REJECTED: ollama-0.13.2.sif imports the heretic-v2 GGUF metadata (create succeeds) but its bundled llama.cpp fails the model load with "unknown model architecture: 'qwen35'". The GGUF is a hybrid SSM+attention Native-MTP arch that only the latest llama.cpp builds. So the from-source llama.cpp build (decepticon_gpu_build_serve.slurm, now gcc/12.2.0) stays the Decepticon serve path on Leonardo. Verified on lrdn0058, 2026-05-30.
+- Decepticon serve GGUF now reads the shared $WORK copy with a $SCRATCH fallback (a715280).
+
 REMAINING:
-- Test whether ollama-0.13.2.sif loads the heretic-v2 qwen35 (Native-MTP) GGUF for a build-free Decepticon serve before relying on the from-source llama.cpp path.
-- Point the source-built decepticon serve GGUF path at the shared $WORK copy too (currently $SCRATCH).
 - Coordinate job submission and shared $WORK writes between a08trc01 and a08trc02 (one project, one 25-node reservation, shared pool).
 - SECURITY: the proxy credential removed in bc7e9a2 still lives in the public-repo git history. Flag for rotation, or accept it as a time-boxed internal proxy. Decision needed.
 <!-- SECTION:NOTES:END -->
