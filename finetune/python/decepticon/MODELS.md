@@ -14,19 +14,20 @@ directly.
 
 | role | repo | format | size |
 |------|------|--------|------|
-| Chosen checkpoint (auditor + Decepticon, per CLAUDE.md) | `huihui-ai/Huihui-Qwen3.6-27B-abliterated` | bf16 (vLLM) | ~55.6 GB |
-| Alternative local llama.cpp (different abliteration) | `llmfan46/Qwen3.6-27B-uncensored-heretic-v2-...-GGUF`, `Q5_K_M` | GGUF | ~19.7 GB |
+| Auditor (abliterated base we SFT) | `huihui-ai/Huihui-Qwen3.6-27B-abliterated` | bf16 (vLLM/HF) | ~55.6 GB |
+| Decepticon (offense narration, inference-only) | `llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF`, `Q5_K_M` | GGUF (llama.cpp) | ~19.7 GB |
 
 ## Fetch on Leonardo
 
-Leonardo needs the HTTP proxy for outbound internet, or HuggingFace is unreachable.
-Export it first (credentials in `docs/leonardo-docs/slides.md`):
+Run this on a LOGIN/SERIAL node. Those have direct outbound internet (verified
+2026-05-30: HTTP 200 to huggingface.co), so no proxy is needed. The fetch uses the
+`hf` CLI; the old `huggingface-cli` is deprecated and no longer downloads. Compute
+nodes have no internet, so always stage on the login node first.
 
 ```
-export HTTP_PROXY=... HTTPS_PROXY=... http_proxy=... https_proxy=...
-MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-bf16   # vLLM serving
-MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-gguf   # llama.cpp / smaller
-MODELS_DIR=$SCRATCH/models ./fetch-models.sh --auditor-base      # base we abliterate
+MODELS_DIR=$SCRATCH/models ./fetch-models.sh --auditor-base      # auditor bf16 (huihui)
+MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-gguf   # Decepticon GGUF (heretic-v2)
+MODELS_DIR=$SCRATCH/models ./fetch-models.sh --decepticon-bf16   # optional: serve Decepticon from huihui bf16
 ```
 
 Then verify before spending GPU:
