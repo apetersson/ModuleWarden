@@ -29,6 +29,10 @@ The Sybilion forecast ranks your dependencies by forecasted growth and blast-rad
 
 So the division of labor is plain: the deterministic gate detects on its own rules and owns the verdict, the Sybilion forecast orders the review queue by trajectory, and when the forecast band is too wide to call, the dependency routes to a human instead of a guess.
 
+## The bigger frame: disciplined domain expansion
+
+ModuleWarden is also a reference pattern. Take a forecast built for one domain into a new one and the honest move is the same every time: transfer-test whether it carries, keep what it earns, gate what it does not, and concede the rest with the data. We ran that on the hardest new domain there is, adversarial npm supply-chain security: the forecast cannot detect (AUROC 0.54 on the cold package), so it ranks by trajectory while the deterministic gate owns the verdict. That is how you grow a forecast into any domain without it lying to you. See [`backlog/decisions/decision-12`](backlog/decisions/decision-12%20-%20Adopt-the-domain-expansion-frame-ModuleWarden-is-the-disciplined-domain-expansion-reference-for-the-Sybilion-forecast.md).
+
 ## Architecture Overview
 
 ```
