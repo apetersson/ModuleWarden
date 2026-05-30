@@ -88,6 +88,16 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 
 ---
 
+## Beat 8b - The forecast: live implementation
+
+| Field | Content |
+|---|---|
+| SECTION | The forecast |
+| ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "⏳ Temporal Forecast (Sybillion)" card expands — showing per-metric rows: commits, contributors, code_quality, downloads. Each has a verdict badge (collapse ⚠ / ✓, uncertainty score, anomaly flag) and a linked Sybilion job ID. Below, the composite temporal_risk badge: 40%. |
+| VOICEOVER | We did not stop at concept. For every dependency ModuleWarden audits, we shallow-clone the upstream repository, extract monthly git metrics going back to the first commit, pair them with five years of npm download history, and submit parallel time-series forecasts to Sybilion. The API returns a probability band per metric — monthly point forecast, quantile band, and horizon. Our signal extractor pulls three flags from each: is the package collapsing toward zero activity? Is the uncertainty band unusually wide? Does the latest observation break through the forecast band? Those are weighted into a single temporal risk score that appears directly in the audit run detail, with every Sybilion job ID preserved for deep-dive. The forecast ranks the evidence. It does not set the verdict. |
+
+---
+
 ## Beat 9 - The honesty beat
 
 | Field | Content |
