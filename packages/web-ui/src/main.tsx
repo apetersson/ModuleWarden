@@ -138,6 +138,19 @@ interface PackageDetail {
     createdAt: string;
   }>;
   agentStream?: AgentStream;
+  temporalEvidence?: {
+    temporal_risk: number;
+    metrics: Record<string, {
+      collapse_risk: boolean;
+      uncertainty_high: boolean;
+      recent_anomaly: boolean;
+      min_forecast: number;
+      uncertainty_score: number;
+      anomaly_detected: boolean;
+      job_id: string;
+    }>;
+    forecast_job_ids: string[];
+  } | null;
 }
 
 interface PromptUsage {
@@ -1438,6 +1451,65 @@ function AuditRunDetail({ runId, adminToken, onClose }: { runId: string; adminTo
             {detail.riskSummary && (
               <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff3e0', borderRadius: 4, fontSize: '0.9rem' }}>
                 <strong>Risk Summary:</strong> {detail.riskSummary}
+              </div>
+            )}
+
+            {/* Temporal Forecast Evidence */}
+            {detail.temporalEvidence && (
+              <div style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid #d7dde3', borderRadius: 4, background: '#fbfcfd' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', margin: 0 }}>⏳ Temporal Forecast (Sybillion)</h3>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 10,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    background: (detail.temporalEvidence.temporal_risk ?? 0) > 0.5 ? '#ffebee' : '#e8f5e9',
+                    color: (detail.temporalEvidence.temporal_risk ?? 0) > 0.5 ? '#c62828' : '#2e7d32',
+                  }}>
+                    Risk: {((detail.temporalEvidence.temporal_risk ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem' }}>
+                  {Object.entries(detail.temporalEvidence.metrics ?? {}).map(([metric, m]) => (
+                    <div key={metric} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <code style={{ fontSize: '0.8rem', minWidth: 90 }}>{metric}</code>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        background: m.collapse_risk ? '#ffebee' : '#e8f5e9',
+                        color: m.collapse_risk ? '#c62828' : '#2e7d32',
+                      }}>
+                        collapse: {m.collapse_risk ? '⚠' : '✓'}
+                      </span>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        background: m.uncertainty_high ? '#fff3e0' : '#e8f5e9',
+                        color: m.uncertainty_high ? '#e65100' : '#2e7d32',
+                      }}>
+                        uncertainty: {m.uncertainty_score.toFixed(3)}
+                      </span>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: 8,
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        background: m.recent_anomaly ? '#ffebee' : '#e8f5e9',
+                        color: m.recent_anomaly ? '#c62828' : '#2e7d32',
+                      }}>
+                        anomaly: {m.recent_anomaly ? '⚠' : '✓'}
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: '#999', marginLeft: 'auto' }}>
+                        min: {m.min_forecast.toFixed(1)} · job: {m.job_id?.slice(0, 8)}…
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

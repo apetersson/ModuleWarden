@@ -151,6 +151,20 @@ export interface PackageVersionDetail {
   decisionHistory: DecisionHistoryEntry[];
   /** Redacted live/final PI conversation stream */
   agentStream?: AgentStream;
+  /** Sybillion temporal forecast evidence */
+  temporalEvidence?: {
+    temporal_risk: number;
+    metrics: Record<string, {
+      collapse_risk: boolean;
+      uncertainty_high: boolean;
+      recent_anomaly: boolean;
+      min_forecast: number;
+      uncertainty_score: number;
+      anomaly_detected: boolean;
+      job_id: string;
+    }>;
+    forecast_job_ids: string[];
+  } | null;
 }
 
 export interface PromptUsage {
