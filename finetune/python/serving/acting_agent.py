@@ -9,8 +9,14 @@ compromise would unfold.
 
 The two threat personas behind a high forecast are the disgruntled employee
 (intentional) and the lazy employee who pulls an unvetted GitHub dependency
-tree (negligent). Either way the underwriter sees one action plus an optional
+tree (negligent). Either way the reviewer sees one action plus an optional
 kill-chain narrative.
+
+The gate owns the verdict; the forecast informs review order. When the caller
+passes the forecast's (low, high) probability band, a wide band raises the
+review urgency and can route a borderline case to a human, but it never flips
+the action. The threshold policy on the point estimate still decides allow /
+quarantine / escalate.
 
 The module is dependency-light. It imports only the standard library and the
 existing ATT&CK mapper. No model, GPU, or network is required.
@@ -25,9 +31,14 @@ from finetune.python.decepticon.mapper import kill_chain_narrative
 __all__ = [
     "ActionPolicy",
     "DEFAULT_POLICY",
+    "WIDE_BAND",
     "decide_action",
     "summarize_decision",
 ]
+
+# A forecast band at least this wide is treated as too uncertain to lean on the
+# point estimate, so the case is routed to a human regardless of the action.
+WIDE_BAND = 0.30
 
 
 @dataclass
@@ -64,18 +75,63 @@ def _clamp01(value: float) -> float:
     return float(value)
 
 
+def _review_routing(prob: float, band: "tuple[float, float] | None", action: str) -> dict:
+    """Map the forecast band to review urgency and human-routing.
+
+    This is the forecast informing review ORDER, not the verdict. band is the
+    (low, high) probability interval from the dependency-tree roll-up. A wider
+    band means the forecast cannot call the case tightly, so it gets a human
+    and a higher urgency. The action passed in is never changed here.
+
+    Returns {"band_width", "review_urgency", "route_to_human"}.
+    """
+
+    if not band:
+        # No forecast band. Urgency follows the action: a quarantine still
+        # wants a human, an escalate is already going to one.
+        route = action in ("quarantine", "escalate")
+        urgency = "urgent" if action == "escalate" else (
+            "elevated" if action == "quarantine" else "routine"
+        )
+        return {"band_width": None, "review_urgency": urgency, "route_to_human": route}
+
+    low, high = _clamp01(band[0]), _clamp01(band[1])
+    if low > high:
+        low, high = high, low
+    width = high - low
+
+    if width >= WIDE_BAND:
+        urgency = "urgent"
+    elif width >= WIDE_BAND / 2.0:
+        urgency = "elevated"
+    else:
+        urgency = "routine"
+
+    # Route to a human when the band is too wide to trust the point, or when the
+    # action already implies human review. A wide band on an "allow" does not
+    # become a block, it becomes an allow that someone glances at.
+    route = width >= WIDE_BAND or action in ("quarantine", "escalate")
+    return {"band_width": width, "review_urgency": urgency, "route_to_human": route}
+
+
 def decide_action(
     probability: float,
     dossier: dict | None = None,
     policy: ActionPolicy = DEFAULT_POLICY,
+    band: "tuple[float, float] | None" = None,
 ) -> dict:
     """Decide what to do about a compromise probability.
 
-    Returns a dict with action, probability, reason, and attack_path.
+    Returns a dict with action, probability, reason, attack_path, and the
+    review-routing fields band_width, review_urgency, route_to_human.
 
     action is "allow" when the probability is below policy.allow_below,
     "escalate" when it is at or above policy.escalate_above, and
     "quarantine" otherwise. The probability is clamped to [0, 1] first.
+
+    band is the optional (low, high) forecast interval on the probability. It
+    sets review_urgency and can route a case to a human, but it NEVER changes
+    the action; the threshold policy on the point estimate owns the verdict.
 
     attack_path is populated only when the action is "escalate" or
     "quarantine" and the dossier carries a non-empty capability_deltas list.
@@ -112,11 +168,16 @@ def decide_action(
             if narrative.get("depth", 0) > 0:
                 attack_path = narrative
 
+    routing = _review_routing(prob, band, action)
+
     return {
         "action": action,
         "probability": prob,
         "reason": reason,
         "attack_path": attack_path,
+        "band_width": routing["band_width"],
+        "review_urgency": routing["review_urgency"],
+        "route_to_human": routing["route_to_human"],
     }
 
 
@@ -137,5 +198,13 @@ def summarize_decision(decision: dict) -> str:
             line += f"; ATT&CK path: {chain}"
         if tids:
             line += f" ({', '.join(tids)})"
+
+    urgency = decision.get("review_urgency", "routine")
+    if decision.get("route_to_human") or urgency != "routine":
+        width = decision.get("band_width")
+        if width is not None:
+            line += f"; review {urgency} (forecast band {width:.1%})"
+        else:
+            line += f"; review {urgency}"
 
     return line

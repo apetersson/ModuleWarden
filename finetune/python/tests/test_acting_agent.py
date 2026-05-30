@@ -138,3 +138,47 @@ def test_summarize_no_chain_when_absent():
     line = summarize_decision(decision)
     assert "ALLOW" in line
     assert "ATT&CK path" not in line
+
+
+# --- band-driven review routing (#1b) ------------------------------------
+
+
+def test_band_does_not_change_action():
+    # A wide band on a clearly-allow probability must stay "allow".
+    narrow = decide_action(0.05, None, band=(0.04, 0.06))
+    wide = decide_action(0.05, None, band=(0.01, 0.95))
+    assert narrow["action"] == "allow"
+    assert wide["action"] == "allow"
+
+
+def test_wide_band_routes_to_human_and_raises_urgency():
+    decision = decide_action(0.05, None, band=(0.01, 0.95))
+    assert decision["route_to_human"] is True
+    assert decision["review_urgency"] == "urgent"
+    assert decision["band_width"] == pytest.approx(0.94)
+
+
+def test_narrow_band_allow_is_routine_no_human():
+    decision = decide_action(0.05, None, band=(0.04, 0.06))
+    assert decision["route_to_human"] is False
+    assert decision["review_urgency"] == "routine"
+
+
+def test_no_band_quarantine_still_routes_to_human():
+    decision = decide_action(0.40, None)
+    assert decision["band_width"] is None
+    assert decision["route_to_human"] is True
+
+
+def test_band_reversed_bounds_are_normalized():
+    # high, low passed backwards still yields the same width.
+    decision = decide_action(0.05, None, band=(0.95, 0.01))
+    assert decision["band_width"] == pytest.approx(0.94)
+    assert decision["route_to_human"] is True
+
+
+def test_summarize_includes_review_urgency_for_wide_band():
+    decision = decide_action(0.05, None, band=(0.01, 0.95))
+    line = summarize_decision(decision)
+    assert "review urgent" in line
+    assert "forecast band" in line

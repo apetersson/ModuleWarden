@@ -282,6 +282,10 @@ trajectory the rank is keyed off.
 - The deterministic gate detects the known-bad and decides the verdict
 - The reviewer works top-down, vetting the climbers first
 - Band and slope come from the Sybilion forecast on the version delta
+- The agent acts on the band, not just the number: a wide quantile band
+  routes a dependency to a human (it never flips the verdict), and a
+  steepening trajectory pre-fetches and pins the next version delta so the
+  gate audits a warm artifact before the install lands
 
 **Judges' question this answers:** "What does the forecast actually do?"
 
@@ -313,6 +317,16 @@ Takeaway strip below both:
 
 **The forecast ranks. It does not detect. The gate detects.**
 
+**And the part where we turn the negative into a feature (about 15 seconds):**
+"One more honest move. We could not make volatility detect a bad package. But
+volatility is real signal for something else: a noisy, fast-moving series means
+frequent version bumps, which means a larger cumulative version-delta surface
+to hide an attack in. So we do not throw the signal away. We let the forecast's
+short-horizon error scale how DEEP the deterministic gate scans each delta:
+shallow, standard, or deep. The forecast never decides the verdict. It decides
+how hard the gate looks. We do not predict death. We predict update velocity,
+and we scale scrutiny to it."
+
 **Bullets (small, under the visual):**
 - Negative result, shown on purpose: band and slope do not separate dying
   from healthy
@@ -320,6 +334,9 @@ Takeaway strip below both:
 - This is why verdict authority sits in the deterministic gate, not the
   model
 - False certainty is worse than honest uncertainty
+- The salvage: forecast volatility (short-horizon MAPE) scales the gate's
+  scan depth, since volatility means update velocity means a bigger delta
+  surface. Scrutiny scales to volatility; the verdict does not.
 
 **Judges' question this answers:** "What does your forecast NOT do?"
 
