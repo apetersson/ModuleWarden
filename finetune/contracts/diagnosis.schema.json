@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modulewarden.local/schemas/diagnosis.v1.json",
+  "title": "ModuleWarden Diagnosis v1",
+  "description": "Structured vulnerability diagnosis from static code evidence. Used as the assistant-message target in SFT records. Advisory text (CVE/GHSA descriptions) teaches the issue_summary but is never leaked into the model input dossier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "modulewarden.diagnosis.v1"
+    },
+    "verdict": {
+      "enum": [
+        "NO_ISSUES_FOUND",
+        "ISSUE_FOUND"
+      ],
+      "description": "Whether the evidence supports a finding of malicious or vulnerable behavior in this version delta."
+    },
+    "issue": {
+      "description": "Only present when verdict is ISSUE_FOUND. Null otherwise.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "known_ids",
+            "issue_summary",
+            "cwe_ids"
+          ],
+          "properties": {
+            "known_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" },
+              "description": "Known advisory IDs (CVE-..., GHSA-...) that match this finding."
+            },
+            "issue_summary": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Normalized short paraphrase of the advisory description. Not a verbatim copy."
+            },
+            "cwe_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" },
+              "description": "CWE identifiers for the vulnerability class (e.g. CWE-1321, CWE-506)."
+            }
+          }
+        }
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Evidence IDs from the dossier's evidence_index that support this diagnosis. Empty for NO_ISSUES_FOUND. If ISSUE_FOUND but empty, this is a low-confidence finding (quarantine at inference)."
+    }
+  }
+}

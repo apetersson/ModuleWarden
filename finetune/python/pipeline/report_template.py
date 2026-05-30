@@ -430,4 +430,149 @@ def build_report(
     return report
 
 
-__all__ = ["build_report"]
+# ---------------------------------------------------------------------------
+# Diagnosis target (structured-diagnosis fine-tune shape)
+# ---------------------------------------------------------------------------
+
+# Map dossier capability -> primary CWE for vulnerability classification.
+# Used when the scraped case does not carry explicit CWE IDs.
+_CAP_TO_CWE: dict[str, str] = {
+    "lifecycle_script": "CWE-506",
+    "credential_or_env_access": "CWE-522",
+    "network_access": "CWE-923",
+    "process_execution": "CWE-78",
+    "dynamic_code_execution": "CWE-95",
+    "obfuscation": "CWE-506",
+    "native_or_wasm": "CWE-506",
+    "filesystem_sensitive_access": "CWE-200",
+}
+
+
+def build_diagnosis(
+    dossier: Mapping[str, Any],
+    *,
+    scraped_case: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a ``modulewarden.diagnosis.v1`` dict for the dossier.
+
+    The diagnosis is a lean structured object intended as the
+    assistant-message target for SFT fine-tuning. It replaces the
+    full ``audit_report.v1`` for the structured-diagnosis training
+    shape described in TASK-50.
+
+    Advisory text (CVE/GHSA descriptions) is used to construct
+    ``issue_summary`` as a teacher signal but is NEVER leaked into
+    the model input dossier. The caller (sft_pair_builder) controls
+    which fields appear in the user message.
+    """
+    case_type = ""
+    severity: str | None = None
+    advisory_ids: list[str] = []
+    case_summary = ""
+    if scraped_case is not None:
+        case_type = str(scraped_case.get("case_type") or "")
+        sv = scraped_case.get("severity")
+        if isinstance(sv, str):
+            severity = sv
+        advisory_ids = list(scraped_case.get("advisory_ids") or [])
+        case_summary = str(scraped_case.get("summary") or "")
+
+    has_sensitive_caps = any(
+        d.get("capability") in _CAP_TO_CATEGORY
+        for d in (dossier.get("capability_deltas") or [])
+        if isinstance(d, Mapping)
+    )
+    has_exfil = _has_exfil_signal(dossier)
+    cold_start = bool((dossier.get("policy_context") or {}).get("cold_start"))
+
+    # Determine verdict
+    if case_type == "incident_replay" or has_exfil:
+        verdict = "ISSUE_FOUND"
+    elif case_type == "cve_diff" and has_sensitive_caps:
+        verdict = "ISSUE_FOUND"
+    elif case_type == "benign_neighbor" and not has_sensitive_caps:
+        verdict = "NO_ISSUES_FOUND"
+    elif cold_start:
+        verdict = "ISSUE_FOUND" if has_sensitive_caps else "NO_ISSUES_FOUND"
+    elif has_sensitive_caps:
+        verdict = "ISSUE_FOUND"
+    else:
+        verdict = "NO_ISSUES_FOUND"
+
+    # Collect evidence refs from the dossier's capability deltas
+    valid_ev_ids = _evidence_id_set(dossier)
+    evidence_refs: list[str] = []
+    for delta in (dossier.get("capability_deltas") or []):
+        if not isinstance(delta, Mapping):
+            continue
+        ev_ref = delta.get("evidence_ref")
+        if isinstance(ev_ref, str) and ev_ref in valid_ev_ids and ev_ref not in evidence_refs:
+            evidence_refs.append(ev_ref)
+
+    if verdict == "NO_ISSUES_FOUND":
+        return {
+            "schema_version": "modulewarden.diagnosis.v1",
+            "verdict": "NO_ISSUES_FOUND",
+            "issue": None,
+            "evidence_refs": evidence_refs,
+        }
+
+    # Build issue block for ISSUE_FOUND
+    # Use advisory text as teacher: paraphrase the summary, map CWEs
+    known_ids = advisory_ids.copy()
+
+    # Derive CWE IDs: explicit from scraped case first, else from capability mapping
+    cwe_ids: list[str] = []
+    explicit_cwes = scraped_case.get("cwe_ids") if scraped_case else None
+    if isinstance(explicit_cwes, list) and explicit_cwes:
+        cwe_ids = [str(c) for c in explicit_cwes if isinstance(c, str)]
+    if not cwe_ids:
+        seen_cwes: set[str] = set()
+        for delta in (dossier.get("capability_deltas") or []):
+            if not isinstance(delta, Mapping):
+                continue
+            cap = delta.get("capability")
+            cwe = _CAP_TO_CWE.get(str(cap or ""))
+            if cwe and cwe not in seen_cwes:
+                seen_cwes.add(cwe)
+                cwe_ids.append(cwe)
+
+    # Build issue_summary from advisory text (paraphrase, never verbatim)
+    if case_summary:
+        # Use the existing summary from the scraped case as the paraphrase base.
+        # The scraped-case summary is already a short description from GHSA/OSV.
+        issue_summary = _truncate(case_summary, 280)
+    elif case_type == "incident_replay":
+        pkg_name = (dossier.get("package") or {}).get("name") or "this package"
+        caps = sorted(
+            c for c in (
+                d.get("capability")
+                for d in (dossier.get("capability_deltas") or [])
+                if isinstance(d, Mapping)
+            )
+            if c
+        )
+        issue_summary = (
+            f"{pkg_name} introduces capability changes ({', '.join(caps)}) "
+            f"consistent with a known supply-chain compromise."
+        )
+    else:
+        pkg_name = (dossier.get("package") or {}).get("name") or "the package"
+        issue_summary = (
+            f"{pkg_name} version delta introduces suspicious capability changes "
+            f"not justified by the declared package purpose."
+        )
+
+    return {
+        "schema_version": "modulewarden.diagnosis.v1",
+        "verdict": "ISSUE_FOUND",
+        "issue": {
+            "known_ids": known_ids,
+            "issue_summary": issue_summary,
+            "cwe_ids": cwe_ids,
+        },
+        "evidence_refs": evidence_refs,
+    }
+
+
+__all__ = ["build_diagnosis", "build_report"]
