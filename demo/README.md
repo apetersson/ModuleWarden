@@ -29,7 +29,8 @@ For every replay the CLI prints, in order:
 4. **Security-admin summary**: the long explanation for the team handling
    the policy override decision.
 5. **Control Evidence Memo file**: written to `demo/outputs/<id>__YYYY-MM-DD.md`,
-   markdown reviewable by SOC 2 auditors and cyber-policy underwriters.
+   markdown reviewable by a security team and (as a downstream application)
+   cyber-policy underwriters.
 
 ## Why these three incidents
 

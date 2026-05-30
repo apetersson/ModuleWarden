@@ -2,24 +2,50 @@
 
 A real, trained model on real data, reported honestly including where it is
 weak. The deterministic gate is the verdict authority; this model is the
-narrator that turns a pinned verdict into an audit report.
+narrator that turns a pinned verdict into an evidence-cited audit report.
 
-## Model
+## The model judges should look at: the 27B auditor (published)
 
-- Base: `Qwen/Qwen2.5-0.5B-Instruct`
-- Method: QLoRA, 4-bit NF4, LoRA r=16 alpha=32 on all attention + MLP projections
-- Data: `finetune/corpus/sft-records.attck.jsonl` (the GHSA SFT corpus,
-  ATT&CK-augmented), 386 train records, dossier-to-report task
-- Epochs: 2, train loss ~0.51
-- Trained locally on an RTX 5090. The 1.5B and 27B are the documented vast.ai
-  / Leonardo scale-up (see `RECIPE_A_LAUNCH.md`); they are not trained yet.
+- Base: `huihui-ai/Huihui-Qwen3.6-27B-abliterated`, a January-2026-class 27B
+  hybrid-attention model (Gated DeltaNet plus Gated Attention). The text
+  backbone is loaded and the vision tower skipped; we are training a code
+  auditor, not a VLM.
+- Method: bf16 LoRA, r16 / alpha32 / dropout 0.05 on q,k,v,o,gate,up,down_proj.
+  79.7M trainable params (0.30%). No 4-bit: bitsandbytes collides with
+  transformers 5.9 on this stack, so `device_map=auto` shards the 27B across
+  four 64GB cards instead.
+- Compute: 4x A100-SXM-64GB (sm_80, CUDA 12.2 host) on CINECA Leonardo, inside a
+  Singularity container carrying its own CUDA 12.4 userspace. About 43 minutes
+  wall, 3 epochs.
+- Data: 152 ModuleWarden audit dossiers (103 train / 37 val), GHSA cve_diff, the
+  dossier-to-report task.
+- Result: held-out val loss 0.2135, token accuracy 0.9435. Train loss fell from
+  about 4.9 to about 0.16 over 3 epochs.
+- Published: `ademczuk/modulewarden-auditor-qwen3.6-27b-lora` on HuggingFace
+  (the LoRA adapter, about 305MB, with an honest card). The artifact survives
+  the Leonardo scratch purge.
 
-## Results (base vs fine-tuned, held-out)
+### Honest reading of the 27B numbers
 
-Base = the stock model with the LoRA adapter disabled. Metrics computed by
-`finetune/python/training/local_finetune_eval.py`; artifacts in
-`finetune/python/eval/finetune-metrics.attck.json` (validation) and
-`finetune-metrics.test.json` (test).
+- What the lift is: the stock model refuses to read and describe malicious npm
+  code, and even the abliterated base rambles and will not emit the report in
+  the fixed schema. After the LoRA, on 37 dossiers it never saw during training,
+  it writes the structured, evidence-cited audit report in the right schema and
+  voice.
+- What 0.94 is: teacher-forced next-token fidelity on a small, verdict-skewed
+  set. It is narration fidelity, not detection accuracy. Do not put "94 percent
+  detection" on a slide.
+- What is not yet measured at 27B: verdict-match and block-recall (does it call
+  the right allow / quarantine / block). That evaluation has not run yet. The
+  defensible claim today is that the auditor stopped refusing and now produces
+  auditable, in-schema, evidence-cited reports with high fidelity on unseen
+  dossiers.
+
+## The earlier 0.5B local run (the measured detection floor)
+
+Before the 27B, a `Qwen2.5-0.5B-Instruct` QLoRA was trained locally (386 train
+records, 2 epochs, train loss ~0.51) so the detection metrics could be measured
+cheaply. Those numbers are why the architecture is gate-decides, model-narrates.
 
 | split | arm | verdict-match | schema-valid JSON | block-recall |
 |---|---|---|---|---|
@@ -28,32 +54,57 @@ Base = the stock model with the LoRA adapter disabled. Metrics computed by
 | test (23, 5 blocks) | base | 0% | 0% | 0/5 (0%) |
 | test (23, 5 blocks) | fine-tuned | 73.9% | 21.7% | **0/5 (0%)** |
 
-## Honest reading
+The lift is real (the stock model emits no parseable verdict at all), but the
+0.5B's standalone block-recall is 0%: it reaches its verdict-match by defaulting
+to the majority class and catches none of the held-out block cases. At 0.5B that
+is expected. So the deterministic 5-rule gate is the verdict authority, not the
+model: the gate independently flags the compromised release (postmark-mcp-1.0.16
+raises release-age, install-scripts, and source-match FAILs and quarantines it;
+the report escalates to block). The model narrates that decision, it does not
+source it.
 
-- The lift is real. The stock model emits no parseable verdict (0%);
-  fine-tuning on real data teaches it the verdict format and reproduces the
-  human auditor's verdict on 46.7-73.9% of held-out cases. That is the proof
-  the data and pipeline work end to end.
-- The model's standalone block-recall is 0%. It reaches its verdict-match by
-  defaulting to the majority class (quarantine) and catches none of the 5
-  held-out block cases. At 0.5B this is expected.
-- Therefore the deterministic 5-rule gate is the verdict authority, not the
-  model. The gate independently flags the compromised release
-  (postmark-mcp-1.0.16 raises release-age + install-scripts + source-match
-  FAILs and quarantines it; the audit report escalates to block). The model
-  narrates that decision in underwriter language; it does not source it.
-- Block-recall is the insurance-critical metric and the one the model fails
-  at this size. It is the metric the 27B scale-up targets. We do not claim
-  the model catches severe cases today; the gate does.
+## Why a static classifier cannot be the detector either
+
+A static classifier on the COLD package floors at AUROC 0.5387 (about coin-flip)
+on 800 balanced GHSA pairs, because the top features are size proxies, not
+maliciousness. The paired version-DELTA lifts it to about 0.60. The signal is in
+what changed between versions, not the package in isolation, which is the
+empirical reason the deterministic delta-gate reads the diff and owns the
+verdict. We do not claim AUROC 0.90, calibration, or conformal coverage as a
+headline.
+
+## Evaluation discipline: every number is held-out
+
+Every metric in this card is measured on data the model never saw during
+training, on explicit train / validation / test splits. That is the point:
+held-out splits are where a model either generalizes or is exposed.
+
+- 27B narration: val loss 0.2135 and token accuracy 0.9435 are on 37 validation
+  dossiers held out of the 152-dossier set (103 train). The model writes
+  in-schema, evidence-cited reports on cases outside its training data.
+- 0.5B decision floor: the verdict-match and block-recall numbers are on a
+  separate 23-case test split (5 blocks), distinct from both the 30-case
+  validation split and the 386 train records. Fine-tuned verdict-match is 73.9%
+  on the held-out test set against 0% for the stock base. Block-recall is 0/5 on
+  that same held-out set, which is exactly why the deterministic gate, not the
+  model, owns the verdict.
+- Cold-package classifier floor: AUROC 0.5387 (cold) and about 0.60 (paired
+  delta) are on 800 balanced held-out GHSA pairs, not the training corpus.
+
+We report the held-out numbers including the ones that look bad (block-recall
+0/5, AUROC 0.54). A number that only looks good in-sample is not evidence; a
+held-out number that exposes a weakness is.
 
 ## Safety
 
 Training and evaluation read JSON text only. No npm package is downloaded,
-installed, or executed; model output is parsed as inert JSON, never run. The
-only network access is the stock base-weights download from HuggingFace.
+installed, or executed; model output is parsed as inert JSON, never run.
 
 ## Artifacts to show
 
+- The published adapter: `ademczuk/modulewarden-auditor-qwen3.6-27b-lora` on
+  HuggingFace.
 - `finetune/python/eval/finetune-metrics.attck.json`, `finetune-metrics.test.json`
-- `finetune/python/training/local_finetune_eval.py` (the code that produced the numbers)
-- `finetune/python/training/adapters/local-sft/` (the LoRA adapter weights)
+  (the 0.5B detection numbers).
+- `finetune/python/eval/classifier-floor-metrics.json` and
+  `CLASSIFIER-FLOOR-FINDINGS.md` (the AUROC 0.54 cold-package floor).

@@ -4,10 +4,12 @@ ModuleWarden is a private agentic version-diff gate for npm. The repo ships
 three composable surfaces: a self-hosted npm registry proxy plus per-job
 Docker audit (production gate), a Python SFT pipeline aligned to
 `audit_dossier.v1` and `audit_report.v1` schemas (fine-tune), and a
-conversational underwriter assistant in Streamlit plus CLI (front-end).
+conversational risk-review assistant in Streamlit plus CLI (front-end).
 
-Built for Zero-One Hack Vienna 2026, UNIQA Track 02 (Insurance). 36 hours
-on Leonardo supercomputer (64x A100 per booking, 6 nodes, ~4 TB VRAM).
+Built for Zero-One Hack Vienna 2026, Sybilion FORECAST track (probabilistic
+forecasting and the agent layer that acts on it). UNIQA insurance is a demoted
+fallback reframe, not the active track. 36 hours on Leonardo supercomputer
+(64x A100 per booking, 6 nodes, ~4 TB VRAM).
 Submission requires a real trained model plus live demo. Three identity
 surfaces (gate, model, chat) are intentionally separated; none of them
 lies about the others.
@@ -31,11 +33,11 @@ lies about the others.
 |---|---|---|
 | Production gate | npm registry proxy plus per-job Docker audit. Approves / quarantines / blocks each install. | `packages/api-proxy/`, `packages/worker/`, `packages/audit-runner/`, `docker-compose.yml` |
 | Fine-tune pipeline | Python SFT pipeline + 4-arm eval matrix. Aligned to canonical schemas. | `finetune/python/` |
-| Conversational front-end | Underwriter assistant (Streamlit UI + headless CLI). Deterministic router by default. | `chat/` |
-| Admin dashboard | React 19 + Vite 6 SPA. Includes Underwriter view route for the UNIQA-track pitch. | `packages/web-ui/` |
+| Conversational front-end | Risk-review assistant (Streamlit UI + headless CLI). Deterministic router by default. | `chat/` |
+| Admin dashboard | React 19 + Vite 6 SPA. Includes a risk-review view route for the forecast-track pitch. | `packages/web-ui/` |
 | Live-pitch demo | Offline incident replay. No Docker, no network, no LLM. | `demo/run_incident_replay.py` |
 | Schema contracts | Canonical audit dossier + report shapes. Schema-first. | `finetune/contracts/` |
-| Pitch + economics | UNIQA underwriter pitch, anchored citations, slide deck, video script, runbook, preflight, Q&A, track reframes. | `finetune/python/pitch/` |
+| Pitch + economics | Forecast-track pitch, anchored citations, slide deck, video script, runbook, preflight, Q&A, track reframes. | `finetune/python/pitch/` |
 | Hackathon log | Narrative of what landed in the build window. | `docs/hackathon-build-log.md` |
 | Training notes | Two recipe options, FSDP/LoRA gotchas, eval baselines. | `finetune/python/HACKATHON_NOTES.md` |
 

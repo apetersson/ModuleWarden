@@ -105,7 +105,7 @@ The concrete integration is adding a `kill_chain_narrative` block to each SFT re
 }
 ```
 
-This trains the fine-tuned model to emit kill-chain narratives alongside the verdict - the explainable risk reasoning the Forecast track wants from the agent layer that acts on the forecast. The same narrative reads as underwriter-grade in the downstream cyber-risk-pricing application.
+This trains the fine-tuned model to emit kill-chain narratives alongside the verdict - the explainable kill-chain output the FORECAST track wants from the agent layer that acts on the forecast. The same narrative also reads as evidence-grade in a downstream cyber-risk-pricing application.
 
 ### How Decepticon data generates the `kill_chain_narrative` field
 
@@ -149,7 +149,7 @@ What is NOT true and should not be claimed:
 
 **Pros:**
 - Teaches the fine-tuned model to emit MITRE-mapped explanations, not just verdicts
-- Directly satisfies the underwriter/UNIQA track requirement for explainable kill-chain output
+- Directly delivers the explainable kill-chain output the FORECAST track wants from the agent layer
 - Composes with the existing `_CAP_TO_CATEGORY` mapping in `report_template.py`
 - Does not change the verdict logic; it is an additive output field
 - Safe: generation is from static descriptors, no live execution
