@@ -42,6 +42,11 @@ fi
 [ -f "$RUN" ] || { echo "missing $RUN (put time_model_run.sh next to this script or on \$SCRATCH)"; exit 1; }
 chmod +x "$RUN"
 
+if [ "$MODEL" = decepticon ] && [ ! -x "$SCRATCH/llama.cpp-src/build/bin/llama-server" ]; then
+  echo ">>> first decepticon run on this account: the GPU job will build llama.cpp once"
+  echo ">>> (~5 min, streamed below, then cached). Do not Ctrl-C; it is not hung."
+fi
+
 W0=$(date +%s.%N)
 srun --account=euhpc_d30_031 --partition=boost_usr_prod --reservation=s_tra_ncc \
      --nodes=1 --ntasks=1 --gpus-per-task=2 --cpus-per-task=16 --mem=120G --time=0:30:00 \
