@@ -83,7 +83,7 @@ elif [ "$MODEL" = auditor ]; then
     exit 1
   fi
   export TM_PROMPT="$PROMPT" TM_MAXTOK="$MAXTOK" MWMODEL=$SCRATCH/models/huihui-qwen3.6-27b-abliterated
-  OUT=$(singularity exec --nv --bind "$SCRATCH" "$SIF" "$VENV" - <<'PY'
+  OUT=$(singularity exec --nv --bind "$SCRATCH" "$SIF" "$VENV" - 2>&1 <<'PY'
 import os, time, torch
 from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM
 M = os.environ["MWMODEL"]
@@ -113,7 +113,17 @@ PY
   INFER=$(printf '%s' "$OUT" | sed -n 's/^INFER=//p')
   TOTAL=$(printf '%s' "$OUT" | sed -n 's/^TOTAL=//p')
   ANS=$(printf '%s' "$OUT" | awk '/ANS_START/{f=1;next}/ANS_END/{f=0}f')
-  [ -n "$TOTAL" ] || { echo "auditor run produced no timing; raw output:"; echo "$OUT" | tail -20; exit 1; }
+  if [ -z "$TOTAL" ]; then
+    if printf '%s' "$OUT" | grep -qiE "mwenv57b.*no such|python.*no such file|cannot open shared object|FATAL"; then
+      echo "auditor env (mwenv57b) was missing or vanished mid-run. On this account another"
+      echo "job is rebuilding the fine-tune env, so it comes and goes. Retry once that has"
+      echo "settled, or run prep-qwen36.slurm and let it finish. The decepticon path needs"
+      echo "none of this and works now."
+    else
+      echo "auditor run produced no timing; raw output:"; printf '%s\n' "$OUT" | tail -20
+    fi
+    exit 1
+  fi
 else
   echo "unknown model '$MODEL' (use: decepticon | auditor)"; exit 2
 fi
