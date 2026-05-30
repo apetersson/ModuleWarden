@@ -148,6 +148,7 @@ services:
     build:
       context: .
       dockerfile: packages/audit-runner/Dockerfile
+    profiles: ["build"]
     # No ports needed; this is an image build target.
     # The worker references this image by name.
     # Run: docker compose build audit-runner
