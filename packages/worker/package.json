@@ -41,6 +41,7 @@
   "dependencies": {
     "@modulewarden/shared": "workspace:*",
     "@modulewarden/prisma-client": "workspace:*",
+    "@modulewarden/temporal-forecast": "workspace:*",
     "@prisma/client": "^6.0.0",
     "pg-boss": "^11.0.0"
   },

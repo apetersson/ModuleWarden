@@ -162,7 +162,26 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
       }
     }
 
-    // 4. Build required prompt-pack instructions. Audits must be driven by
+    // 4. Extract git metrics if not already cached (best-effort, non-blocking)
+    try {
+      const packument = await fetchUpstreamPackument(packageName);
+      const repoField = (packument as Record<string, unknown> | null)?.repository as { url?: string } | undefined;
+      const versionRepo = (packument?.versions?.[packageVersion] as Record<string, unknown> | undefined)?.repository as { url?: string } | undefined;
+      const repoUrl = repoField?.url ?? versionRepo?.url ?? null;
+      if (repoUrl) {
+        const { GitMetricExtractor } = await import('../services/git-metric-extractor.js');
+        const extractor = new GitMetricExtractor();
+        await extractor.extractIfNeeded(packageName, packageVersion, repoUrl);
+      }
+    } catch (err) {
+      logger.warn('Git metric extraction failed (best-effort)', {
+        packageName,
+        packageVersion,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 5. Build required prompt-pack instructions. Audits must be driven by
     // configured prompt packs; missing prompt configuration is a hard failure.
     const emptyCapabilitySummary = Object.fromEntries(
       ([

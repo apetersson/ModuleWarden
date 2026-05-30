@@ -157,10 +157,6 @@ importers:
         version: 2.1.9(@types/node@25.9.1)
 
   packages/temporal-forecast:
-    dependencies:
-      '@modulewarden/shared':
-        specifier: workspace:*
-        version: link:../shared
     devDependencies:
       '@types/node':
         specifier: ^25.9.1
@@ -211,6 +207,9 @@ importers:
       '@modulewarden/shared':
         specifier: workspace:*
         version: link:../shared
+      '@modulewarden/temporal-forecast':
+        specifier: workspace:*
+        version: link:../temporal-forecast
       '@prisma/client':
         specifier: ^6.0.0
         version: 6.19.3(prisma@6.0.0)(typescript@5.9.3)
