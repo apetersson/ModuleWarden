@@ -1,15 +1,15 @@
-# ModuleWarden Underwriter Assistant
+# ModuleWarden Risk Review Assistant
 
 Conversational front-end that wraps the ModuleWarden audit pipeline in
-underwriting-relevant language. Built for the UNIQA Track 02 brief
-("Conversational AI and model integration across UNIQA's digital
-insurance products").
+risk-review language. Built for the Sybilion Forecast track: ModuleWarden
+is the decision layer for your software supply chain. Forecast, then act,
+then keep an auditable history, before a risky dependency becomes cost.
 
-The assistant talks an underwriter through a verdict on a specific
+The assistant talks a risk reviewer through a verdict on a specific
 npm release, walks them through the deterministic policy gate, and
-explains how a finding translates into control-class credit at policy
-bind. It cites the Control Evidence Memo path so the underwriter has a
-file artifact to attach to the policy.
+explains how a finding turns into an adopt / wait / avoid decision. It
+cites the Control Evidence Memo path so the reviewer has a file artifact
+that records the decision history.
 
 ## Two entry points
 
@@ -28,7 +28,7 @@ machine-readable evidence behind the latest reply.
 ### Headless CLI (for smoke tests + scripting)
 
 ```bash
-python -m chat.cli "is postmark-mcp@1.0.16 safe to underwrite?"
+python -m chat.cli "is postmark-mcp@1.0.16 safe to adopt?"
 python -m chat.cli --interactive
 python -m chat.cli --list-incidents
 ```
@@ -52,7 +52,7 @@ lookup        list         gate            freeform / help
  incidents  incidents()  doc            response
    |
    v
- templated underwriting-language response
+ templated risk-review-language response
 ```
 
 `chat/agent.py` pins the verdict deterministically and, when a model
@@ -79,9 +79,9 @@ assert the model cannot change it.
 
 | Ask | What you get |
 |---|---|
-| `postmark-mcp@1.0.16` | Verdict block, risk critical, 4 primary findings, underwriting implication for the policy file |
-| `lodash@4.17.21` | Verdict allow, control-class credit signal |
-| `what are the gate rules?` | The five deterministic rules and the underwriter framing |
+| `postmark-mcp@1.0.16` | Verdict block, risk critical, 4 primary findings, AVOID decision with the avoided downside |
+| `lodash@4.17.21` | Verdict allow, ADOPT decision (clean control signal) |
+| `what are the gate rules?` | The five deterministic rules and the risk-review framing |
 | `list incidents` | The incident fixtures available for replay |
 | `help` | The full menu |
 
@@ -96,9 +96,9 @@ python -m chat.cli "what are the gate rules?"
 # 2. UI smoke
 pip install -r chat/requirements.txt
 streamlit run chat/app.py
-# -> open http://localhost:8501 in the demo browser
-# -> click "audit postmark-mcp-1.0.16" in the sidebar
-# -> verify the verdict line and underwriting implication render
+# then open http://localhost:8501 in the demo browser
+# then click "audit postmark-mcp-1.0.16" in the sidebar
+# then verify the verdict line and the adopt / wait / avoid decision render
 ```
 
 ## How this composes with the rest of the repo
@@ -118,7 +118,7 @@ streamlit run chat/app.py
 
 - Not an LLM agent with autonomous tool-use. The router is deterministic
   by design so the live demo is reproducible across runs.
-- Not a UNIQA-specific UI skin. The visual treatment is neutral so the
-  Friday case reveal can drive the final styling.
+- Not a track-specific UI skin. The visual treatment is neutral so the
+  final case reveal can drive the styling.
 - Not a replacement for the production audit pipeline. The chat is the
   conversational *front-end* over the pipeline output.

@@ -1,4 +1,4 @@
-"""Streamlit UI for the ModuleWarden Underwriter Assistant.
+"""Streamlit UI for the ModuleWarden Risk Review Assistant.
 
 Run:
 
@@ -12,7 +12,7 @@ for the most recent answer, and a session reset button.
 The verdict is always pinned by the deterministic gate. When a fine-tuned
 model endpoint is configured (MW_MODEL_ENDPOINT_BASE_URL + _API_KEY +
 _MODEL, or OPENAI_API_KEY), the assistant additionally narrates that
-pinned verdict in underwriter language using the live model. The
+pinned verdict in risk-review language using the live model. The
 title-bar badge shows which mode is active so the live-model moment is
 visible on stage.
 """
@@ -38,7 +38,7 @@ from chat import model_client
 os.environ.setdefault("MW_LIVE_ADVISORIES", "1")
 
 st.set_page_config(
-    page_title="ModuleWarden Underwriter Assistant",
+    page_title="ModuleWarden Risk Review Assistant",
     page_icon=":shield:",
     layout="wide",
 )
@@ -54,7 +54,7 @@ if "messages" not in st.session_state:
         {
             "role": "assistant",
             "content": (
-                "Hi -- I am the ModuleWarden Underwriter Assistant.\n\n"
+                "Hi -- I am the ModuleWarden Risk Review Assistant.\n\n"
                 "Ask me about an npm package and version (for example "
                 "`postmark-mcp@1.0.16`), ask `what are the gate rules?` "
                 "to walk the deterministic policy, or ask `help` for "
@@ -72,7 +72,7 @@ if "messages" not in st.session_state:
 
 with st.sidebar:
     st.markdown("### ModuleWarden")
-    st.caption("Conversational risk briefing for cyber-policy underwriters")
+    st.caption("Conversational risk briefing for supply-chain risk reviewers")
     st.markdown("---")
     st.markdown("**Try one of these:**")
     for incident in _list_incidents():
@@ -120,12 +120,12 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 
-st.title(":shield: ModuleWarden Underwriter Assistant")
+st.title(":shield: ModuleWarden Risk Review Assistant")
 st.caption(
-    "A UNIQA cyber-policy underwriter assesses an applicant's npm "
-    "dependency risk in plain language. The verdict is pinned by the "
-    "ModuleWarden gate; the fine-tuned model narrates it as an "
-    "underwriting decision."
+    "A risk reviewer assesses a project's npm dependency risk in plain "
+    "language: the decision layer for your software supply chain. The "
+    "verdict is pinned by the ModuleWarden gate; the fine-tuned model "
+    "narrates it as an adopt / wait / avoid decision."
 )
 _cfg = model_client.resolve_config()
 if _cfg is not None:

@@ -5,7 +5,7 @@ import { PricingDelta } from './PricingDelta';
 import { RealLossAnchor } from './RealLossAnchor';
 import { InsiderRiskPanel } from './InsiderRiskPanel';
 
-interface UnderwriterPageProps {
+interface RiskPortfolioPageProps {
   adminToken: string;
 }
 
@@ -62,33 +62,31 @@ const taglineHint: React.CSSProperties = {
 };
 
 /**
- * UnderwriterPage is the UNIQA-track pitch surface.
+ * RiskPortfolioPage is the Sybilion Forecast pitch surface.
  *
- * Five required panels per Grok's spec (constants in mockData.ts):
- *   1. Portfolio summary  (250 insureds, EUR 18.4M GWP, 49% loss ratio)
+ * Six panels (constants in mockData.ts):
+ *   1. Portfolio summary  (250 monitored orgs, EUR downside at risk, 49% risk score)
  *   2. Correlated exposure (41% of portfolio touched by 2026-class npm compromise)
  *   3. Incident replays    (Postgres decision rows: 3 incidents + MDR flag)
- *   4. Pricing delta       (EUR 9.02M -> EUR 7.89M, Coalition 12.5% MDR credit)
+ *   4. Risk reduction      (EUR 9.02M to EUR 7.89M expected loss, avoided downside)
  *   5. Real loss anchor    (Change Healthcare 2024 USD 2.3B, IBM citation)
- *
- * Plus one new panel per the insider-AI-assisted-threat angle:
  *   6. Insider risk panel  (LLM-suggested installs blocked in last 30 days)
  *
  * No new API endpoint required for the hackathon pitch; all panels read
  * from `mockData.ts` (which imports `mock/portfolio-250.json`). Wiring
  * to the live Postgres decisions table is a 30-minute follow-up via
- * GET /admin/underwriter/portfolio.
+ * GET /admin/risk-portfolio/portfolio.
  */
-export function UnderwriterPage(_props: UnderwriterPageProps) {
+export function UnderwriterPage(_props: RiskPortfolioPageProps) {
   return (
     <div style={pageStyle}>
       <header style={headerStyle}>
-        <h1 style={titleStyle}>Underwriter view</h1>
+        <h1 style={titleStyle}>Supply-chain risk portfolio</h1>
         <p style={subtitleStyle}>
-          What a UNIQA cyber product team sees when ModuleWarden is wired
-          into a policyholder cohort. Five panels plus an insider-AI-assisted
-          threat surface that addresses the human-element vector responsible
-          for 74 percent of breaches per Verizon DBIR 2024.
+          A portfolio of monitored orgs and their forecast supply-chain risk.
+          Six panels plus an insider-AI-assisted threat surface that addresses
+          the human-element vector responsible for 74 percent of breaches per
+          Verizon DBIR 2024.
         </p>
       </header>
 
@@ -103,13 +101,13 @@ export function UnderwriterPage(_props: UnderwriterPageProps) {
 
       <div style={tagline}>
         <p style={taglineMono}>
-          This is not a security tool. This is an underwriting control.
+          Forecast the supply-chain risk across your portfolio, then act before it becomes cost.
         </p>
         <p style={taglineHint}>
-          ModuleWarden is the twelfth section of UNIQA's underwriting
-          questionnaire. Architecture: deterministic 5-rule gate + MW
-          fine-tuned 27B model in per-job Docker container + DeepSeek V3
-          second opinion on QUARANTINE-band decisions.
+          Auditable decision history for every adopt, wait, or avoid call.
+          Architecture: deterministic 5-rule gate + MW fine-tuned 27B model
+          in per-job Docker container + DeepSeek V3 second opinion on
+          watch-band decisions.
         </p>
       </div>
     </div>

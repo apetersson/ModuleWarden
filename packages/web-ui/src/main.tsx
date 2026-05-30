@@ -22,8 +22,8 @@ const REFRESH_INTERVAL = 15_000;
  * Generate a unique, random token for production deployments.
  */
 const LOCAL_DEMO_ADMIN_TOKEN = 'mw-admin-token-change-me';
-type PageKey = 'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'underwriter';
-const PAGE_KEYS: PageKey[] = ['dashboard', 'queue', 'prompts', 'campaigns', 'evaluation', 'underwriter'];
+type PageKey = 'dashboard' | 'queue' | 'prompts' | 'campaigns' | 'evaluation' | 'risk-portfolio';
+const PAGE_KEYS: PageKey[] = ['dashboard', 'queue', 'prompts', 'campaigns', 'evaluation', 'risk-portfolio'];
 
 function pageFromHash(): PageKey {
   const hash = window.location.hash.replace(/^#/, '');
@@ -481,7 +481,7 @@ function DashboardPage({
           }}
           style={{ padding: '0.3rem 0.8rem', cursor: 'pointer', fontWeight: 600, background: manualLoading ? '#ccc' : '#1565c0', color: '#fff', border: 'none', borderRadius: 4 }}
         >
-          {manualLoading ? '...' : 'Audit → Front of Queue'}
+          {manualLoading ? '...' : 'Audit to Front of Queue'}
         </button>
         {manualStatus && (
           <span style={{ fontSize: '0.8rem', color: manualStatus.startsWith('✅') ? '#2e7d32' : '#c62828', marginLeft: '0.5rem' }}>
@@ -673,7 +673,7 @@ function DashboardPage({
                         {card.verdict}
                       </span>
                     ) : (
-                      <span style={{ color: '#999' }}>—</span>
+                      <span style={{ color: '#999' }}>-</span>
                     )}
                   </td>
                   <td style={{ padding: '0.4rem', color: '#666', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1907,7 +1907,7 @@ function App() {
     { key: 'prompts', label: 'Prompts' },
     { key: 'campaigns', label: 'Campaigns' },
     { key: 'evaluation', label: 'Evaluation' },
-    { key: 'underwriter', label: 'Underwriter' },
+    { key: 'risk-portfolio', label: 'Risk portfolio' },
   ];
 
   function renderPage() {
@@ -1917,7 +1917,7 @@ function App() {
       case 'prompts': return <PromptsPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
       case 'campaigns': return <CampaignsPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
       case 'evaluation': return <EvaluationPage adminToken={adminToken} onAuthRequired={requestAdminToken} />;
-      case 'underwriter': return <UnderwriterPage adminToken={adminToken} />;
+      case 'risk-portfolio': return <UnderwriterPage adminToken={adminToken} />;
     }
   }
 
@@ -1989,7 +1989,7 @@ function App() {
       {renderPage()}
 
       <footer style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', color: '#999', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>ModuleWarden v0.1.0 — Auto-refreshes every {REFRESH_INTERVAL / 1000}s</span>
+        <span>ModuleWarden v0.1.0. Auto-refreshes every {REFRESH_INTERVAL / 1000}s</span>
         <span>
           API: {apiConnected === null ? (
             <span style={{ color: '#999' }}>Checking...</span>

@@ -1,20 +1,22 @@
 import portfolioJson from '../../public/mock/portfolio-250.json';
-import type { InsurerRow, IncidentRow, PricingRow, InsiderInstallTrigger, PortfolioKPIs } from './types';
+import type { OrganizationRow, IncidentRow, RiskDeltaRow, InsiderInstallTrigger, PortfolioKPIs } from './types';
 
-export const portfolio: InsurerRow[] = portfolioJson as InsurerRow[];
+export const portfolio: OrganizationRow[] = portfolioJson as OrganizationRow[];
 
 export function computePortfolioKPIs(): PortfolioKPIs {
   const total = portfolio.length;
-  const gwp = portfolio.reduce((acc, row) => acc + row.gross_premium_eur, 0);
-  const weightedLossRatio =
-    portfolio.reduce((acc, row) => acc + row.loss_ratio * row.gross_premium_eur, 0) / gwp;
-  const exposed = portfolio.filter((r) => r.exposed_to_scenario).length;
+  const potentialCost = portfolio.reduce((acc, row) => acc + row.potential_breach_cost_eur, 0);
+  // Weight each org's forecast risk by its downside (potential breach cost),
+  // so the headline number reflects where the real exposure sits.
+  const weightedRiskScore =
+    portfolio.reduce((acc, row) => acc + row.risk_score * row.potential_breach_cost_eur, 0) / potentialCost;
+  const touched = portfolio.filter((r) => r.touched_by_scenario).length;
   return {
-    total_insureds: total,
-    total_gwp_eur: gwp,
-    weighted_loss_ratio: weightedLossRatio,
-    exposed_count: exposed,
-    exposed_pct: exposed / total,
+    total_orgs: total,
+    total_potential_breach_cost_eur: potentialCost,
+    weighted_risk_score: weightedRiskScore,
+    touched_count: touched,
+    touched_pct: touched / total,
   };
 }
 
@@ -58,20 +60,17 @@ export const incidentRows: IncidentRow[] = [
   },
 ];
 
-export const pricingRows: PricingRow[] = [
+/** Risk before vs after the ModuleWarden gate, used by the AvoidedDownside panel. */
+export const riskDeltaRows: RiskDeltaRow[] = [
   {
     scenario: 'pre_modulewarden',
-    premium_eur: 142_000,
     expected_loss_eur: 9_020_000,
-    loss_ratio: 0.49,
-    control_credit_pct: 0,
+    risk_score: 0.49,
   },
   {
     scenario: 'post_modulewarden',
-    premium_eur: 121_000,
     expected_loss_eur: 7_890_000,
-    loss_ratio: 0.285,
-    control_credit_pct: 0.125,
+    risk_score: 0.285,
   },
 ];
 

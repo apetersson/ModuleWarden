@@ -1,8 +1,8 @@
-"""Headless CLI for the underwriter assistant.
+"""Headless CLI for the risk review assistant.
 
 Usage:
 
-    python -m chat.cli "is postmark-mcp@1.0.16 safe to underwrite?"
+    python -m chat.cli "is postmark-mcp@1.0.16 safe to adopt?"
     python -m chat.cli --interactive     # REPL
     python -m chat.cli --list-incidents  # what incidents do we have?
 
@@ -26,7 +26,7 @@ from chat.agent import _list_incidents, handle_query
 def _make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="python -m chat.cli",
-        description="Conversational ModuleWarden underwriter assistant (CLI).",
+        description="Conversational ModuleWarden risk review assistant (CLI).",
     )
     p.add_argument("message", nargs="?", default=None, help="Single message to ask")
     p.add_argument(
@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.interactive:
         history: list[dict[str, str]] = []
-        print("ModuleWarden Underwriter Assistant -- CLI REPL")
+        print("ModuleWarden Risk Review Assistant -- CLI REPL")
         print("Press Ctrl+D (Unix) or Ctrl+Z then Enter (Windows) to exit.\n")
         while True:
             try:
