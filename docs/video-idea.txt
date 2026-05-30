@@ -19,6 +19,16 @@ part 2: submit the known 4k samples with the features plus the exploit severity 
  now we get a new package -> we ask sybillion for an assesment.
  then we perform a semantic analysis with a cluster of well-known and maintanable and customizable auditing rules.
 
+part 3 (IMPLEMENTED): we extract time-series signals from git history.
+for each dependency we audit, we:
+- shallow-clone the upstream repo (depth 500)
+- extract monthly commit counts, contributor counts, and code-quality signals
+- pair with live npm download history (5-year monthly buckets)
+- submit the multi-metric time series to Sybillion for forecasting
+- extract collapse_risk, uncertainty, and recent_anomaly signals per metric
+- score a composite temporal_risk (0–1) from weighted aggregation
+- surface the forecast in the audit run detail with a per-metric dashboard card
+
  But what model to use?????
  -------------------
 
