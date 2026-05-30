@@ -1,0 +1,24 @@
+# ModuleWarden - Python runtime dependencies
+#
+# This covers the parts a reviewer runs without a GPU:
+#   - the offline incident replay demo:  python -m demo.run_incident_replay --list
+#   - the conversational risk assistant:  python -m chat.cli "..."  /  streamlit run chat/app.py
+#   - the forecast tooling:               python demo/forecast_fan_chart.py
+#
+# The production gate (registry proxy + worker) is TypeScript - see package.json and
+# docker-compose.yml, needs Node 20+ and Docker.
+#
+# GPU fine-tuning deps (torch, transformers, peft, trl, accelerate, datasets) are NOT
+# needed to run the demo. They live in finetune/python/pyproject.toml under
+# [project.optional-dependencies.training] and require a CUDA GPU (or Leonardo).
+
+# audit schema validation + evidence pipeline (demo, finetune contracts)
+jsonschema>=4.21
+httpx>=0.27
+aiohttp>=3.9
+
+# forecast fan-chart and review-queue visuals (Sybilion track deliverables)
+matplotlib>=3.7
+
+# conversational risk-review assistant (Streamlit UI + headless CLI)
+streamlit>=1.30
