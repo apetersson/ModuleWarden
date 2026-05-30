@@ -21,7 +21,7 @@ import type {
 } from '@modulewarden/temporal-forecast';
 
 const NPM_DOWNLOADS_API = 'https://api.npmjs.org/downloads/range';
-const METRIC_TYPES: MetricType[] = ['commits', 'contributors', 'code_quality'];
+const METRIC_TYPES: MetricType[] = ['commits', 'contributors', 'code_quality', 'downloads'];
 
 export interface TemporalForecastConfig {
   sybillionToken: string;
@@ -121,7 +121,7 @@ export async function runTemporalForecast(
 
   for (const cached of cachedMetrics) {
     const metric = cached.metricType as MetricType;
-    if (METRIC_TYPES.includes(metric) || metric === 'downloads') {
+    if (METRIC_TYPES.includes(metric)) {
       const ts = cached.timeseries as Timeseries;
       if (ts && Object.keys(ts).length >= 40) {
         availableSeries.push({ metric, series: ts });

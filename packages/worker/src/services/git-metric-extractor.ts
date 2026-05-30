@@ -134,12 +134,14 @@ export class GitMetricExtractor {
     }
   }
 
-  /** Clone a repo shallowly for fast log analysis. */
+  /** Clone a repo with enough history for multi-year time-series analysis. */
   private _shallowClone(repoUrl: string): string {
     const dir = mkdtempSync(join(tmpdir(), 'mw-git-'));
     try {
+      // Use --depth 500 to get at least ~40 months of history for time-series,
+      // while staying shallow enough to avoid multi-GB clones on large repos.
       execSync(
-        `git clone --depth 1 --single-branch --no-tags "${repoUrl}" "${dir}"`,
+        `git clone --depth 500 --single-branch --no-tags "${repoUrl}" "${dir}"`,
         {
           encoding: 'utf-8',
           stdio: 'pipe',
@@ -153,12 +155,12 @@ export class GitMetricExtractor {
         rmSync(dir, { recursive: true, force: true });
         const fallbackDir = mkdtempSync(join(tmpdir(), 'mw-git-'));
         execSync(
-          `git clone --depth 1 --single-branch --no-tags --no-checkout "${repoUrl}" "${fallbackDir}"`,
+          `git clone --depth 500 --single-branch --no-tags --no-checkout "${repoUrl}" "${fallbackDir}"`,
           { encoding: 'utf-8', stdio: 'pipe', timeout: MAX_CLONE_SECONDS * 1000 },
         );
         return fallbackDir;
       } catch {
-        rmSync(dir, { recursive: true, force: true });
+        try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
         throw err;
       }
     }
