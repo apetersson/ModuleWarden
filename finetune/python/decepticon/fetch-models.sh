@@ -51,20 +51,27 @@ command -v huggingface-cli >/dev/null 2>&1 || {
 }
 mkdir -p "$MODELS_DIR"
 
-dl() {  # repo subdir [extra-args...]
+# bf16 weights for vLLM: download into the HF cache under $MODELS_DIR so the vLLM
+# job finds them via --model <repo-id>. scripts/leonardo/slurm-vllm.sh binds
+# MODEL_CACHE=$SCRATCH/models as the HF cache, so set MODELS_DIR=$SCRATCH/models.
+dl_cache() {  # repo
+  echo ">> $1 -> HF cache under $MODELS_DIR"
+  huggingface-cli download "$1" --cache-dir "$MODELS_DIR"
+}
+# raw GGUF file for local llama.cpp (not the HF cache layout)
+dl_file() {  # repo subdir extra...
   local repo="$1" sub="$2"; shift 2
   echo ">> $repo -> $MODELS_DIR/$sub"
   huggingface-cli download "$repo" "$@" --local-dir "$MODELS_DIR/$sub"
 }
 
-[ "$want_bf16" = 1 ] && dl "$DEC_BF16_REPO" decepticon-heretic-v2-bf16
-[ "$want_gguf" = 1 ] && dl "$DEC_GGUF_REPO" decepticon-heretic-v2-gguf --include "$DEC_GGUF_FILE"
-[ "$want_base" = 1 ] && dl "$AUDITOR_BASE_REPO" qwen3.6-27b-base
+[ "$want_bf16" = 1 ] && dl_cache "$DEC_BF16_REPO"
+[ "$want_gguf" = 1 ] && dl_file "$DEC_GGUF_REPO" decepticon-heretic-v2-gguf --include "$DEC_GGUF_FILE"
+# auditor base is the same checkpoint as the bf16 (huihui-ai); skip if already pulled
+[ "$want_base" = 1 ] && [ "$want_bf16" != 1 ] && dl_cache "$AUDITOR_BASE_REPO"
 
 echo
-echo "done. Serving for Decepticon:"
-echo "  bf16 + vLLM : --model $MODELS_DIR/decepticon-heretic-v2-bf16"
-echo "  gguf + llama: -m $MODELS_DIR/decepticon-heretic-v2-gguf/$DEC_GGUF_FILE"
-echo "Then: export DECEPTICON_MODEL_ENDPOINT_BASE_URL=http://localhost:8081/v1"
-echo "      export DECEPTICON_MODEL_ENDPOINT_MODEL=heretic-v2"
-echo "      python -m finetune.python.decepticon.config_check   # expect all PASS"
+echo "done. The bf16 is in the HF cache under $MODELS_DIR."
+echo "vLLM finds it via --model $DEC_BF16_REPO when MODEL_CACHE=$MODELS_DIR"
+echo "(scripts/leonardo/slurm-vllm.sh already wires that up)."
+echo "gguf (local llama.cpp): -m $MODELS_DIR/decepticon-heretic-v2-gguf/$DEC_GGUF_FILE"
