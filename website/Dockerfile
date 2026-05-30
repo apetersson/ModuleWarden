@@ -12,7 +12,7 @@ RUN printf 'server {\n\
   index index.html;\n\
 \n\
   # Security headers (redundant with meta CSP, belt-and-suspenders)\n\
-  add_header Content-Security-Policy "default-src '\''self'\''; base-uri '\''self'\''; object-src '\''none'\''; script-src '\''none'\''; style-src '\''self'\'' '\''unsafe-inline'\''; font-src '\''self'\''; img-src '\''self'\'' data:; connect-src '\''self'\''; form-action '\''self'\'' mailto:" always;\n\
+  add_header Content-Security-Policy "default-src '\''self'\''; base-uri '\''self'\''; object-src '\''none'\''; script-src '\''self'\'' '\''unsafe-inline'\''; style-src '\''self'\'' '\''unsafe-inline'\'' https://fonts.googleapis.com; font-src '\''self'\'' https://fonts.gstatic.com data:; img-src '\''self'\'' data:; media-src '\''self'\''; connect-src '\''self'\''; form-action '\''self'\'' mailto:" always;\n\
   add_header X-Content-Type-Options "nosniff" always;\n\
   add_header X-Frame-Options "DENY" always;\n\
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;\n\
