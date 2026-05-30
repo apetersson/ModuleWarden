@@ -103,6 +103,22 @@ def aggregate_monthly(daily: list[dict], drop_partial_current: bool = True) -> d
     return dict(sorted(monthly.items()))
 
 
+def trim_leading_zeros(monthly: dict) -> dict:
+    """Drop the leading run of zero (or missing) months.
+
+    npm's downloads API zero-fills months before a package existed, so a newer
+    package like zod or vite carries a run of zeros at the front. With
+    strictly_positive set, Sybilion rejects those zeros, so the forecast fails.
+    Trimming to the first positive month gives the real adoption series. Pure;
+    keys stay YYYY-MM-01 and order is preserved.
+    """
+    keys = sorted(monthly.keys())
+    first = next((k for k in keys if float(monthly[k]) > 0.0), None)
+    if first is None:
+        return {}
+    return {k: monthly[k] for k in keys if k >= first}
+
+
 def validate_series(monthly: dict, horizon_max: int) -> tuple[bool, list[str]]:
     """Check the monthly series against the documented submit rules."""
     problems: list[str] = []
@@ -263,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"npm fetch failed: {e}", file=sys.stderr)
         return 2
 
-    monthly = aggregate_monthly(daily)
+    monthly = trim_leading_zeros(aggregate_monthly(daily))
     horizon_max = max(args.soft_horizon, args.hard_horizon)
     ok, problems = validate_series(monthly, horizon_max)
     payload = build_payload(args.package, monthly, args.soft_horizon, args.hard_horizon)

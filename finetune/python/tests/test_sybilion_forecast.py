@@ -13,9 +13,28 @@ from finetune.python.serving.sybilion_forecast import (
     FLOOR,
     aggregate_monthly,
     build_payload,
+    trim_leading_zeros,
     validate_series,
     _month_windows,
 )
+
+
+def test_trim_leading_zeros_drops_pre_existence_months():
+    # npm zero-fills months before a package existed; trim to the first positive.
+    series = {"2018-01-01": 0.0, "2018-02-01": 0.0, "2018-03-01": 5.0, "2018-04-01": 7.0}
+    trimmed = trim_leading_zeros(series)
+    assert list(trimmed.keys()) == ["2018-03-01", "2018-04-01"]
+
+
+def test_trim_keeps_interior_and_all_positive():
+    series = {"2020-01-01": 3.0, "2020-02-01": 0.0, "2020-03-01": 4.0}
+    # only the LEADING run is trimmed; an interior zero stays (the gap check
+    # catches genuine holes elsewhere).
+    assert trim_leading_zeros(series) == series
+
+
+def test_trim_all_zero_is_empty():
+    assert trim_leading_zeros({"2020-01-01": 0.0, "2020-02-01": 0.0}) == {}
 
 
 def _daily(year_month_to_total):

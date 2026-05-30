@@ -37,6 +37,7 @@ from finetune.python.serving.sybilion_forecast import (  # noqa: E402
     build_payload,
     fetch_npm_daily,
     submit_and_poll,
+    trim_leading_zeros,
     validate_series,
 )
 
@@ -75,7 +76,7 @@ def _load_cached(pkg: str) -> dict | None:
 def _forecast_one(pkg: str, token: str, years: int = 8) -> dict | None:
     end = date.today()
     start = date(end.year - years, 1, 1)
-    monthly = aggregate_monthly(fetch_npm_daily(pkg, start, end))
+    monthly = trim_leading_zeros(aggregate_monthly(fetch_npm_daily(pkg, start, end)))
     ok, problems = validate_series(monthly, horizon_max=6)
     if not ok:
         return {"package": pkg, "skipped": True, "problems": problems}
