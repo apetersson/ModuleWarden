@@ -129,3 +129,49 @@ Each beat below is one shot.
 | SECTION | Tagline |
 | ON-SCREEN / VISUAL | ModuleWarden logo on the guarded registry node. Tagline text below. |
 | VOICEOVER | ModuleWarden. Audit every version. Forecast every trajectory. Show every piece of evidence. |
+
+---
+
+## Production and credibility notes (added 2026-05-30)
+
+Verified facts for whoever cuts the video. Keep the pitch honest.
+
+### Cut the dotenv "finding", it is a false positive
+
+`demo/recording/frames/serious_finding.png` shows the auditor quarantining
+dotenv@17.4.2 for a "high-severity exec() call and base64 decoding". Do NOT
+present this as a real discovery. We pulled the actual dotenv@17.4.2 tarball
+(it is the current `latest`, tens of millions of weekly downloads) and read
+`lib/main.js`:
+
+- The "exec()" is `LINE.exec(lines)`, a regular-expression match that parses
+  .env lines. It is not `child_process.exec`. The model confused regex matching
+  with command execution.
+- The base64 is `Buffer.from(encrypted, 'base64')` in dotenv's documented
+  encrypted-.env decryption feature, paired with a hex key. It is legitimate.
+
+The real dotenv@17.4.2 is clean. This is the always-quarantine collapse
+producing a confident, wrong rationale. For the "caught a real malicious
+version" beat, use postmark-mcp@1.0.16 instead: genuinely malicious (BCC email
+exfiltration, Sep 2025) and reproducible against the gate.
+
+### Untrained vs trained, measured (Beat 7)
+
+On 30 held-out audit dossiers the model never saw during training. These are
+schema-fidelity numbers, not detection accuracy.
+
+| | Untuned base | Tuned auditor |
+|---|---|---|
+| Valid report schema | 6 of 30 unparseable | 30 of 30 |
+| Verdict key | drifts to "decision" | correct every time |
+| Held-out val loss | n/a | 0.21 |
+
+Tuning bought the output contract: a valid audit_report.v1 every time. It did
+not change verdict behavior; both default to quarantine. Detection stays with
+the deterministic gate. Do not put a detection-accuracy number on a slide.
+
+### The honesty floor (Beat 9)
+
+Cold-package static classifier: AUROC 0.54 (a coin flip is 0.50). The forecast
+ranks trajectory; it does not detect a dying or compromised package. Show the
+floor, concede the rest.
