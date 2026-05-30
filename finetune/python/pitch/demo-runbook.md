@@ -30,7 +30,8 @@ the previous runbook is no longer the demo surface.
    `docker compose up -d` (postgres + verdaccio + api-proxy + worker + web-ui)
 7. Boot the dashboard:
    `cd packages/web-ui && pnpm dev`. Visit `http://localhost:5173`.
-   Click the new "Underwriter" tab. Confirm the five panels render.
+   Click the "Risk portfolio" tab (`#risk-portfolio`). Confirm the five
+   panels render.
 8. Record the backup video:
    `bash demo/record_backup.sh` (or replay the three incidents via asciinema)
 9. Upload backup to YouTube unlisted and asciinema.org. Save URLs in
@@ -82,10 +83,10 @@ Tick each one out loud. Do not skip. The full punch list lives in
    postmark-mcp@1.0.12 ALLOW.
 5. **Control Evidence Memo renders.** Check `demo/outputs/` for a fresh
    `postmark-mcp-1.0.16__*.md` and confirm it has the rule table, model
-   audit summary, and insurance footer.
+   audit summary, and the decision footer.
 6. **Dashboard loads.** Visit `http://localhost:5173`. Click each nav tab.
-   Click the Underwriter tab and confirm all 5 panels render with mock
-   portfolio data.
+   Click the "Risk portfolio" tab (`#risk-portfolio`) and confirm all 5
+   panels render with mock portfolio data.
 7. **Screen recording is on.** OBS recording the laptop screen to disk.
    Capture every demo, do not rely on remembering to start it.
 8. **Backup cast is on the second laptop.** The asciinema `.cast` from
@@ -137,28 +138,32 @@ for postmark-mcp-1.0.16. The decision detail modal opens. Show:
 - The supersedes pointer (null because no override)
 - The 4 evidence references
 
-Say: "This is not a security tool. This is claims-grade evidence. Every
-block lands in Postgres with prompt version, model profile, evidence
-references, and an admin override path. A UNIQA underwriter can pull this
-row directly into a claim file."
+Say: "This is not just a security tool. This is the auditable decision
+history. Every block lands in Postgres with prompt version, model profile,
+evidence references, and an admin override path. A risk reviewer can pull
+this row directly into a review and read why the forecast acted the way it
+did."
 
-### Step 3: Open the Underwriter view
+### Step 3: Open the Risk portfolio view
 
-Click the "Underwriter" nav tab. The five panels render:
+Click the "Risk portfolio" nav tab (`#risk-portfolio`). The five panels
+render:
 
-1. Portfolio summary: 250 insureds, EUR 18.4M GWP, 49 percent loss ratio
+1. Portfolio summary: 250 monitored orgs, EUR portfolio at risk, 49 percent
+   weighted risk score
 2. Correlated exposure: 41 percent touched by 2026-class npm compromise
-3. Incident replays: 3 Postgres decision rows with MDR flag
-4. Pricing delta: EUR 9.02M to EUR 7.89M, 12.5 percent MDR credit
-5. Real loss anchor: Change Healthcare 2024 USD 2.3B citation
+3. Incident replays: 3 Postgres decision rows
+4. Avoided downside: expected loss drops EUR 9.02M to EUR 7.89M once the
+   gate adopts, waits, or avoids each install
+5. Insider risk panel: LLM-suggested installs caught in the last 30 days
 
 Say: "Most npm security stops the attacker outside the firewall. This
 stops the developer inside who let Copilot suggest a malicious package, or
 the contractor who pulled in an unchecked dependency. Same gate, same
 evidence, same Postgres lineage. Verizon DBIR puts 74 percent of breaches
-on the human element. UNIQA's underwriting questionnaire has eleven
-sections. None of them ask about npm installs. ModuleWarden is the
-twelfth section."
+on the human element. This view is the forecast across a portfolio: which
+orgs carry the most supply-chain risk, and what the gate already caught
+before any of it became cost."
 
 ### Step 4: Replay the clean baseline (proves the gate is not just BLOCK)
 
@@ -187,7 +192,7 @@ Walk back to the slide deck. Andreas advances to the next slide.
 
 **Dashboard is broken at demo time:**
 
-- Skip the underwriter view. Open the underwriter view screenshots from
+- Skip the Risk portfolio view. Open the Risk portfolio screenshots from
   the slide deck appendix. Say: "The dashboard is in the repo; we will
   ship the cached version because the wifi here is flaky."
 
@@ -218,16 +223,16 @@ Walk back to the slide deck. Andreas advances to the next slide.
 For when judges or sponsors walk up to the booth between rounds. Whoever
 is at the booth says this:
 
-"ModuleWarden is a self-hosted npm registry gate that produces
-underwriting-grade audit evidence for every install decision. Postgres
-decision lineage, per-job Docker isolation with prompt secrecy,
-schema-versioned audit reports, admin overrides with full provenance.
-Every block produces a row a UNIQA underwriter can pull into a claim
-file. We replay three real incidents and prove the gate would have
-blocked the bad release without a denylist. Want to see it? I will block
-the September postmark-mcp incident on this laptop in 20 seconds, then
-open the underwriter view that drops directly into a cyber-policy
-workflow."
+"ModuleWarden forecasts the supply-chain risk of every npm install delta
+and acts on it at submission time. It is a self-hosted registry gate that
+produces an auditable decision history for every install. Postgres decision
+lineage, per-job Docker isolation with prompt secrecy, schema-versioned
+audit reports, admin overrides with full provenance. Every block produces a
+row a risk reviewer can pull up and read why the forecast acted. We replay
+three real incidents and prove the gate would have blocked the bad release
+without a denylist. Want to see it? I will block the September postmark-mcp
+incident on this laptop in 20 seconds, then open the Risk portfolio view
+that forecasts supply-chain risk across a whole org."
 
 If they say yes, run steps 1 through 3 of the demo. If they say no, hand
 them a card with the URL and one line:

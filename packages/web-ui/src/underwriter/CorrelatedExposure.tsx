@@ -32,19 +32,19 @@ const captionStyle: React.CSSProperties = {
 export function CorrelatedExposure() {
   const kpis = computePortfolioKPIs();
 
-  const exposedPoints = portfolio
-    .filter((r) => r.exposed_to_scenario)
+  const touchedPoints = portfolio
+    .filter((r) => r.touched_by_scenario)
     .map((r) => ({
-      x: r.gross_premium_eur / 1000,
-      y: r.tail_exposure_eur / 1000,
+      x: r.annual_contract_value_eur / 1000,
+      y: r.potential_breach_cost_eur / 1000,
       z: 100,
       name: r.name,
     }));
   const safePoints = portfolio
-    .filter((r) => !r.exposed_to_scenario)
+    .filter((r) => !r.touched_by_scenario)
     .map((r) => ({
-      x: r.gross_premium_eur / 1000,
-      y: r.tail_exposure_eur / 1000,
+      x: r.annual_contract_value_eur / 1000,
+      y: r.potential_breach_cost_eur / 1000,
       z: 60,
       name: r.name,
     }));
@@ -59,7 +59,7 @@ export function CorrelatedExposure() {
           <XAxis
             type="number"
             dataKey="x"
-            name="GWP"
+            name="ACV"
             unit="K"
             stroke="#94a3b8"
             tick={{ fontSize: 11 }}
@@ -67,7 +67,7 @@ export function CorrelatedExposure() {
           <YAxis
             type="number"
             dataKey="y"
-            name="Tail"
+            name="Breach cost"
             unit="K"
             stroke="#94a3b8"
             tick={{ fontSize: 11 }}
@@ -77,12 +77,12 @@ export function CorrelatedExposure() {
             cursor={{ strokeDasharray: '3 3' }}
             contentStyle={{ background: '#0f172a', border: '1px solid #334155' }}
           />
-          <Scatter name="Exposed" data={exposedPoints} fill="#ef4444" />
+          <Scatter name="Touched" data={touchedPoints} fill="#ef4444" />
           <Scatter name="Safe" data={safePoints} fill="#22c55e" />
         </ScatterChart>
       </ResponsiveContainer>
       <p style={captionStyle}>
-        {kpis.exposed_count} of {kpis.total_insureds} insureds ({(kpis.exposed_pct * 100).toFixed(0)}%) touched
+        {kpis.touched_count} of {kpis.total_orgs} orgs ({(kpis.touched_pct * 100).toFixed(0)}%) touched
         via 98.5 percent npm concentration (Sonatype 2024) x 15 percent supply-chain breach share (Verizon DBIR 2024).
       </p>
     </div>
