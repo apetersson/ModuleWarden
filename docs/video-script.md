@@ -93,8 +93,8 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 | Field | Content |
 |---|---|
 | SECTION | The forecast |
-| ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "⏳ Temporal Forecast (Sybillion)" card expands — showing per-metric rows: commits, contributors, code_quality, downloads. Each has a verdict badge (collapse ⚠ / ✓, uncertainty score, anomaly flag) and a linked Sybilion job ID. Below, the composite temporal_risk badge: 40%. |
-| VOICEOVER | We did not stop at concept. For every dependency ModuleWarden audits, we shallow-clone the upstream repository, extract monthly git metrics going back to the first commit, pair them with five years of npm download history, and submit parallel time-series forecasts to Sybilion. The API returns a probability band per metric — monthly point forecast, quantile band, and horizon. Our signal extractor pulls three flags from each: is the package collapsing toward zero activity? Is the uncertainty band unusually wide? Does the latest observation break through the forecast band? Those are weighted into a single temporal risk score that appears directly in the audit run detail, with every Sybilion job ID preserved for deep-dive. The forecast ranks the evidence. It does not set the verdict. |
+| ON-SCREEN / VISUAL | A live ModuleWarden dashboard. Click into an audit run detail. The "⏳ Temporal Forecast (Sybilion)" card expands — per-metric rows: commits, contributors, downloads. Each with verdict badges (collapse ⚠ / ✓, uncertainty, anomaly) and a linked Sybilion job ID. Below, a composite risk badge: 40%. |
+| VOICEOVER | We ship this. For every package ModuleWarden audits, we clone its repo, pull monthly git history back to the first commit, grab five years of npm downloads, and send the whole time series to Sybilion. Sybilion returns a forecast band — point estimate, quantile range, forecast horizon. We extract three signals from it: is activity collapsing to zero? Is the band so wide the forecast is guessing? Did the latest month break through it? We weight those into one risk score you can see right in the audit detail, with every Sybilion job ID linked so you can go check their work. The forecast ranks the evidence. It does not set the verdict. |
 
 ---
 
@@ -114,7 +114,7 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 |---|---|
 | SECTION | Close |
 | ON-SCREEN / VISUAL | Four steps animate in sequence: "Transfer-test the forecast," "Keep what it earns (trajectory ranking)," "Gate what it does not (the gate owns the verdict)," "Concede the rest (with the data)." Then Sybilion's own slide line appears: "The domain is yours." |
-| VOICEOVER | This is the real pitch. Sybilion says the domain is yours. So we did not just pick one. We took your forecast into supply-chain security and ran the transfer test. We kept what it earned, trajectory ranking. We gated what it could not do, so the deterministic gate owns the verdict. And we conceded the rest, with the data. That is the pattern for growing a forecast into any new domain without it ever lying to you. |
+| VOICEOVER | This is the real pitch. Sybilion says the domain is yours. So we did not just pick one. We took your forecast into supply-chain security and ran the transfer test. We kept what it earned — trajectory ranking. We gated what it could not do — the deterministic gate owns the verdict. And we conceded the rest, with the data. That is how you grow a forecast into a new domain without it lying to you. |
 
 ---
 
