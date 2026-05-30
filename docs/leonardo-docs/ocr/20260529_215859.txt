@@ -4,10 +4,10 @@ Use login nodes for large file downloads.
 Compute nodes do not have internet access.
 As a workaround, set the following environment variables in your Slurm script:
 
-export HTTP_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export HTTPS_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export http_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export https_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
+export HTTP_PROXY=http://proxyuser:REDACTED@10.99.0.1:38425
+export HTTPS_PROXY=http://proxyuser:REDACTED@10.99.0.1:38425
+export http_proxy=http://proxyuser:REDACTED@10.99.0.1:38425
+export https_proxy=http://proxyuser:REDACTED@10.99.0.1:38425
 
 The proxy will restart every once in a while (due to the 10 min CPU time limit).
 TCP connections will drop shortly.

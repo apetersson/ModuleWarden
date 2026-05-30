@@ -337,10 +337,10 @@ Submit the job using `sbatch <script.slurm>`.
 Once the job started, open the Slurm output file of the job `slurm-<JOBID>.out` and look for an URL similar to
 
 ```
-http://lrdn3309.leonardo.local:8888/lab?token=PII-REDACTED==
+http://<compute-node>.leonardo.local:8888/lab?token=<your-token>
 ```
 
-This URL contains three important elements: The hostname of the compute node that the job runs on (`lrdn3309.leonardo.local`), the TCP port that the JupyterLab listens at (`8888`) and the authentication token (`PII-REDACTED==`). Next, open an additional SSH connection to Leonardo with a port fowarding tunnel to the compute node. Execute the following line, replacing `lrdn3309.leonardo.local` with the compute node that your job runs on and `8888` with the port that your JupyterLab listens on:
+This URL contains three important elements: The hostname of the compute node that the job runs on (e.g. `lrdn3309.leonardo.local`), the TCP port that the JupyterLab listens at (`8888`) and the authentication token. Next, open an additional SSH connection to Leonardo with a port fowarding tunnel to the compute node. Execute the following line, replacing `<compute-node>.leonardo.local` with the compute node that your job runs on and `8888` with the port that your JupyterLab listens on:
 
 ```
 ssh -N -L 8000:lrdn3309.leonardo.local:8888 login.leonardo.cineca.it

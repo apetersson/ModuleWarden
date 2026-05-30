@@ -13,6 +13,10 @@ audit-sessions/
 .DS_Store
 *.pid
 
+# Variant .env files (contain real API keys; only .env.example should be committed)
+.env.deepseek
+.env.leonardo
+
 # JetBrains IDE
 .idea/
 

@@ -183,10 +183,10 @@ srun --partition=lrd_all_serial --time 04:00:00 --gres=tmpfs:100G --mem=16G --pt
 # Compute nodes do not have internet access.
 # As a workaround, set the following environment variables in your Slurm script:
 
-export HTTP_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export HTTPS_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export http_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export https_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
+export HTTP_PROXY=http://proxyuser:REDACTED@10.99.0.1:38425
+export HTTPS_PROXY=http://proxyuser:REDACTED@10.99.0.1:38425
+export http_proxy=http://proxyuser:REDACTED@10.99.0.1:38425
+export https_proxy=http://proxyuser:REDACTED@10.99.0.1:38425
 ```
 
 ```text

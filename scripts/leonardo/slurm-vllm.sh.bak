@@ -33,10 +33,10 @@ echo "Start: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 # ── Environment ──────────────────────────────────────────────
 
-export HTTP_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export HTTPS_PROXY=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export http_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
-export https_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
+# Redacted: proxy credential was here (see active scripts/leonardo/slurm-vllm.sh for the env-based pattern)
+# Supply via MW_LEONARDO_PROXY env variable, never commit a value.
+export HTTP_PROXY="${MW_LEONARDO_PROXY:-}" HTTPS_PROXY="${MW_LEONARDO_PROXY:-}"
+export http_proxy="${MW_LEONARDO_PROXY:-}" https_proxy="${MW_LEONARDO_PROXY:-}"
 
 # ── Paths ───────────────────────────────────────────────────
 
