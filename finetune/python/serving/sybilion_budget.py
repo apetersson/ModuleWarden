@@ -26,9 +26,11 @@ __all__ = [
     "DEFAULT_CAP_SAFETY",
 ]
 
-# The docs example settled a forecast at 3 EUR cents. Used only as a fallback
-# per-call estimate when the caller does not pass one.
-DEFAULT_FORECAST_CENTS = 3
+# Measured cost of a forecast settle (date-fns, 2026-05-30): 35 EUR cents. The
+# docs example's "3 cents" was an example, not our number; real forecasts ran
+# 35-182 cents. Used only as a fallback when the caller does not pass the real
+# per-call cost; prefer reading eur_cents_final from GET /jobs.
+DEFAULT_FORECAST_CENTS = 35
 
 # Stay under this fraction of the per-minute cap, leaving headroom so a burst
 # does not trip the 429.

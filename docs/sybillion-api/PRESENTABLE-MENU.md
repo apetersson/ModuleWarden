@@ -11,8 +11,10 @@ rejected per our rule, documented signal only. The real contract is in
 
 - Tier: Level 0 (Free). Auto-recharge: disabled.
 - Trial credit active: 26.59 EUR remaining of a 50 EUR grant, expires 2026-06-14.
-- A forecast settles at about 3 EUR cents, so roughly 880 forecasts fit in the
-  remaining credit. The entire demo runs inside the free trial. We never enable
+- Real measured cost (see `LIVE-DISCOVERY.md`, not the docs example): a forecast
+  settles around 0.35-1.80 EUR, an alert about 0.06 EUR, an unbounded drivers
+  call about 4.85 EUR. So the trial is roughly 15-70 forecasts, enough for the
+  demo if we forecast only floor-clearing deps on a trigger. We never enable
   auto-recharge; a human authorizes any top-up.
 
 ## Ranked presentable moves
@@ -21,7 +23,7 @@ rejected per our rule, documented signal only. The real contract is in
 |---|------|----------------------|-----------|--------|--------|
 | 1 | Live forecast fan chart | Take a real npm package, build its monthly adoption series, submit, render the 0.1/0.5/0.9 band plus the backtest MAPE, live | POST /forecasts (backtest), GET /forecasts/:id, artifacts | M | BUILT, dry-run proven |
 | 2 | Backtest reliability routing | Parse backtest MAPE into a reliability badge; low MAPE rides the gate, high MAPE routes to human review | POST /forecasts, backtest_metrics.json | S | design |
-| 3 | Driver-shift comparison | Baseline vs driver-augmented forecast side by side; inject a macro driver, show the median trajectory move | POST /drivers, POST /forecasts | M | design |
+| 3 | ~~Driver-shift comparison~~ | DROPPED after a live test: /drivers returned 970 "Global risk - country" macro signals for an npm series, no software relevance, and cost 4.85 EUR. Not credible for software | - | - | dropped (see LIVE-DISCOVERY) |
 | 4 | Budget and cost HUD | Live panel polling /me and /usage: trial credit left, cost per forecast, queue | GET /me, /usage, /jobs | S | partial (sybilion_budget) |
 | 5 | Alert-triggered refresh | A trending alert auto-triggers a re-forecast; the band updates | POST /alerts, POST /forecasts | S | partial (sybilion_alerts) |
 | 6 | Horizon confidence ladder | Overlay 1 / 3 / 6 / 12-month horizons; the quantile spread widens with horizon | POST /forecasts (soft/hard horizon) | S | design |

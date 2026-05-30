@@ -180,8 +180,13 @@ def _sybilion_get(path: str, token: str, timeout: float = 30.0) -> tuple[int, ob
         return e.code, e.read().decode("utf-8", "replace")
 
 
-def submit_and_poll(token: str, payload: dict, poll_seconds: float = 2.0, max_polls: int = 60) -> dict:
-    """Submit one forecast and poll to completion. Billed (~3 EUR cents)."""
+def submit_and_poll(token: str, payload: dict, poll_seconds: float = 3.0, max_polls: int = 120) -> dict:
+    """Submit one forecast and poll to completion. Billed (~3 EUR cents).
+
+    Default poll window is 6 minutes (120 x 3s); a large series (e.g. lodash at
+    100 monthly points) can take over two minutes to settle, so a short window
+    reports a false timeout while the job is still running.
+    """
     import time
 
     code, body = _sybilion_post("/api/v1/forecasts", token, payload)
@@ -208,10 +213,27 @@ def submit_and_poll(token: str, payload: dict, poll_seconds: float = 2.0, max_po
     # Pull the two artifacts that carry the band and the honesty number.
     _, fc = _sybilion_get(f"/api/v1/forecasts/{job_id}/artifacts/forecast.json", token)
     _, bt = _sybilion_get(f"/api/v1/forecasts/{job_id}/artifacts/backtest_metrics.json", token)
+
+    # Surface the two presentable numbers. The live API returns 19 quantiles
+    # (0.05..0.95), not the docs' 0.1/0.5/0.9 example, and the backtest metric
+    # keys are uppercase (MAE/MAPE/MASE/RMSE/RMSSE).
+    quantile_count = None
+    if isinstance(fc, dict):
+        series = fc.get("data", {}).get("forecast_series", {})
+        if series:
+            first = next(iter(series.values()))
+            qf = first.get("quantile_forecast") or {}
+            quantile_count = len(qf) or None
+    mape_6m = None
+    if isinstance(bt, dict):
+        mape_6m = bt.get("data", {}).get("6m", {}).get("metrics", {}).get("MAPE")
+
     return {
         "ok": True,
         "job_id": job_id,
         "created_at": created_at,  # liveness proof
+        "quantile_count": quantile_count,
+        "mape_6m": mape_6m,
         "forecast": fc,
         "backtest_metrics": bt,
     }

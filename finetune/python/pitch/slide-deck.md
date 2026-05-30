@@ -261,9 +261,9 @@ gate detects the known-bad and owns the verdict. So a security team spends
 its limited review hours on the dependencies most likely to matter, not on
 the alphabetical first ten. And the trigger is the forecast's own alerts
 endpoint, not math we reinvented: it hands us the move, the trending flag, and
-the news that caused it. The whole pass is cheap, a forecast settles at about
-three EUR cents, and the agent throttles under the tier cap while a human
-authorizes any top-up."
+the news that caused it. We costed it from real runs: a forecast settles around
+0.35 EUR, the alert trigger about 0.06 EUR, so we forecast only the deps that
+clear the floor and only on a trigger, and a human authorizes any top-up."
 
 **Visual layout:**
 
@@ -294,9 +294,12 @@ trajectory the rank is keyed off.
   Sybilion's `POST /alerts` hands us the move (`pct_change`), a `trending`
   flag, and the news that caused it, so the dependency that just jumped routes
   up the queue with its reason already attached
-- The whole pass is cheap and we show it: a Sybilion forecast settles at about
-  three EUR cents, so ranking the dependency tree costs little; the agent
-  throttles under the tier's per-minute cap and a human authorizes any top-up
+- Costed from real runs, not a docs example: a forecast settles around 0.35 EUR
+  (up to about 1.80 for a longer run), the alert trigger is about 0.06 EUR, so we
+  forecast only the deps that clear the floor and only on a trigger; the agent
+  throttles under the per-minute cap and a human authorizes any top-up. We do not
+  call the broad drivers endpoint on stage, an unbounded call ran us 4.85 EUR for
+  macro signals that do not fit a software series
 - The coverage boundary, said out loud: the forecast ranks only the established
   dependencies that clear Sybilion's monthly history floor (about five years of
   monthly history for a six-month horizon). Everything younger is covered by the

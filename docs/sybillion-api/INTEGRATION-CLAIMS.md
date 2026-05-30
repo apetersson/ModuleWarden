@@ -81,9 +81,9 @@ number on a slide. The behavior above is documented; the integer is not.
   example keys are `"0.1"`, `"0.5"`, `"0.9"` (P10 / median / P90).
 - top level: `forecast_horizon`, `forecast_start`, `forecast_end`.
 
-CONFIRM-LIVE: the exact quantile set our key returns for a probabilistic run.
-The docs only show 0.1 / 0.5 / 0.9 by example; do not claim a wider set until a
-real run shows it.
+RESOLVED on a live run (2026-05-30): the API returns 19 quantiles, 0.05 to 0.95
+in 0.05 steps, not the docs' 0.1 / 0.5 / 0.9 example. Backtest metric keys are
+uppercase (MAE / MAPE / MASE / RMSE / RMSSE). See `LIVE-DISCOVERY.md`.
 
 `external_signals.json` per driver: `importance` (per-horizon and overall),
 `direction` (signed correlation per horizon), `pearson_correlation` (per-lag
@@ -107,14 +107,16 @@ forecast, last 12 months retained.
 
 - Tier: Level 0 (Free). Auto-recharge: disabled.
 - Trial credit active: 26.59 EUR remaining of a 50 EUR grant, expires
-  2026-06-14. At about 3 cents per forecast that is roughly 880 forecasts, so
-  the whole demo runs inside the free trial. No auto-spend.
+  2026-06-14. Real measured cost (not the docs example): a forecast settles
+  around 0.35-1.80 EUR, an alert about 0.06 EUR, an unbounded drivers call about
+  4.85 EUR. So the trial is roughly 15-70 forecasts, not hundreds. See
+  `LIVE-DISCOVERY.md`. No auto-spend.
 
 ## CONFIRM-LIVE checklist before pitch day
 
 - [ ] Tier-0 concurrent-job cap and per-minute submit cap (portal `/tiers` page,
       not shown on the Overview; still unread).
-- [ ] Exact quantile set returned for a probabilistic run on our key.
+- [x] Exact quantile set: 19 quantiles 0.05-0.95, confirmed live (date-fns run).
 - [x] Demo dependency series clears the floor: date-fns gives 88 monthly points
       (2019-2026) via `sybilion_forecast.py`, above the 60 floor for a 6-month
       horizon.

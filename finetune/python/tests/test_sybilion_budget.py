@@ -70,11 +70,11 @@ def test_spend_summary_mean_forecast_from_settled_jobs():
     assert s["mean_forecast_cents"] == pytest.approx(3.0)
 
 
-def test_spend_summary_falls_back_to_documented_cost():
-    # No settled jobs and no usage -> documented 3-cent fallback.
+def test_spend_summary_falls_back_to_measured_cost():
+    # No settled jobs and no usage -> measured 35-cent fallback (date-fns run).
     s = spend_summary(jobs_payload=_jobs(3, settled=False))
     assert s["n_settled_jobs"] == 0
-    assert s["mean_forecast_cents"] == pytest.approx(3.0)
+    assert s["mean_forecast_cents"] == pytest.approx(35.0)
 
 
 # --- throttle_plan --------------------------------------------------------
