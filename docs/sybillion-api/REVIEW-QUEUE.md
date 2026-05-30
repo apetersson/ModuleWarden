@@ -34,11 +34,22 @@ volume (the blast-radius proxy). Every number is from a real forecast response
 
 - Cost: six forecasts in this set, about 6.89 EUR of trial credit, balance 12.40
   EUR after. Real per-forecast cost, not the docs example. See `LIVE-DISCOVERY.md`.
-- Four packages (express, zod, vite, tailwindcss) were submitted but their poll
-  window expired before completion, and the first version of the driver did not
-  save the job_id, so those paid jobs were lost. The driver now persists the
-  job_id on a poll timeout so a paid job is never lost again, and those four can
-  be completed without re-paying.
-- This is a 10-package illustration set, not a full project tree. A real
-  package.json's full dependency tree is the next step, and it scales linearly
-  with forecast cost, so it waits on the credit top-up (see `CREDIT-ROADMAP.md`).
+- Four packages did not make the queue, and chasing them surfaced a real
+  limitation worth stating:
+  - zod, vite, tailwindcss are explosive young climbers. zod's series spans
+    1,517 to 665,000,000 downloads per month, a ~440,000x dynamic range. Sybilion's
+    forecast pipeline fails on them server-side with no terminal_reason, and it
+    still fails with strictly_positive off, so it is the extreme range, not our
+    payload. Failed forecasts are not billed, so this cost nothing. The honest
+    read: the forecast handles moderate trajectories; the most explosive
+    young packages route straight to the gate plus a human, which is the thesis,
+    not a workaround.
+  - express only yields 55 clean monthly points from npm here, below the 60-point
+    floor for a 6-month horizon. Not forecastable at this horizon.
+- Robustness fix that did land: npm zero-fills months before a package existed,
+  and with strictly_positive that broke validation, so the driver now trims the
+  leading zero run (`trim_leading_zeros`). And it persists the job_id on a poll
+  timeout so a slow-but-valid job is never lost to the poll window.
+- This is an illustration set, not a full project tree. A real package.json's
+  whole dependency tree is the next step; it scales linearly with forecast cost,
+  so it waits on the credit top-up (see `CREDIT-ROADMAP.md`).
