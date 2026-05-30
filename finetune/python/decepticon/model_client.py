@@ -158,11 +158,23 @@ def complete(
             f"Decepticon endpoint unreachable at {cfg.base_url}: {exc}"
         ) from exc
     try:
-        return body["choices"][0]["message"]["content"]
+        msg = body["choices"][0]["message"]
     except (KeyError, IndexError, TypeError) as exc:
         raise ModelEndpointError(
             f"Decepticon endpoint returned an unexpected shape: {str(body)[:300]}"
         ) from exc
+    content = (msg.get("content") or "").strip()
+    if not content:
+        # Reasoning models (e.g. the heretic-v2 qwen35 GGUF, whose chat template
+        # forces a <think> block) can return an empty `content` with the text in
+        # `reasoning_content`. Fall back to it rather than handing back an empty
+        # narration. Still raises below if both are empty (no silent degrade).
+        content = (msg.get("reasoning_content") or "").strip()
+    if not content:
+        raise ModelEndpointError(
+            f"Decepticon endpoint returned empty content: {str(body)[:300]}"
+        )
+    return content
 
 
 def narrate_attack_chain(kill_chain: dict, *, package: str | None = None) -> str:
