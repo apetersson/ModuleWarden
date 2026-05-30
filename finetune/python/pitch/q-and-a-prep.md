@@ -20,92 +20,12 @@ pairs, benign = first-patched release). That is WHY the architecture is
 gate-decides, model-narrates. Do not quote any headline accuracy not
 measured on this corpus.
 
-The first five entries below are hostile-underwriter pushbacks, kept for the
-fallback insurance application where a cyber underwriter is the downstream
-actor acting on the forecast. If a commercial judge presses on who buys
-this, these are the worked answers.
-
----
-
-## Q0a. Where is your evidence ModuleWarden actually reduces claim frequency, not just controls a 15 percent incident category?
-
-We are not claiming reduction yet. We are providing the evidence
-artifact that lets you measure reduction over your first cohort.
-ModuleWarden's value at year 0 is auditability and policy
-enforceability: every install routes through a deterministic gate,
-every decision lands in a Control Evidence Memo with rule references
-and sign-off trail, and the audit log is queryable from the
-policyholder portal. At year 1, with your claims data, you will have
-measured the frequency delta on the supply-chain incident class for
-that cohort. That is the underwriting input that earns durable
-premium tiers. Today's pitch is the control class, not the actuarial
-proof. We have the data-collection apparatus. You have the actuarial
-team. Together you measure the reduction the public industry reports
-are pointing at.
-
----
-
-## Q0b. Coalition's 12.5 percent MDR premium credit is for a control class with years of claims data. ModuleWarden has zero. Why should we underwrite this?
-
-Right, and that is the same answer in reverse. MDR has ten years of
-actuarial data behind that 12.5 percent number. We are offering you the
-data-collection apparatus for the next ten years of supply-chain
-controls. The 12.5 percent figure is what you can defensibly underwrite
-at year 0 based on the control-class match: a verifiable pre-install
-gate that produces an audit artifact every time it fires, mapped to ISO
-27001 A.8.28 and NIST SSDF PS.3.1. The bigger number, possibly 25 to 35
-percent, emerges as your portfolio data confirms reduction on the
-eligible segment. We are not asking you to price what Coalition prices.
-We are asking you to price what the control class actually does on your
-book, and the floor for that is the public reference point.
-
----
-
-## Q0c. What is the latency cost vs direct registry access?
-
-Two paths through the gate, both measured. Cached metadata fetch returns
-in under 50 milliseconds; the cache TTL is 1 hour and metadata cache
-hits are the common case because npm install resolves the same
-dependency graph repeatedly within a build. Tarball serve from the
-on-disk cache is under 100 milliseconds plus the disk read, dominated by
-tarball size. First-time tarball fetch is the upstream registry
-round-trip plus the policy evaluation, which is sub-millisecond once the
-integrity hash and lifecycle scripts are parsed. The fine-tuned model
-audit runs in the per-job Docker container, with the cache seeder
-pre-auditing top packages out of band. End to end on a warm cache, the
-install completes faster than direct access to registry.npmjs.org
-because the proxy is on-prem and the upstream is across the Atlantic.
-
----
-
-## Q0d. Why should the npm install layer be a covered control class when UNIQA's existing questionnaire has eleven sections and none of them ask about it?
-
-That is the answer. UNIQA's underwriting questionnaire does not
-currently ask whether a policyholder gates npm installs. That is the
-gap. ModuleWarden is the twelfth section. We do not duplicate what
-your T-Systems forensics or Schoenherr legal partners already provide.
-We add the install-layer control class that does not exist in the
-current questionnaire. With ModuleWarden in place, you can require,
-verify, and price against it the way Coalition prices their MDR
-control class. The Verizon DBIR puts 74 percent of breaches on the
-human element. The npm install layer is where the human element
-touches the supply chain. Eleven sections leave that uncovered. The
-twelfth covers it.
-
----
-
-## Q0e. What is the multi-tenant story?
-
-Single-tenant for v2.0. The gate, the cache, the policy file, the
-Postgres database, and the audit log are scoped to one ModuleWarden
-instance. Deployment recommendation is one instance per organizational
-unit. Multi-tenancy is on the enterprise-tier roadmap: per-tenant
-schema in Postgres, per-tenant cache partitioning, per-tenant policy
-overlays, per-tenant audit log isolation. None of those are
-conceptually hard; they are queued for SOC 2 prep in Q4. For now, the
-honest framing is that you run one ModuleWarden per customer or per
-business unit, and the operational footprint is small enough that this
-is fine.
+The Forecast-track answers lead (Q1 onward). The five hostile-underwriter
+premium pushbacks (Q0a to Q0e) are kept intact for the fallback insurance
+application where a cyber underwriter is the downstream actor acting on the
+forecast. They now sit at the end of this file under "Fallback: insurance
+downstream application." If a commercial judge presses on who buys this,
+those are the worked answers.
 
 ---
 
@@ -486,3 +406,95 @@ non-answers. The escalation template gives a clean exit from both.
   asked by name, say: "We have not had the chance to speak with you
   directly yet; the structured pilot ask on Slide 12 is exactly the
   conversation we would like to schedule."
+
+---
+
+## Fallback: insurance downstream application
+
+The five entries below are hostile-underwriter premium pushbacks, kept for
+the fallback insurance application where a cyber underwriter is the
+downstream actor acting on the forecast. They are not the lead pitch; the
+Forecast-track answers (Q1 onward) lead. If a commercial judge presses on
+who buys this, these are the worked answers.
+
+---
+
+## Q0a. Where is your evidence ModuleWarden actually reduces claim frequency, not just controls a 15 percent incident category?
+
+We are not claiming reduction yet. We are providing the evidence
+artifact that lets you measure reduction over your first cohort.
+ModuleWarden's value at year 0 is auditability and policy
+enforceability: every install routes through a deterministic gate,
+every decision lands in a Control Evidence Memo with rule references
+and sign-off trail, and the audit log is queryable from the
+policyholder portal. At year 1, with your claims data, you will have
+measured the frequency delta on the supply-chain incident class for
+that cohort. That is the underwriting input that earns durable
+premium tiers. Today's pitch is the control class, not the actuarial
+proof. We have the data-collection apparatus. You have the actuarial
+team. Together you measure the reduction the public industry reports
+are pointing at.
+
+---
+
+## Q0b. Coalition's 12.5 percent MDR premium credit is for a control class with years of claims data. ModuleWarden has zero. Why should we underwrite this?
+
+Right, and that is the same answer in reverse. MDR has ten years of
+actuarial data behind that 12.5 percent number. We are offering you the
+data-collection apparatus for the next ten years of supply-chain
+controls. The 12.5 percent figure is what you can defensibly underwrite
+at year 0 based on the control-class match: a verifiable pre-install
+gate that produces an audit artifact every time it fires, mapped to ISO
+27001 A.8.28 and NIST SSDF PS.3.1. The bigger number, possibly 25 to 35
+percent, emerges as your portfolio data confirms reduction on the
+eligible segment. We are not asking you to price what Coalition prices.
+We are asking you to price what the control class actually does on your
+book, and the floor for that is the public reference point.
+
+---
+
+## Q0c. What is the latency cost vs direct registry access?
+
+Two paths through the gate, both measured. Cached metadata fetch returns
+in under 50 milliseconds; the cache TTL is 1 hour and metadata cache
+hits are the common case because npm install resolves the same
+dependency graph repeatedly within a build. Tarball serve from the
+on-disk cache is under 100 milliseconds plus the disk read, dominated by
+tarball size. First-time tarball fetch is the upstream registry
+round-trip plus the policy evaluation, which is sub-millisecond once the
+integrity hash and lifecycle scripts are parsed. The fine-tuned model
+audit runs in the per-job Docker container, with the cache seeder
+pre-auditing top packages out of band. End to end on a warm cache, the
+install completes faster than direct access to registry.npmjs.org
+because the proxy is on-prem and the upstream is across the Atlantic.
+
+---
+
+## Q0d. Why should the npm install layer be a covered control class when UNIQA's existing questionnaire has eleven sections and none of them ask about it?
+
+That is the answer. UNIQA's underwriting questionnaire does not
+currently ask whether a policyholder gates npm installs. That is the
+gap. ModuleWarden is the twelfth section. We do not duplicate what
+your T-Systems forensics or Schoenherr legal partners already provide.
+We add the install-layer control class that does not exist in the
+current questionnaire. With ModuleWarden in place, you can require,
+verify, and price against it the way Coalition prices their MDR
+control class. The Verizon DBIR puts 74 percent of breaches on the
+human element. The npm install layer is where the human element
+touches the supply chain. Eleven sections leave that uncovered. The
+twelfth covers it.
+
+---
+
+## Q0e. What is the multi-tenant story?
+
+Single-tenant for v2.0. The gate, the cache, the policy file, the
+Postgres database, and the audit log are scoped to one ModuleWarden
+instance. Deployment recommendation is one instance per organizational
+unit. Multi-tenancy is on the enterprise-tier roadmap: per-tenant
+schema in Postgres, per-tenant cache partitioning, per-tenant policy
+overlays, per-tenant audit log isolation. None of those are
+conceptually hard; they are queued for SOC 2 prep in Q4. For now, the
+honest framing is that you run one ModuleWarden per customer or per
+business unit, and the operational footprint is small enough that this
+is fine.

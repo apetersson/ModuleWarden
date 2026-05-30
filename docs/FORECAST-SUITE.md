@@ -14,10 +14,18 @@ healthy packages, and we concede that). The deterministic gate detects and owns
 the verdict. The threat personas are the disgruntled employee (intentional) and
 the lazy employee who pulls an unvetted GitHub dependency tree (negligent).
 
+A note on the word forecast, so nothing is conflated. The Sybilion demand
+forecast ranks review order by trajectory and is the only thing that consumes
+the time-series API. The three modules below express the deterministic gate's
+verdict as a calibrated probability and roll it up across a dependency tree.
+They are the gate's signal in probabilistic form, not the Sybilion forecast and
+not a maliciousness classifier.
+
 ## 1. Calibration - `finetune/python/eval/forecast_calibration.py`
 
-Turns the audit verdict into a calibrated probability and measures how good
-the calibration is. This is the forecast-track-native proof.
+Turns the deterministic gate's audit verdict into a calibrated probability and
+measures the calibration. This is the gate verdict in probabilistic form, not
+the Sybilion demand forecast.
 
 - `forecast_probability(verdict, confidence)` - monotone map to P(compromise). block > quarantine > allow; confidence sharpens toward 0/1.
 - `brier_score(probs, labels)`, `expected_calibration_error(probs, labels)`, `reliability_curve(probs, labels)` - the calibration metrics forecasting judges expect.

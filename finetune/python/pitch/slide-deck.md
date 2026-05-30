@@ -247,79 +247,85 @@ offline).
 
 ---
 
-## Slide 6 - The agent layer that acts on the forecast
+## Slide 6 - Review by trajectory
 
-**Speaker note (about 30 seconds):** "A forecast nobody acts on is a chart.
-Here is one downstream actor who acts on it: a cyber underwriter. This is
-the agent layer reading the forecast and the evidence memo. Take a real
-underwriting profile. An 18M EUR Austrian SME, around 80 developers,
-JavaScript and Python stack. Their cyber premium today sits at 142k a year.
-The expected loss ratio on the account is 41 percent, anchored to NAIC and
-Munich Re 2024 figures. After ModuleWarden is deployed, every install routes
-through the gate and every decision ships with a Control Evidence Memo. The
-underwriter acts on the forecast: apply Coalition's published control-class
-credit of 12.5 percent, plus the reduction in supply chain exposure that
-Verizon and Sonatype both pin at the install layer. Year 1 premium drops to
-121k. Loss ratio drops to 27 to 30 percent. The customer renews and the
-carrier picks up 11 to 14 points of margin on the account. The forecast is
-the product; the underwriting application is one worked example of acting
-on it."
+**Speaker note (about 30 seconds):** "A forecast you do not act on is a
+chart. Here is the act. This is a real team's dependency list, ranked by the
+Sybilion forecast: each dependency scored on growth and blast-radius
+trajectory, sorted so the ones climbing toward critical surface at the top.
+A reviewer reads top-down. The deps near the top are the ones to vet now,
+while they are still small enough to read in an afternoon. The gate flags
+which of these to block, quarantine, or allow on the next install delta. The
+forecast does not decide and does not detect; it prioritizes the queue. The
+gate detects the known-bad and owns the verdict. So a security team spends
+its limited review hours on the dependencies most likely to matter, not on
+the alphabetical first ten."
 
 **Visual layout:**
 
-Two columns separated by a wide arrow pointing right.
+A single ranked table. One row per dependency, sorted by forecasted
+trajectory, climbing-toward-critical at the top.
 
-| Pre-ModuleWarden (left column) | Post-ModuleWarden (right column) |
-|---|---|
-| Premium: 142k EUR per year | Premium: 121k EUR per year |
-| Expected loss ratio: 41 percent | Expected loss ratio: 27 to 30 percent |
-| Supply chain exposure: uncontrolled | Supply chain exposure: gated, attested |
-| Evidence on renewal: asserted | Evidence on renewal: queryable |
+| Dependency | Forecast band | Trajectory | Gate on last delta |
+|---|---|---|---|
+| (top dep) | climbing to critical | steep up | review now |
+| (next dep) | elevated | rising | watch |
+| ... | ... | ... | ... |
+| (bottom dep) | stable | flat | clear |
 
-Bottom strip below the arrow:
-
-**Margin uplift: +11 to +14 percentage points per account**
+Right edge: a small sparkline per row showing the growth/blast-radius
+trajectory the rank is keyed off.
 
 **Bullets (small, under the visual):**
-- 142k baseline anchored to Austrian SME band (Stoik, Finlex)
-- 41 percent loss ratio anchored to NAIC 2024 cyber report
-- 12.5 percent control-class credit anchored to Coalition MDR program
-- 15 percent supply chain breach share anchored to Verizon DBIR 2024
-- This is the agent layer acting on the forecast, one downstream application
+- Rank is forecasted trajectory, not a danger score; the forecast
+  prioritizes, it does not detect
+- The deterministic gate detects the known-bad and decides the verdict
+- The reviewer works top-down, vetting the climbers first
+- Band and slope come from the Sybilion forecast on the version delta
 
-**Judges' question this answers:** "Who acts on the forecast, and why pay?"
+**Judges' question this answers:** "What does the forecast actually do?"
 
 ---
 
-## Slide 7 - Why the carrier wins too
+## Slide 7 - Honest about uncertainty
 
-**Speaker note (about 20 seconds):** "When a carrier acts on the forecast,
-three things change. The at-risk account renews instead of churning to a
-cheaper insurer. Margin on the account goes up by 11 to 14 points on the
-eligible segment, 2 to 4 points across the full book once you weight for
-eligibility. And the same control class scales. Every JavaScript-heavy
-account in the book is addressable with the same memo template, the same
-evidence schema, and the same actuarial tier. One forecasting control,
-hundreds of accounts."
+**Speaker note (about 30 seconds):** "Here is the result we could have
+hidden and did not. We tested whether the forecast can detect a dying or
+compromised package on its own, straight from band and slope. It cannot. A
+package that is quietly dying and a healthy one do not separate on the
+trajectory signal; the bands overlap. And on the cold package, a static
+classifier floors at AUROC 0.54 on this corpus, which is barely above a coin
+flip. We show the data rather than dress it up. This is exactly why the
+architecture is gate-decides, forecast-prioritizes, model-narrates. We do
+not let the forecast pretend to be a detector. False certainty is worse than
+honest uncertainty, because a confident wrong verdict is the one a reviewer
+trusts and a real attacker walks past."
 
 **Visual layout:**
 
-Three large bullets, each with an icon and a one-line caption. Stacked
-vertically, equal weight.
+Two small charts side by side, plus a one-line takeaway strip.
 
-1. **Retention.** Tech-heavy SMEs are the most actively shopped segment
-   in the European cyber market. The control credit is a switching-cost
-   increase.
-2. **+11 to +14 pt account margin, +2 to +4 pt book margin.**
-   Per-account math from Slide 6. Book math weighted for eligibility.
-3. **Scales across the book.** One forecasting control, one evidence
-   schema, one actuarial tier. Reusable from the first account onward.
+| Left chart | Right chart |
+|---|---|
+| Trajectory band overlap: dying vs healthy distributions sit on top of each other, no clean separation | Cold-package static classifier ROC, AUROC 0.54, sitting on the diagonal |
 
-**Footer (small text):** "All numbers anchored to NAIC, Coalition,
-Verizon, Sonatype, Munich Re 2024 reports. See
-`pitch/underwriter-economics.md` for citations."
+Takeaway strip below both:
 
-**Judges' question this answers:** "Is this a product or a feature?"
+**The forecast ranks. It does not detect. The gate detects.**
+
+**Bullets (small, under the visual):**
+- Negative result, shown on purpose: band and slope do not separate dying
+  from healthy
+- Cold-package static classifier floors at AUROC 0.54 on this corpus
+- This is why verdict authority sits in the deterministic gate, not the
+  model
+- False certainty is worse than honest uncertainty
+
+**Judges' question this answers:** "What does your forecast NOT do?"
+
+(If a commercial judge presses on who buys this, the archived cyber-insurance
+economics in `pitch/archive-insurance/` are the one-line downstream-application
+fallback.)
 
 ---
 
