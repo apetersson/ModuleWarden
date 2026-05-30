@@ -259,7 +259,11 @@ which of these to block, quarantine, or allow on the next install delta. The
 forecast does not decide and does not detect; it prioritizes the queue. The
 gate detects the known-bad and owns the verdict. So a security team spends
 its limited review hours on the dependencies most likely to matter, not on
-the alphabetical first ten."
+the alphabetical first ten. And the trigger is the forecast's own alerts
+endpoint, not math we reinvented: it hands us the move, the trending flag, and
+the news that caused it. The whole pass is cheap, a forecast settles at about
+three EUR cents, and the agent throttles under the tier cap while a human
+authorizes any top-up."
 
 **Visual layout:**
 
@@ -286,6 +290,13 @@ trajectory the rank is keyed off.
   routes a dependency to a human (it never flips the verdict), and a
   steepening trajectory pre-fetches and pins the next version delta so the
   gate audits a warm artifact before the install lands
+- The trigger is the forecast's own alerts endpoint, not math we reinvented:
+  Sybilion's `POST /alerts` hands us the move (`pct_change`), a `trending`
+  flag, and the news that caused it, so the dependency that just jumped routes
+  up the queue with its reason already attached
+- The whole pass is cheap and we show it: a Sybilion forecast settles at about
+  three EUR cents, so ranking the dependency tree costs little; the agent
+  throttles under the tier's per-minute cap and a human authorizes any top-up
 
 **Judges' question this answers:** "What does the forecast actually do?"
 
