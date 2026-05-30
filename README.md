@@ -23,6 +23,12 @@ Non-goals:
 
 The defensible thesis: *private, agentic forecasting of the version DELTA for package updates in the organization's used dependency graph.* A version diff against a last-known-good predecessor is a bounded, reviewable change. This is also the empirical reason the architecture is gate-decides, model-narrates: a static classifier on the COLD package floors at AUROC 0.54 on this corpus (GHSA advisory pairs, benign = first-patched release), because the signal is in the version DELTA, not the package in isolation. The deterministic gate reads the delta (added lifecycle scripts, capability deltas, obfuscation, advisory match between versions) and is the verdict authority. The model narrates the forecast, it never decides.
 
+## The Forecast Layer (Sybilion)
+
+The Sybilion forecast ranks your dependencies by forecasted growth and blast-radius trajectory, so the security team reviews the ones climbing toward critical first, while they are still small enough to vet. The forecast is a prioritizer, not a detector. We tested whether it could spot a dying or compromised package directly and it cannot: on a backtest of real packages the forecast band and slope do not separate declining from healthy ones (downloads lag the rot). We concede that with the data.
+
+So the division of labor is plain: the deterministic gate detects on its own rules and owns the verdict, the Sybilion forecast orders the review queue by trajectory, and when the forecast band is too wide to call, the dependency routes to a human instead of a guess.
+
 ## Architecture Overview
 
 ```
@@ -55,7 +61,7 @@ The defensible thesis: *private, agentic forecasting of the version DELTA for pa
 - **Per-job Docker isolation**: Each audit runs in a disposable container with recorded-open egress (network allowed, metadata captured).
 - **Agent-final**: PI can allow, block, or quarantine without mandatory human approval. Override only via security-admin tokens.
 - **Private core prompts**: Hidden from developers, package authors, and package code. Never exposed through CLI, web UI, or audit artifacts.
-- **Cold-start policy**: New packages (no predecessor) receive conservative full-package review. Missing or ambiguous evidence → quarantine.
+- **Cold-start policy**: New packages (no predecessor) receive conservative full-package review. Missing or ambiguous evidence routes to quarantine.
 
 ## Verdict Semantics
 
@@ -113,10 +119,7 @@ See [`demo/README.md`](demo/README.md) for the full demo recipe.
 
 ## The Agent Layer That Acts on the Forecast
 
-Same forecast pipeline, a conversational agent that acts on the verdict.
-One downstream application of the forecast is cyber-policy underwriting:
-the same agent can answer a cyber-policy underwriter or claims analyst
-and produce an audit memo:
+Same forecast pipeline, a conversational agent that acts on the verdict and answers a reviewer's questions about it. It explains the gate decision, cites the evidence, and produces an audit memo. (One downstream application of the same memo is cyber-policy underwriting, the agent answering a claims analyst, but that is one use of the artifact, not the headline.)
 
 ```bash
 # Headless CLI (no UI deps)

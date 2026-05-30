@@ -1,19 +1,23 @@
-# Forecasting suite (Track 03)
+# Forecasting suite (Sybilion FORECAST track)
 
 Three modules that express ModuleWarden as a probabilistic forecast plus an
 acting agent, for the Sybilion forecasting track. All three are pure python,
 no model or network needed (model-dependent inputs come in as pluggable
 callables), and all are tested without a GPU.
 
-The reframe: a verdict is a point estimate, a forecast is a calibrated
-probability over an internal submission plus an agent that acts on it. The
-threat personas are the disgruntled employee (intentional) and the lazy
-employee who pulls an unvetted GitHub dependency tree (negligent).
+The reframe: a verdict is a point estimate, a forecast adds a probability and a
+trajectory over an internal submission, plus an agent that acts on it. The
+Sybilion forecast ranks dependencies by growth and blast-radius trajectory so
+the team reviews the rising-critical ones first; it prioritizes, it does not
+detect (a backtest showed the band and slope do not separate declining from
+healthy packages, and we concede that). The deterministic gate detects and owns
+the verdict. The threat personas are the disgruntled employee (intentional) and
+the lazy employee who pulls an unvetted GitHub dependency tree (negligent).
 
 ## 1. Calibration - `finetune/python/eval/forecast_calibration.py`
 
 Turns the audit verdict into a calibrated probability and measures how good
-the calibration is. This is the Track-03-native proof.
+the calibration is. This is the forecast-track-native proof.
 
 - `forecast_probability(verdict, confidence)` - monotone map to P(compromise). block > quarantine > allow; confidence sharpens toward 0/1.
 - `brier_score(probs, labels)`, `expected_calibration_error(probs, labels)`, `reliability_curve(probs, labels)` - the calibration metrics forecasting judges expect.

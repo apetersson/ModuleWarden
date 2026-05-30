@@ -55,7 +55,7 @@ path behind `OPENAI_API_KEY`.
    FSDP1 + `Qwen3DecoderLayer` wrap + `use_reentrant=False` + `all-linear`
    target_modules are the documented gotchas.
 
-## Insurance-track framing
+## Insurance framing (downstream application)
 
 The control output for a UNIQA cyber underwriter is a Control Evidence
 Memo (markdown plus JSON plus audit log). Same artifact serves SOC 2
