@@ -38,13 +38,13 @@ Read the voiceover at a steady pace, roughly 150 to 165 words per minute. Each b
 
 ---
 
-## Beat 4 - The gate detects on the delta
+## Beat 4 - The audit: evidence first, verdict second
 
 | Field | Content |
 |---|---|
 | SECTION | Defense |
-| ON-SCREEN / VISUAL | A flowchart of a deterministic gate. Boxes light up as each rule matches: "added lifecycle scripts," "capability delta," "new obfuscation," "advisory match." A VERDICT stamp lands: BLOCK. |
-| VOICEOVER | At the center is a deterministic delta-gate. It keys on the version delta: new lifecycle scripts, new capabilities the package never had before, fresh obfuscation, a match against a known advisory. The gate owns the verdict. No guesswork, no made-up scores. |
+| ON-SCREEN / VISUAL | An audit in progress. Evidence artifacts appear one by one: static checks, advisory search, package info, capability report. Then a structured verdict card stamps: BLOCK with cited evidence lines below. |
+| VOICEOVER | Every package version gets a full agentic audit. Static checks, advisory lookups, capability extraction, dependency diffing. The model reads that evidence and produces a structured verdict where every claim cites its source. No black box, no vibes. You can open the audit session and read every line that led to the call. |
 
 ---
 
