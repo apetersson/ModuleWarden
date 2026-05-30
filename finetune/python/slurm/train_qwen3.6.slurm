@@ -1,4 +1,8 @@
 #!/bin/bash
+# SUPERSEDED: this targets a generic 64x H100 cluster and will NOT run on the
+# hackathon Leonardo allocation (1 node / 4x A100-64GB, boost_usr_prod +
+# reservation s_tra_ncc, Singularity, offline compute nodes). Use the tested kit
+# in finetune/python/slurm/leonardo/ instead. Kept for reference only.
 #SBATCH --job-name=mw-qwen36-sft
 #SBATCH --partition=h100
 #SBATCH --account=YOUR_ACCOUNT_HERE
