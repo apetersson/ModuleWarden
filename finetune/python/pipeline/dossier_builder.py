@@ -415,6 +415,11 @@ def build_dossier(
         f"npm package {pair.package}; no readme summary available from scraped case."
     )
     changelog = "; ".join(advisory_ids) if advisory_ids else "No changelog available."
+    # Strip advisory IDs from the user-facing dossier for cve_diff and
+    # incident_replay cases. The advisory text is teacher signal that must
+    # only appear in the assistant's diagnosis target, never in the input.
+    if case_type in ("cve_diff", "incident_replay"):
+        changelog = "No changelog available."
     release_context = {
         "semver_delta": _semver_delta(pair.unpatched_version, pair.patched_version),
         "declared_package_purpose": declared_purpose,
@@ -432,16 +437,25 @@ def build_dossier(
     capability_deltas: list[dict[str, Any]] = []
 
     # Always-present metadata evidence row.
+    # Strip advisory IDs from the summary for cve_diff/incident_replay cases
+    # so the teacher signal doesn't leak into the model input.
+    if case_type in ("cve_diff", "incident_replay"):
+        meta_summary = (
+            f"Scraped case {scraped_case.get('case_id') or pair.package} "
+            f"from {scraped_case.get('source') or 'unknown'}."
+        )
+    else:
+        meta_summary = (
+            f"Scraped case {scraped_case.get('case_id') or pair.package} "
+            f"from {scraped_case.get('source') or 'unknown'} with advisories "
+            f"{', '.join(advisory_ids) if advisory_ids else 'none'}."
+        )
     evidence.append(
         {
             "id": "ev.meta.001",
             "kind": "scraped_case",
             "path": None,
-            "summary": (
-                f"Scraped case {scraped_case.get('case_id') or pair.package} "
-                f"from {scraped_case.get('source') or 'unknown'} with advisories "
-                f"{', '.join(advisory_ids) if advisory_ids else 'none'}."
-            ),
+            "summary": meta_summary,
             "raw_excerpt_available": False,
         }
     )

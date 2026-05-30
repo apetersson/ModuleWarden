@@ -46,26 +46,36 @@ def _system_message(dossier: Mapping[str, Any]) -> str:
     return _BASE_SYSTEM_PROMPT + "\n\nAdditional constraints:\n" + bullet_list
 
 
-def build_sft_record(
+def build_sft_record_diagnosis(
     dossier: Mapping[str, Any],
-    report: Mapping[str, Any],
+    diagnosis: Mapping[str, Any],
     *,
     split: str,
     source: str,
     record_id: str | None = None,
 ) -> dict[str, Any]:
-    """Return a ``modulewarden.sft_record.v1`` dict.
+    """Return a ``modulewarden.sft_record.v1`` dict using the lean diagnosis target.
 
-    ``split`` must be one of train / validation / test.
-    ``source`` must be one of the controlled values from the SFT schema.
+    The assistant message is the diagnosis JSON (``modulewarden.diagnosis.v1``)
+    instead of the full ``audit_report.v1``. The system message is simplified
+    to match the diagnosis contract. The user message is the serialized dossier.
     """
     if split not in _VALID_SPLITS:
         raise ValueError(f"invalid split {split!r}; expected one of {_VALID_SPLITS}")
     if source not in _VALID_SOURCES:
         raise ValueError(f"invalid source {source!r}; expected one of {_VALID_SOURCES}")
 
-    audit_id = dossier.get("audit_id") or report.get("audit_id") or "audit_unknown"
-    rec_id = record_id or f"sft_{audit_id}"
+    audit_id = dossier.get("audit_id") or diagnosis.get("audit_id") or "audit_unknown"
+    rec_id = record_id or f"sft_diag_{audit_id}"
+
+    system_msg = (
+        "You are ModuleWarden's vulnerability diagnosis model. Given one "
+        "AuditDossier JSON object containing static code evidence, return exactly "
+        "one Diagnosis JSON object with verdict (NO_ISSUES_FOUND or ISSUE_FOUND), "
+        "known advisory IDs if found, a short issue summary, CWE IDs for the "
+        "vulnerability class, and evidence_refs citing only IDs from the dossier's "
+        "evidence_index. If you cannot cite evidence, leave evidence_refs empty."
+    )
 
     record = {
         "schema_version": "modulewarden.sft_record.v1",
@@ -73,18 +83,18 @@ def build_sft_record(
         "split": split,
         "source": source,
         "messages": [
-            {"role": "system", "content": _system_message(dossier)},
+            {"role": "system", "content": system_msg},
             {
                 "role": "user",
                 "content": json.dumps(dossier, indent=2, sort_keys=False),
             },
             {
                 "role": "assistant",
-                "content": json.dumps(report, indent=2, sort_keys=False),
+                "content": json.dumps(diagnosis, indent=2, sort_keys=False),
             },
         ],
     }
     return record
 
 
-__all__ = ["build_sft_record"]
+__all__ = ["build_sft_record", "build_sft_record_diagnosis"]
