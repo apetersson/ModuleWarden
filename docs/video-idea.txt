@@ -1,5 +1,5 @@
 motivation: popular package maintainer has a security problem. what to expect?
-sophisticated attacker will craft a not statically detectable exploit.
+a sophisticated attacker will craft a not statically detectable exploit.
 
 -----------
 probabilistic risk assesment.
@@ -7,41 +7,68 @@ graph dependency complexity vs compounded risk.
 ------------
 
 HOW TO DEFEND?
-we guard the interface betweebn code and developer: the artifact registry. the service where you get your packages from.
-defend: sematic analysis! with modulewarden
+we guard the interface between code and developer: the artifact registry.
+the service where you get your packages from.
+defend: agentic audit with modulewarden.
 
-1 agentic code review which you start manually is good, but 20 which are run automatically is consistent and really helpful.
+one code review you start manually is good.
+twenty that run automatically on every new version don't get tired.
 
-part 1: we extract feature vectors from the code.
-part 2: submit the known 4k samples with the features plus the exploit severity to
- sybillion
+-----------
+the pipeline:
+1. new version lands → enqueued for review
+2. evidence extraction runs:
+   - static checks (exec calls, obfuscation, network/fs/process capabilities)
+   - advisory database lookup
+   - dependency diff against previous version
+   - capability delta report
+   - git history → monthly commit/contributor/code_quality time series
+   - npm downloads → 5-year monthly buckets
+3. temporal forecasting (Sybilion):
+   - submit time series per metric to Sybilion API
+   - poll for forecast.json artifact
+   - extract collapse_risk, uncertainty, recent_anomaly per metric
+   - composite temporal_risk score (0-1) from weighted aggregation
+   - store as temporal_evidence.json in evidence artifacts
+4. prompt packs assemble audit instructions from configured markdown files
+5. Docker container spawns with all evidence + instructions
+6. model reads evidence, returns structured verdict (ALLOW/BLOCK/QUARANTINE)
+   with every claim citing its evidence source
+7. on ALLOW → promote tarball to Verdaccio registry
 
- now we get a new package -> we ask sybillion for an assesment.
- then we perform a semantic analysis with a cluster of well-known and maintanable and customizable auditing rules.
+-----------
+temporal forecast dashboard card (IMPLEMENTED):
+- per-metric rows: commits, contributors, code_quality, downloads
+- collapse risk badge, uncertainty score, anomaly flag per metric
+- linked Sybilion job ID for each forecast
+- composite temporal_risk badge (0-100%)
+- visible in every audit run detail
 
-part 3 (IMPLEMENTED): we extract time-series signals from git history.
-for each dependency we audit, we:
-- shallow-clone the upstream repo (depth 500)
-- extract monthly commit counts, contributor counts, and code-quality signals
-- pair with live npm download history (5-year monthly buckets)
-- submit the multi-metric time series to Sybillion for forecasting
-- extract collapse_risk, uncertainty, and recent_anomaly signals per metric
-- score a composite temporal_risk (0–1) from weighted aggregation
-- surface the forecast in the audit run detail with a per-metric dashboard card
+-----------
+the model:
+- 27B Qwen variant, fine-tuned on 1,800 CVE codebases
+- trained on Leonardo supercomputer
+- two LoRA adapters, published on Hugging Face
+- works with any OpenAI-compatible /v1 endpoint
+- held-out val loss 0.21 (measures narration fidelity, not detection accuracy)
 
- But what model to use?????
- -------------------
+-----------
+the prompt packs:
+- markdown instruction files, human-readable and version-controlled
+- core packs: claimed-purpose-vs-behavior, install-time-execution, advisory review, version-diff
+- pattern packs: crypto-web3-hijack, secret-harvesting, protestware, remote-payload
+- custom packs written by security teams for their threat model
+- packs are assembled with the evidence bundle and sent to the model
 
-we DL all recent CVEs
-we got the vulnerable and the fixed versions
-got the source codes
-grouped them into benign and vulnerable packages, we extracted the most iconic 1800 recent codebases.
+-----------
+the verdict:
+- ALLOW → promote the tarball into the Verdaccio registry → developers can install
+- BLOCK → reject at the proxy → `npm install` returns 403
+- QUARANTINE → hold for manual review → visible in the dashboard column
 
-we used the leonardo SC to produce 2 variants of lora models:
-
-now, we can enhance the accuracy of agentic analysis by adding a small specialized module that nudges the model’s behavior.
-
-
-
----------------------
-
+-----------
+honesty beats:
+- Sybilion forecast cannot distinguish dying from healthy packages (AUROC 0.54)
+- the model val loss (0.21) measures how well it writes up evidence, not how well it detects
+- every verdict cites its source evidence lines
+- Sybilion job IDs are preserved so you can audit the forecast yourself
