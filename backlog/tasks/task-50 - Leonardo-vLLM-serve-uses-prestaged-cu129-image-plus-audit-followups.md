@@ -22,11 +22,19 @@ The 27B auditor serve on Leonardo now points at the pre-staged, world-readable v
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Open items from the 2026-05-30 Leonardo audit (full probe list lives in the Decepticon clone at LEONARDO-NODE-AUDIT-PROMPT.md):
+Full 2026-05-30 Leonardo audit landed (probe list in the Decepticon clone at LEONARDO-NODE-AUDIT-PROMPT.md).
 
-- GPU arch unresolved: confirm the reserved s_tra_ncc nodes are A100 sm_80 vs H100 sm_90. This only gates the source-built Decepticon llama.cpp (decepticon_gpu_build_serve.slurm hard-pins CMAKE_CUDA_ARCHITECTURES=80). The vLLM auditor serve is already arch-agnostic via the cu129 image. The cuda/12.6 module covers sm_90 if needed; there is no CUDA 13 on the system.
-- ollama-0.13.2.sif is staged alongside the vLLM image. Test whether it loads the heretic-v2 qwen35 (Native-MTP) GGUF for a build-free Decepticon serve before committing to the from-source llama.cpp path.
-- HF cache on the cluster is empty (refs/main stubs only). The 52GB model download still stands (login node, HF_HUB_DISABLE_XET=1, since the xet CDN is unreachable from the workstation).
-- Model de-dup: weights are staged per-user in each $SCRATCH, which purges after 40 days. Consolidate to shared $WORK.
+RESOLVED:
+- GPU arch: reserved nodes are uniformly A100-SXM-64GB, sm_80, CUDA 12.2. No H100. The committed CMAKE_CUDA_ARCHITECTURES=80 is correct; left as-is.
+- Reservation window: s_tra_ncc ends Sun 2026-05-31 12:00 CEST (covers the 10:00 deadline). No walltime cap on normal QoS; both accounts can hold reserved GPUs at once.
+- Compute-node egress: none. DNS resolves but TCP egress is blocked and there is no usable proxy. On-stage Decepticon is fully offline narration of a pinned ATT&CK chain; pre-stage everything, TRANSFORMERS_OFFLINE=1.
+- Control plane: docker absent; runtime is SingularityPRO 4.3.1 (rootless), no docker socket or compose networking. Decepticon's Kali sandbox + Sliver C2 + LiteLLM + Neo4j stay local; only the inference endpoint serves on Leonardo. LLM-only is forced, not chosen.
+- gcc: Decepticon build now uses the gcc/12.2.0 module host compiler with a version-guarded -lstdc++fs fallback (commit 534b3f0). gcc/12.2.0 confirmed available.
+- Model de-dup: rsync of both models (52G abliterated + 19G GGUF) from a08trc01 $SCRATCH to shared $WORK=/leonardo_work/EUHPC_D30_031/models (group-shared, no purge, 2.3T free). slurm-vllm.sh now prefers the $WORK copy with a $SCRATCH fallback (commit 534b3f0). Also gives a08trc02 a copy he did not have.
+
+REMAINING:
+- Test whether ollama-0.13.2.sif loads the heretic-v2 qwen35 (Native-MTP) GGUF for a build-free Decepticon serve before relying on the from-source llama.cpp path.
+- Point the source-built decepticon serve GGUF path at the shared $WORK copy too (currently $SCRATCH).
+- Coordinate job submission and shared $WORK writes between a08trc01 and a08trc02 (one project, one 25-node reservation, shared pool).
 - SECURITY: the proxy credential removed in bc7e9a2 still lives in the public-repo git history. Flag for rotation, or accept it as a time-boxed internal proxy. Decision needed.
 <!-- SECTION:NOTES:END -->
