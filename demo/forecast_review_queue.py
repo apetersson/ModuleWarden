@@ -82,7 +82,16 @@ def _forecast_one(pkg: str, token: str, years: int = 8) -> dict | None:
     payload = build_payload(pkg, monthly, soft_horizon=6, hard_horizon=3)
     res = submit_and_poll(token, payload)
     if not res.get("ok"):
-        return {"package": pkg, "skipped": True, "problems": [f"submit failed: {res.get('stage')}"]}
+        # The job was submitted and billed even if the poll window expired, so
+        # persist its job_id and the (free) history to a recovery stub. A later
+        # run can fetch the completed artifact instead of re-submitting (and
+        # re-paying). Never lose a paid job to a poll timeout again.
+        jid = res.get("job_id")
+        if jid:
+            (CACHE_DIR / f"{pkg}.pending.json").write_text(
+                json.dumps({"package": pkg, "job_id": jid, "history": monthly}), encoding="utf-8"
+            )
+        return {"package": pkg, "skipped": True, "problems": [f"submit ok, poll {res.get('reason') or res.get('stage')}; job_id saved for recovery"]}
     out = {
         "package": pkg,
         "job_id": res.get("job_id"),
