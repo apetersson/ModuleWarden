@@ -11,6 +11,7 @@ export interface ModuleWardenConfig {
     host: string;
     port: number;
     registryUrl: string;
+    token: string;
   };
   auth: {
     tokenType: 'static';
@@ -85,6 +86,10 @@ function readRequiredString(name: string): string {
       MW_POSTGRES_DB: 'PostgreSQL database name',
       MW_POSTGRES_USER: 'PostgreSQL user',
       MW_POSTGRES_PASSWORD: 'PostgreSQL password',
+      MW_VERDACCIO_HOST: 'Verdaccio service hostname (e.g. verdaccio)',
+      MW_VERDACCIO_PORT: 'Verdaccio service port (e.g. 4873)',
+      MW_VERDACCIO_URL: 'Internal Verdaccio registry URL (e.g. http://verdaccio:4873)',
+      MW_VERDACCIO_TOKEN: 'A Verdaccio publish token used by the promotion worker',
       MW_AUTH_ADMIN_TOKENS: 'Comma-separated admin tokens for the API and worker',
       MW_AUTH_DEV_TOKENS: 'Comma-separated developer tokens for the API and worker',
     };
@@ -95,6 +100,15 @@ function readRequiredString(name: string): string {
     );
   }
   return value.trim();
+}
+
+function readRequiredInt(name: string): number {
+  const raw = readRequiredString(name);
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value)) {
+    throw new Error(`${name} must be a valid integer, got "${raw}".`);
+  }
+  return value;
 }
 
 /**
@@ -148,9 +162,10 @@ export function defaultConfig(): ModuleWardenConfig {
       schema: process.env.MW_POSTGRES_SCHEMA ?? 'public',
     },
     verdaccio: {
-      host: process.env.MW_VERDACCIO_HOST ?? 'verdaccio',
-      port: readInt('MW_VERDACCIO_PORT', 4873),
-      registryUrl: process.env.MW_VERDACCIO_URL ?? `http://${process.env.MW_VERDACCIO_HOST ?? 'verdaccio'}:${process.env.MW_VERDACCIO_PORT ?? '4873'}`,
+      host: readRequiredString('MW_VERDACCIO_HOST'),
+      port: readRequiredInt('MW_VERDACCIO_PORT'),
+      registryUrl: readRequiredString('MW_VERDACCIO_URL'),
+      token: readRequiredString('MW_VERDACCIO_TOKEN'),
     },
     auth: {
       tokenType: 'static',

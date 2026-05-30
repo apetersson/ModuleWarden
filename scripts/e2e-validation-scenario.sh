@@ -15,9 +15,26 @@ export MW_E2E_HOST_API_BASE_URL="${MW_E2E_HOST_API_BASE_URL:-http://localhost:$M
 export MW_E2E_HOST_WEB_URL="${MW_E2E_HOST_WEB_URL:-http://localhost:$MW_E2E_WEB_UI_PORT}"
 export MW_E2E_BROWSER_API_BASE_URL="${MW_E2E_BROWSER_API_BASE_URL:-$MW_E2E_HOST_API_BASE_URL}"
 
-export MW_MODEL_ENDPOINT_BASE_URL="${MW_MODEL_ENDPOINT_BASE_URL:-https://api.deepseek.com/v1}"
-export MW_MODEL_ENDPOINT_API_KEY="${MW_MODEL_ENDPOINT_API_KEY:-${DEEPSEEK_API_KEY:-sk-change-me}}"
-export MW_MODEL_ENDPOINT_MODEL="${MW_MODEL_ENDPOINT_MODEL:-deepseek-v4-flash}"
+require_env() {
+  local name="$1"
+  local value="${!name:-}"
+  if [ -z "${value//[[:space:]]/}" ]; then
+    echo "ERROR: ${name} is required but is not set." >&2
+    echo "Set ${name} before running the E2E validation scenario." >&2
+    exit 1
+  fi
+}
+
+require_env MW_MODEL_ENDPOINT_BASE_URL
+require_env MW_MODEL_ENDPOINT_API_KEY
+require_env MW_MODEL_ENDPOINT_MODEL
+require_env MW_VERDACCIO_URL
+require_env MW_VERDACCIO_TOKEN
+export MW_MODEL_ENDPOINT_BASE_URL
+export MW_MODEL_ENDPOINT_API_KEY
+export MW_MODEL_ENDPOINT_MODEL
+export MW_VERDACCIO_URL
+export MW_VERDACCIO_TOKEN
 export MW_PRESERVE_AUDIT_SESSIONS="${MW_PRESERVE_AUDIT_SESSIONS:-true}"
 export MW_AUTH_ADMIN_TOKENS="${MW_AUTH_ADMIN_TOKENS:-mw-admin-token-change-me}"
 export MW_AUTH_DEV_TOKENS="${MW_AUTH_DEV_TOKENS:-mw-dev-token-change-me}"

@@ -7,6 +7,7 @@ services:
   verdaccio:
     volumes: !override
       - ${MW_E2E_VERDACCIO_STORAGE_HOST:?MW_E2E_VERDACCIO_STORAGE_HOST must be set}:/verdaccio/storage
+      - ./infra/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
 
   migrate:
     build:

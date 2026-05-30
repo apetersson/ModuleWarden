@@ -30,6 +30,21 @@ const TEST_DSN = 'postgresql://modulewarden:modulewarden@localhost:5422/modulewa
 const RUN_ID = `run-${Date.now()}`;
 const escapeSql = (value: string): string => value.replace(/'/g, "''");
 
+process.env.MW_POSTGRES_HOST ??= 'localhost';
+process.env.MW_POSTGRES_PORT ??= '5422';
+process.env.MW_POSTGRES_DB ??= 'modulewarden';
+process.env.MW_POSTGRES_USER ??= 'modulewarden';
+process.env.MW_POSTGRES_PASSWORD ??= 'modulewarden';
+process.env.MW_VERDACCIO_HOST ??= 'verdaccio';
+process.env.MW_VERDACCIO_PORT ??= '4873';
+process.env.MW_VERDACCIO_URL ??= 'http://verdaccio:4873';
+process.env.MW_VERDACCIO_TOKEN ??= 'test-verdaccio-token-123';
+process.env.MW_AUTH_ADMIN_TOKENS ??= 'test-admin-token-123';
+process.env.MW_AUTH_DEV_TOKENS ??= 'test-dev-token-123';
+process.env.MW_MODEL_ENDPOINT_BASE_URL ??= 'http://model.test/v1';
+process.env.MW_MODEL_ENDPOINT_API_KEY ??= 'test-model-api-key';
+process.env.MW_MODEL_ENDPOINT_MODEL ??= 'test-model';
+
 type ReviewJobStatus = 'PENDING' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'DEAD_LETTER';
 
 const createReviewJobRow = async (

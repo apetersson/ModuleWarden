@@ -44,6 +44,19 @@ export interface ContainerResult {
   error?: string;
 }
 
+export interface ContainerRunnerModelEndpoint {
+  baseUrl: string;
+  apiKey: string;
+  modelName: string;
+}
+
+function requireConfiguredValue(name: string, value: string): string {
+  if (!value || value.trim() === '') {
+    throw new Error(`${name} is required before audit containers can be dispatched`);
+  }
+  return value.trim();
+}
+
 /**
  * ModuleWarden audit container runner.
  *
@@ -62,9 +75,11 @@ export class ContainerRunner {
   private readonly containerMemory: string;
   private readonly containerCpus: number;
   private readonly containerPidsLimit: number;
+  private readonly modelEndpoint: ContainerRunnerModelEndpoint;
 
   constructor(opts: {
     imageName: string;
+    modelEndpoint: ContainerRunnerModelEndpoint;
     auditNetworkName?: string;
     containerTimeoutMs?: number;
     workspaceRoot?: string;
@@ -79,6 +94,11 @@ export class ContainerRunner {
     this.containerMemory = opts.containerMemory ?? '1024m';  // M2: 1GB RAM limit
     this.containerCpus = opts.containerCpus ?? 1.0;           // M2: 1 CPU limit
     this.containerPidsLimit = opts.containerPidsLimit ?? 100; // M2: prevent fork bombs
+    this.modelEndpoint = {
+      baseUrl: requireConfiguredValue('MW_MODEL_ENDPOINT_BASE_URL', opts.modelEndpoint.baseUrl),
+      apiKey: requireConfiguredValue('MW_MODEL_ENDPOINT_API_KEY', opts.modelEndpoint.apiKey),
+      modelName: requireConfiguredValue('MW_MODEL_ENDPOINT_MODEL', opts.modelEndpoint.modelName),
+    };
   }
 
   /**
@@ -148,11 +168,17 @@ export class ContainerRunner {
       `MW_WORKSPACE=/workspace`,
       `MW_PACKAGE_NAME=${inputs.packageName}`,
       `MW_PACKAGE_VERSION=${inputs.packageVersion}`,
-      // Pass through ModuleWarden API URL and model endpoint from worker env
+      // The audit container root filesystem is read-only. PI and the
+      // orchestrator still need a writable home for transient config.
+      'HOME=/tmp',
+      'XDG_CONFIG_HOME=/tmp/.config',
+      'XDG_CACHE_HOME=/tmp/.cache',
+      // Pass through the already-validated model endpoint. Missing endpoint
+      // config must fail before a job is dispatched, never inside PI.
       `MW_API_BASE=${process.env.MW_API_BASE ?? 'http://host.docker.internal:8080'}`,
-      ...(process.env.MW_MODEL_ENDPOINT_BASE_URL ? [`MW_MODEL_ENDPOINT_BASE_URL=${process.env.MW_MODEL_ENDPOINT_BASE_URL}`] : []),
-      ...(process.env.MW_MODEL_ENDPOINT_API_KEY ? [`MW_MODEL_ENDPOINT_API_KEY=${process.env.MW_MODEL_ENDPOINT_API_KEY}`] : []),
-      ...(process.env.MW_MODEL_ENDPOINT_MODEL ? [`MW_MODEL_ENDPOINT_MODEL=${process.env.MW_MODEL_ENDPOINT_MODEL}`] : []),
+      `MW_MODEL_ENDPOINT_BASE_URL=${this.modelEndpoint.baseUrl}`,
+      `MW_MODEL_ENDPOINT_API_KEY=${this.modelEndpoint.apiKey}`,
+      `MW_MODEL_ENDPOINT_MODEL=${this.modelEndpoint.modelName}`,
     ];
 
     const volumeMounts = [

@@ -60,6 +60,7 @@ export async function registerAuditContainerHandler(queue: JobQueue): Promise<vo
   const config = defaultConfig();
   const runner = new ContainerRunner({
     imageName: config.auditRunner.imageName,
+    modelEndpoint: config.modelEndpoint,
     containerTimeoutMs: config.jobs.retryPolicy.timeoutMs,
     ...(config.auditRunner.workspaceRoot ? { workspaceRoot: config.auditRunner.workspaceRoot } : {}),
   });

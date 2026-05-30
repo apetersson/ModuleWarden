@@ -1,8 +1,8 @@
 #!/bin/sh
 # ── ModuleWarden Audit Container Entrypoint ────────────────
 #
-# This container runs the RPC bridge server in the background and the PI
-# audit orchestrator in the foreground. Missing bridge, PI, or model
+# This container runs the RPC bridge server in the background and the
+# structured audit orchestrator in the foreground. Missing bridge or model
 # configuration is a hard audit failure.
 #
 # The worker injects the run-specific workspace, RPC token,
@@ -65,7 +65,7 @@ else
   trap cleanup EXIT INT TERM
 
   if [ -f "${ORCHESTRATOR}" ]; then
-    echo "[entrypoint] Starting PI audit orchestrator..."
+    echo "[entrypoint] Starting structured audit orchestrator..."
     set +e
     node "${ORCHESTRATOR}"
     ORCH_EXIT=$?

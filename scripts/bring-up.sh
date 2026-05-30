@@ -39,8 +39,24 @@ fi
 # Source the env to check configuration
 source .env 2>/dev/null || true
 
+require_env() {
+    local name="$1"
+    local value="${!name:-}"
+    if [ -z "${value//[[:space:]]/}" ]; then
+        echo "ERROR: ${name} is required but is not set."
+        echo "Set ${name} in .env before starting ModuleWarden."
+        exit 1
+    fi
+}
+
+require_env MW_MODEL_ENDPOINT_BASE_URL
+require_env MW_MODEL_ENDPOINT_API_KEY
+require_env MW_MODEL_ENDPOINT_MODEL
+require_env MW_VERDACCIO_URL
+require_env MW_VERDACCIO_TOKEN
+
 # Check SSH tunnel
-TUNNEL_HOST="${MW_MODEL_ENDPOINT_BASE_URL:-http://host.docker.internal:8081/v1}"
+TUNNEL_HOST="${MW_MODEL_ENDPOINT_BASE_URL}"
 TUNNEL_URL="${TUNNEL_HOST}"
 echo "Checking model endpoint: ${TUNNEL_URL}..."
 
@@ -81,8 +97,9 @@ done
 echo ""
 echo "Starting ModuleWarden stack..."
 echo "  Concurrency: audit-container-exec=${MW_JOB_CONCURRENCY_AUDIT_CONTAINER_EXEC:-8}"
-echo "  Model: ${MW_MODEL_ENDPOINT_MODEL:-qwen3.6-27b}"
-echo "  Endpoint: ${MW_MODEL_ENDPOINT_BASE_URL:-http://host.docker.internal:8081/v1}"
+echo "  Model: ${MW_MODEL_ENDPOINT_MODEL}"
+echo "  Endpoint: ${MW_MODEL_ENDPOINT_BASE_URL}"
+echo "  Verdaccio: ${MW_VERDACCIO_URL}"
 echo ""
 
 # shellcheck disable=SC2086

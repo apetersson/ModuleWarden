@@ -6,6 +6,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const TEST_IMAGE = 'modulewarden-container-runner-test:latest';
+const TEST_MODEL_ENDPOINT = {
+  baseUrl: 'http://model.test/v1',
+  apiKey: 'test-api-key',
+  modelName: 'test-model',
+};
 
 describe('ContainerRunner', () => {
   let runner: ContainerRunner;
@@ -29,6 +34,7 @@ DOCKERFILE`, { stdio: 'pipe' });
 
     runner = new ContainerRunner({
       imageName: TEST_IMAGE,
+      modelEndpoint: TEST_MODEL_ENDPOINT,
       auditNetworkName: 'mw-audit-test-net',
       containerTimeoutMs: 30_000,
     });
@@ -75,7 +81,7 @@ DOCKERFILE`, { stdio: 'pipe' });
     expect(existsSync(result.workspacePath)).toBe(false);
   });
 
-  it('2. injects only safe environment variables (no secrets)', async () => {
+  it('2. injects required audit environment without DB or registry credentials', async () => {
     const result = await runner.run({
       rpcToken: 'secret-test-token',
       rpcPort: 9090,
@@ -94,20 +100,35 @@ DOCKERFILE`, { stdio: 'pipe' });
       // Should have MW_ env vars
       expect(envContent).toContain('MW_PACKAGE_NAME=secret-test');
       expect(envContent).toContain('MW_PACKAGE_VERSION=2.0.0');
+      expect(envContent).toContain('MW_MODEL_ENDPOINT_BASE_URL=http://model.test/v1');
+      expect(envContent).toContain('MW_MODEL_ENDPOINT_MODEL=test-model');
       // Should NOT have RPC token (grep -v removed it)
       expect(envContent).not.toContain('MW_RPC_TOKEN');
-      // Should NOT have DB creds, model keys, etc.
+      // Should NOT have DB or registry credentials.
       expect(envContent).not.toContain('POSTGRES');
       expect(envContent).not.toContain('DATABASE_URL');
-      expect(envContent).not.toContain('API_KEY');
+      expect(envContent).not.toContain('MW_VERDACCIO_TOKEN');
     }
 
     runner.cleanupWorkspace(result.workspacePath);
   });
 
+  it('2b. fails before dispatch when model endpoint config is missing', () => {
+    expect(() => new ContainerRunner({
+      imageName: TEST_IMAGE,
+      modelEndpoint: {
+        ...TEST_MODEL_ENDPOINT,
+        baseUrl: '',
+      },
+      auditNetworkName: 'mw-audit-test-net',
+      containerTimeoutMs: 30_000,
+    })).toThrow(/MW_MODEL_ENDPOINT_BASE_URL is required/);
+  });
+
   it('3. handles non-existent image with error', async () => {
     const badRunner = new ContainerRunner({
       imageName: 'this-image-does-not-exist',
+      modelEndpoint: TEST_MODEL_ENDPOINT,
       auditNetworkName: 'mw-audit-test-net',
       containerTimeoutMs: 10_000,
     });

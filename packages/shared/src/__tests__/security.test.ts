@@ -32,7 +32,7 @@ describe('prompt secrecy', () => {
 // ── Secret isolation tests ─────────────────────────────────
 
 describe('secret isolation', () => {
-  it('container runner env vars do not include DB credentials or API keys', () => {
+  it('container runner env vars do not include DB or registry credentials', () => {
     // Verify that the env vars passed to containers are safe
     const workerEnvVarsPassedToContainer = [
       'MW_RPC_TOKEN',
@@ -42,15 +42,12 @@ describe('secret isolation', () => {
       'MW_PACKAGE_VERSION',
       'MW_API_BASE',
       'MW_MODEL_ENDPOINT_BASE_URL',
+      'MW_MODEL_ENDPOINT_API_KEY',
+      'MW_MODEL_ENDPOINT_MODEL',
     ];
 
-    // Only RPC_TOKEN is a token — all others are safe configuration values
-    const safeVars = workerEnvVarsPassedToContainer.filter((v) => v !== 'MW_RPC_TOKEN');
-    for (const v of safeVars) {
-      expect(v).not.toMatch(/PASSWORD|SECRET|API_KEY|TOKEN/i);
-    }
-
-    // DB and Verdaccio credentials are NOT passed (they stay in the worker env)
+    // DB and Verdaccio credentials are NOT passed (they stay in the worker env).
+    // The model endpoint key is still part of the audit-runner contract.
     expect(workerEnvVarsPassedToContainer).not.toContain('DATABASE_URL');
     expect(workerEnvVarsPassedToContainer).not.toContain('MW_POSTGRES_PASSWORD');
     expect(workerEnvVarsPassedToContainer).not.toContain('MW_VERDACCIO_TOKEN');
