@@ -14,7 +14,6 @@
 # Then SSH tunnel from local: ssh -L 8081:<node>:8000 <user>@login01-ext.leonardo.cineca.it
 
 #SBATCH --partition=boost_usr_prod
-#SBATCH --reservation=s_tra_ncc     # hackathon reserved node (fast lane); drop for general queue / multi-node
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=4           # qwen3.6 27b with TP=4 on A100 64GB
@@ -43,13 +42,13 @@ export https_proxy=http://proxyuser:PII_REDACTED==@10.99.0.1:38425
 
 SCRATCH_DIR="/leonardo_scratch/large/usertrain/${USER}"
 MODEL_CACHE="${SCRATCH_DIR}/models"
-VLLM_SIF="${SCRATCH_DIR}/containers/vllm-openai-v063-cu121.sif"
+VLLM_SIF="${SCRATCH_DIR}/containers/vllm-openai-cu129.sif"
 LOG_DIR="${SCRATCH_DIR}/vllm-logs"
 mkdir -p "${MODEL_CACHE}" "${LOG_DIR}" "$(dirname "${VLLM_SIF}")"
 
 # Point to the model directory (binded into container at /model)
-MODEL_DIR="${SCRATCH_DIR}/models/Huihui-Qwen3.6-27B-abliterated"
-MODEL_NAME="${MW_VLLM_MODEL_NAME:-huihui-qwen3.6-27b-abliterated}"
+MODEL_DIR="${SCRATCH_DIR}/models/Qwen3.6-27B"
+MODEL_NAME="${MW_VLLM_MODEL_NAME:-qwen3.6-27b}"
 PORT="${MW_VLLM_PORT:-8000}"
 HOST="${MW_VLLM_HOST:-0.0.0.0}"
 
