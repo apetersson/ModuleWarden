@@ -99,6 +99,49 @@ the gate scans the delta: shallow / standard / deep, with a `scan_multiplier`.
 Depth scales scrutiny; it never decides the verdict. "We do not predict death.
 We predict update velocity, and we scale the gate's scrutiny to it."
 
+## 5. Consuming Sybilion's native signals
+
+We found two documented endpoints we were not using and wired both. The rule
+held: each one informs review order, scan depth, or cost, never the verdict.
+
+### 5a. Alerts as the forecast-native trigger - `serving/sybilion_alerts.py`
+
+`POST /api/v1/alerts` returns, per dataset, a `pct_change`, a `trending` flag,
+and the `news[]` that moved it. That is the same signal `forecast_drift.py`
+computes from the series, handed over directly with the cause attached, so we
+prefer it where it is available.
+
+- `alert_drift(alert)` - mirrors the `forecast_drift` output: drift fires when
+  the alert is trending or the absolute `pct_change` clears a threshold, and the
+  news titles ride along as the cited cause.
+- `make_alert_band_fn(alerts)` - a `band_fn` for `forecast_dependency_tree`; the
+  per-dep band widens in proportion to the documented move (a larger move means
+  a wider band means route-to-human), centered on the dep's own probability.
+- `alert_scan_depth(alert, short_horizon_mape=...)` - folds the alert into scan
+  depth alongside the backtest MAPE; the deeper of the two wins, so a live alert
+  can escalate scrutiny above what the backtest alone would pick. A trending
+  alert floors the depth at standard.
+- `narration_context(alert)` - short citable news lines the trained auditor uses
+  to explain the move ("trending because: maintainer handed off repo (source)").
+
+There are no per-category multipliers. The docs do not enumerate the category
+set or publish any weighting, so the signal is `pct_change` and `trending`, and
+`news` is context the model cites, never a score.
+
+### 5b. Cost-aware budgeting - `serving/sybilion_budget.py`
+
+`GET /api/v1/jobs` carries `eur_cents_final` per job (a forecast settled at
+about 3 cents in the docs) and `GET /api/v1/usage` carries the billed-event
+history.
+
+- `spend_summary(jobs_payload, usage_payload)` - total spend, spend by endpoint
+  (forecast / drivers / alerts), and the mean forecast cost.
+- `throttle_plan(ranked_deps, remaining_budget_cents, per_minute_cap, ...)` -
+  walks the trajectory-ranked deps and admits each while it stays within the
+  remaining budget and under the per-minute cap (with safety headroom), defers
+  the rest. It is ordering only. It never tops up balance and never requests a
+  tier upgrade; a human authorizes any spend.
+
 ## End to end
 
 ```python
