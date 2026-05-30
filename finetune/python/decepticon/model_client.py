@@ -211,4 +211,8 @@ def narrate_attack_chain(kill_chain: dict, *, package: str | None = None) -> str
     return complete(
         system_prompt=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
+        # heretic-v2 reasons before it answers (chain-of-thought first, final answer
+        # after). The 700-token default is eaten by reasoning and content comes back
+        # empty; give the narrative real headroom so it lands in content.
+        max_tokens=4000,
     )
