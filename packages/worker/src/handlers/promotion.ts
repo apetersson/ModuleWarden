@@ -1,8 +1,82 @@
 import { getPrisma } from '@modulewarden/prisma-client';
+import type { Override, Prisma } from '@modulewarden/prisma-client';
 import { defaultConfig } from '@modulewarden/shared/config';
 import type { JobQueue } from '../jobs/queue.js';
 import { fetchUpstreamTarball, promoteTarballToVerdaccio } from '@modulewarden/shared/services/upstream';
-import { getBestActiveOverrideForPackageVersion } from '@modulewarden/prisma-client';
+
+async function getBestActiveOverrideForPackageVersionTx(
+  tx: Prisma.TransactionClient,
+  packageVersionId: string
+): Promise<Override | null> {
+  const packageVersion = await tx.packageVersion.findUnique({
+    where: { id: packageVersionId },
+    select: {
+      packageName: true,
+      importedByProjects: {
+        select: { projectId: true },
+      },
+    },
+  });
+  if (!packageVersion) return null;
+
+  const projectIds = [...new Set(packageVersion.importedByProjects.map((entry) => entry.projectId))];
+
+  const specificOverride = await tx.override.findFirst({
+    where: {
+      active: true,
+      scope: 'SPECIFIC_VERSION',
+      decision: {
+        packageVersionId,
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (specificOverride) return specificOverride;
+
+  const packageOverride = await tx.override.findFirst({
+    where: {
+      active: true,
+      scope: 'PACKAGE',
+      decision: {
+        packageVersion: {
+          packageName: packageVersion.packageName,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (packageOverride) return packageOverride;
+
+  if (projectIds.length > 0) {
+    const projectOverride = await tx.override.findFirst({
+      where: {
+        active: true,
+        scope: 'PROJECT',
+        decision: {
+          packageVersion: {
+            importedByProjects: {
+              some: {
+                projectId: {
+                  in: projectIds,
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (projectOverride) return projectOverride;
+  }
+
+  return tx.override.findFirst({
+    where: {
+      active: true,
+      scope: 'GLOBAL',
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
 /**
  * Register the Verdaccio promotion job handler.
@@ -96,7 +170,7 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
         );
       }
 
-      const activeOverride = await getBestActiveOverrideForPackageVersion(decision.packageVersionId);
+      const activeOverride = await getBestActiveOverrideForPackageVersionTx(tx, decision.packageVersionId);
       if (activeOverride && activeOverride.targetVerdict !== 'ALLOW') {
         throw new Error(
           `Decision ${decisionId} for ${packageName}@${packageVersion} has active ${activeOverride.targetVerdict} override ${activeOverride.id}`
@@ -104,6 +178,10 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
       }
 
       return { decision };
+    }, {
+      isolationLevel: 'Serializable',
+      maxWait: 15_000,
+      timeout: 60_000,
     });
 
     // 2. Fetch the tarball from upstream npm
@@ -131,32 +209,30 @@ export async function registerVerdaccioPromotionHandler(queue: JobQueue): Promis
 
     // 4. Post-promotion re-verification: check no BLOCK decision was created
     // during the promotion (closing the residual TOCTOU window).
-    await prisma.$transaction(async (tx) => {
-      const postDecision = await tx.decision.findFirst({
-        where: {
-          packageVersion: {
-            packageName,
-            version: packageVersion,
-            registrySource: 'npm',
-            tarballHash,
-          },
-          verdict: 'BLOCK',
+    const postDecision = await prisma.decision.findFirst({
+      where: {
+        packageVersion: {
+          packageName,
+          version: packageVersion,
+          registrySource: 'npm',
+          tarballHash,
         },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, createdAt: true },
-      });
-
-      if (postDecision && postDecision.createdAt > verification.decision.createdAt) {
-        // A BLOCK decision was created while we were promoting — roll back
-        // the Verdaccio promotion by removing the tarball and marking the
-        // tarball artifact as superseded. For now, log a critical warning.
-        console.error(
-          `[promotion] CRITICAL: ${packageName}@${packageVersion} was promoted to Verdaccio ` +
-          `but a BLOCK decision (${postDecision.id}) was created during promotion! ` +
-          `Manual intervention required.`
-        );
-      }
+        verdict: 'BLOCK',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
     });
+
+    if (postDecision && postDecision.createdAt > verification.decision.createdAt) {
+      // A BLOCK decision was created while we were promoting — roll back
+      // the Verdaccio promotion by removing the tarball and marking the
+      // tarball artifact as superseded. For now, log a critical warning.
+      console.error(
+        `[promotion] CRITICAL: ${packageName}@${packageVersion} was promoted to Verdaccio ` +
+        `but a BLOCK decision (${postDecision.id}) was created during promotion! ` +
+        `Manual intervention required.`
+      );
+    }
 
     // 5. Update the package version record with Verdaccio storage info
     await prisma.tarballArtifact.create({

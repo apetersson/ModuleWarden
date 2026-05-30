@@ -39,6 +39,17 @@ export class JobQueue {
       connectionString: opts.connectionString,
       schema: opts.schema ?? 'pgboss',
     });
+    this.boss.on('error', (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error(JSON.stringify({
+        level: 'error',
+        time: new Date().toISOString(),
+        msg: 'pg-boss emitted an error',
+        error: message,
+        stack,
+      }));
+    });
 
     this.options = {
       ...DEFAULT_OPTIONS,
@@ -253,44 +264,60 @@ export class JobQueue {
           try {
             await handler({ id: job.id, data: job.data });
           } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            const payload = job.data as {
-              reviewJobId?: string;
-              packageName?: string;
-              packageVersion?: string;
-              auditContext?: string;
-            };
-            const reviewJobId = payload?.reviewJobId;
-            const jobType = name;
-            const retryCount = typeof (job as { retryCount?: number }).retryCount === 'number'
-              ? (job as { retryCount?: number }).retryCount!
-              : 0;
-            const willDeadLetter = typeof JOB_RETRY_CONFIG[jobType] !== 'undefined'
-              ? shouldDeadLetter(jobType, retryCount + 1)
-              : false;
-
-            if (reviewJobId) {
-              await this.markReviewJobFailed(reviewJobId, message, willDeadLetter);
-            }
-
-            await this.persistFailureContext({
-              reviewJobId,
-              name,
-              jobId: job.id,
-              error: message,
-            });
-
-            // Note: In pg-boss v11, throwing `err` already fails the job.
-            // The explicit `boss.fail()` call may be redundant and could log
-            // a state-transition warning. Keep both for now for forward-compat
-            // with potential pg-boss v10 deployments.
-            await this.boss.fail(name, job.id, { error: message });
-            throw err;
+            await this.failSingleJob(name, job, err);
           }
         })
       );
     });
     return workerId;
+  }
+
+  private async failSingleJob<T extends JobType>(
+    name: T,
+    job: PgBoss.Job<JobPayloads[T]>,
+    err: unknown
+  ): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err);
+    const payload = job.data as {
+      reviewJobId?: string;
+      packageName?: string;
+      packageVersion?: string;
+      auditContext?: string;
+    };
+    const reviewJobId = payload?.reviewJobId;
+    const retryCount = typeof (job as { retryCount?: number }).retryCount === 'number'
+      ? (job as { retryCount?: number }).retryCount!
+      : 0;
+    const willDeadLetter = typeof JOB_RETRY_CONFIG[name] !== 'undefined'
+      ? shouldDeadLetter(name, retryCount + 1)
+      : false;
+
+    try {
+      if (reviewJobId) {
+        await this.markReviewJobFailed(reviewJobId, message, willDeadLetter);
+      }
+
+      await this.persistFailureContext({
+        reviewJobId,
+        name,
+        jobId: job.id,
+        error: message,
+      });
+
+      await this.boss.fail(name, job.id, { error: message });
+    } catch (failErr) {
+      const failMessage = failErr instanceof Error ? failErr.message : String(failErr);
+      console.error(JSON.stringify({
+        level: 'error',
+        time: new Date().toISOString(),
+        msg: 'Failed to persist job failure state',
+        queue: name,
+        jobId: job.id,
+        originalError: message,
+        error: failMessage,
+      }));
+      throw failErr;
+    }
   }
 
   private async markReviewJobFailed(

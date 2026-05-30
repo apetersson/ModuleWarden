@@ -33,6 +33,14 @@ const WORKSPACE = process.env.MW_WORKSPACE ?? '/workspace';
 const PACKAGE_NAME = process.env.MW_PACKAGE_NAME ?? 'unknown';
 const PACKAGE_VERSION = process.env.MW_PACKAGE_VERSION ?? 'unknown';
 const OUTPUT_DIR = join(WORKSPACE, 'output');
+const DEFAULT_MODEL_MAX_TOKENS = 4096;
+const PROMPT_BUDGETS = {
+  instructions: 4_000,
+  packageInfo: 3_000,
+  sourceMetadata: 3_000,
+  staticChecks: 4_500,
+  advisorySearch: 2_500,
+} as const;
 
 interface ProviderConfig {
   provider: string;
@@ -186,40 +194,56 @@ Return ONLY a single JSON object matching this schema:
   "evidenceReferences": ${JSON.stringify(evidence.evidenceReferences)}
 }
 
+Your first output character must be "{". Your final output character must be "}".
+Do not emit <think> blocks, markdown fences, prose, or explanations. If you need
+internal reasoning, keep it private and output only the final JSON verdict.
+
 Decision standard:
 - "allow" only when the advisory evidence, static checks, package metadata, and source metadata are consistent with benign use.
 - "quarantine" when evidence is incomplete, surprising, or ambiguous.
 - "block" when the evidence shows credible malicious behavior, secret access, unsafe install/runtime behavior, exploitable vulnerable defaults, or an applicable critical/high advisory.
 
 ## Configured Prompt Pack Instructions
-${truncateForPrompt(configuredInstructions, 20_000)}
+${truncateForPrompt(configuredInstructions, PROMPT_BUDGETS.instructions)}
 
 ## Evidence References
 ${JSON.stringify(evidence.evidenceReferences, null, 2)}
 
 ## Package Info
-${truncateForPrompt(evidence.packageInfo)}
+${truncateForPrompt(evidence.packageInfo, PROMPT_BUDGETS.packageInfo)}
 
 ## Source Metadata
-${truncateForPrompt(evidence.sourceMetadata)}
+${truncateForPrompt(evidence.sourceMetadata, PROMPT_BUDGETS.sourceMetadata)}
 
 ## Static Checks
-${truncateForPrompt(evidence.staticChecks)}
+${truncateForPrompt(evidence.staticChecks, PROMPT_BUDGETS.staticChecks)}
 
 ## Advisory Search
-${truncateForPrompt(evidence.advisorySearch)}
+${truncateForPrompt(evidence.advisorySearch, PROMPT_BUDGETS.advisorySearch)}
 `;
 }
 
 function extractJsonObject(text: string): Record<string, unknown> {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) {
-    return JSON.parse(fenced[1].trim()) as Record<string, unknown>;
+  const fencedBlocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)]
+    .map((match) => match[1]?.trim())
+    .filter((value): value is string => Boolean(value));
+  for (const fenced of fencedBlocks.reverse()) {
+    try {
+      const parsed = JSON.parse(fenced) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Earlier fenced blocks are often illustrative schema snippets. Keep
+      // scanning for the final machine-readable verdict.
+    }
   }
 
   const afterThinking = text.includes('</think>')
     ? text.slice(text.lastIndexOf('</think>') + '</think>'.length)
-    : text;
+    : text.includes('<think>')
+      ? text.slice(0, text.lastIndexOf('<think>'))
+      : text;
   const cleaned = afterThinking
     .replace(/^```(?:json)?/i, '')
     .replace(/```$/i, '')
@@ -415,12 +439,12 @@ async function callModelForVerdict(config: ProviderConfig, evidence: CollectedEv
       messages: [
         {
           role: 'system',
-          content: 'You are ModuleWarden, a precise npm supply-chain auditor. Return only valid JSON. Do not emit thinking, markdown, or tool_call tags.',
+          content: 'You are ModuleWarden, a precise npm supply-chain auditor. Return only valid JSON. The first byte of your response must be "{". Do not emit thinking, markdown, prose, or tool_call tags.',
         },
         { role: 'user', content: prompt },
       ],
       temperature: 0,
-      max_tokens: parseInt(process.env.MW_MODEL_ENDPOINT_MAX_TOKENS ?? '2048', 10),
+      max_tokens: parseInt(process.env.MW_MODEL_ENDPOINT_MAX_TOKENS ?? String(DEFAULT_MODEL_MAX_TOKENS), 10),
       stream: false,
     }),
   });
