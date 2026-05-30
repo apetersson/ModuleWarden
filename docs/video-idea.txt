@@ -1,0 +1,37 @@
+motivation: popular package maintainer has a security problem. what to expect?
+sophisticated attacker will craft a not statically detectable exploit.
+
+-----------
+probabilistic risk assesment.
+graph dependency complexity vs compounded risk.
+------------
+
+HOW TO DEFEND?
+we guard the interface betweebn code and developer: the artifact registry. the service where you get your packages from.
+defend: sematic analysis! with modulewarden
+
+1 agentic code review which you start manually is good, but 20 which are run automatically is consistent and really helpful.
+
+part 1: we extract feature vectors from the code.
+part 2: submit the known 4k samples with the features plus the exploit severity to
+ sybillion
+
+ now we get a new package -> we ask sybillion for an assesment.
+ then we perform a semantic analysis with a cluster of well-known and maintanable and customizable auditing rules.
+
+ But what model to use?????
+ -------------------
+
+we DL all recent CVEs
+we got the vulnerable and the fixed versions
+got the source codes
+grouped them into benign and vulnerable packages, we extracted the most iconic 1800 recent codebases.
+
+we used the leonardo SC to produce 2 variants of lora models:
+
+now, we can enhance the accuracy of agentic analysis by adding a small specialized module that nudges the model’s behavior.
+
+
+
+---------------------
+
