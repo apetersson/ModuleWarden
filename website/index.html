@@ -204,8 +204,15 @@
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 4l10 6-10 6V4z"/></svg>
         See the audit flow
       </a>
+      <a href="https://dashboard.modulewarden.com/#dashboard" class="w-full sm:w-auto px-6 py-3 rounded-md border border-cyan-400/50 text-cyan-200 hover:border-cyan-300 hover:bg-cyan-400/10 transition flex items-center justify-center gap-2">
+        Live dashboard sneak peek
+      </a>
     </div>
     <p class="text-xs text-slate-600 mt-5">Free for OSS. No credit card. Self-host or cloud.</p>
+    <p class="text-xs text-cyan-200/80 mt-2">
+      Public dashboard preview comes down in
+      <span id="dashboard-preview-countdown" class="mono text-cyan-100">48h 00m 00s</span>.
+    </p>
 
     <!-- hero promo: HyperFrames-rendered MP4 of the live policy gate -->
     <div id="demo" class="mt-20 max-w-3xl mx-auto rounded-xl glow overflow-hidden border border-slate-800 bg-slate-950">
@@ -1192,6 +1199,24 @@ output_integrity: { all_claims_have_evidence_refs: true }</pre>
     </form>
     <p class="text-xs text-slate-600 mt-4">No credit card. No spam. We respond within one business day. Prefer email directly? <a href="mailto:hello@modulewarden.com?subject=Early%20access%20request" class="underline hover:text-slate-400">hello@modulewarden.com</a></p>
     <script>
+      (function () {
+        var countdown = document.getElementById('dashboard-preview-countdown');
+        if (!countdown) return;
+        var deadline = new Date('2026-06-02T12:31:00Z').getTime();
+        function renderCountdown() {
+          var remaining = Math.max(0, deadline - Date.now());
+          var totalSeconds = Math.floor(remaining / 1000);
+          var hours = Math.floor(totalSeconds / 3600);
+          var minutes = Math.floor((totalSeconds % 3600) / 60);
+          var seconds = totalSeconds % 60;
+          countdown.textContent = hours + 'h ' +
+            String(minutes).padStart(2, '0') + 'm ' +
+            String(seconds).padStart(2, '0') + 's';
+        }
+        renderCountdown();
+        setInterval(renderCountdown, 1000);
+      })();
+
       // Open a prefilled mailto in the user's email client. Bypasses
       // mailto-action=submit oddities across browsers and gives us a guard
       // against empty-email submits that the original handler silently let

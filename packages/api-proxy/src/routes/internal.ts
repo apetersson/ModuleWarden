@@ -74,6 +74,19 @@ function addSearchResult(
   results.push(result);
 }
 
+function parseAdvisoryQuery(query: string): { packageName: string; packageVersion?: string } {
+  const tokens = query.trim().split(/\s+/).filter(Boolean);
+  const packageName = tokens[0] ?? query.trim();
+  const maybeVersion = tokens[1];
+  const version = maybeVersion && /^[0-9]+(?:\.[0-9A-Za-z-]+)*(?:[-+][0-9A-Za-z.-]+)?$/.test(maybeVersion)
+    ? maybeVersion
+    : undefined;
+  return {
+    packageName,
+    ...(version ? { packageVersion: version } : {}),
+  };
+}
+
 async function searchSearxng(query: string): Promise<WebSearchResponse['results']> {
   const config = defaultConfig();
   if (config.search.provider === 'disabled') return [];
@@ -214,9 +227,10 @@ export async function registerInternalRoutes(app: FastifyInstance, queueProvider
         }
 
         if (!sources || sources.includes('advisories')) {
+          const advisoryTarget = parseAdvisoryQuery(query);
           try {
             const resp = await fetch(
-              `https://registry.npmjs.org/-/npm/v1/security/advisories?package=${encodeURIComponent(query)}`
+              `https://registry.npmjs.org/-/npm/v1/security/advisories?package=${encodeURIComponent(advisoryTarget.packageName)}`
             );
             if (resp.ok) {
               const advisoryData = await resp.json() as { data?: Array<{ title: string; url: string; severity: string }> };
@@ -224,7 +238,7 @@ export async function registerInternalRoutes(app: FastifyInstance, queueProvider
                 addSearchResult(results, seenUrls, {
                   title: `[${adv.severity}] ${adv.title}`,
                   url: adv.url,
-                  snippet: `Security advisory for ${query}`,
+                  snippet: `Security advisory for ${advisoryTarget.packageName}`,
                   source: 'npm-advisory',
                 });
               }
@@ -239,9 +253,10 @@ export async function registerInternalRoutes(app: FastifyInstance, queueProvider
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 package: {
-                  name: query,
+                  name: advisoryTarget.packageName,
                   ecosystem: 'npm',
                 },
+                ...(advisoryTarget.packageVersion ? { version: advisoryTarget.packageVersion } : {}),
               }),
             });
             if (resp.ok) {
