@@ -27,7 +27,7 @@ gate every install at the registry with an auditable verdict.
 
 ## Approach
 
-- **Deterministic 5-rule gate is the verdict authority.** Release-age, source-match,
+- **Deterministic review is the verdict authority.** Release-age, source-match,
   capability-delta, lifecycle-script, and obfuscation rules fire first. The gate decides
   allow / quarantine / block. This is by design, and our evaluation confirms why (see
   Results): the model is a narrator, not the classifier.
