@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { logger } from '@modulewarden/shared/services/logger';
+import { copyRegularFiles } from './artifact-copy.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -308,25 +309,13 @@ export class ContainerRunner {
         logger.warn('Container log capture failed (preserving audit result)', { containerId, error: err instanceof Error ? err.message : String(err) });
       }
 
-      // 7. Capture evidence artifacts from workspace/output
-      const evidenceArtifacts: string[] = [];
-      if (existsSync(outputDir)) {
-        const files = execSync(
-          `find "${outputDir}" -type f 2>/dev/null || true`,
-          { encoding: 'utf-8', stdio: 'pipe' }
-        ).trim().split('\n').filter(Boolean);
-
-        for (const file of files) {
-          const destPath = join(evidenceDir, file.replace(outputDir, '').replace(/^\//, ''));
-          mkdirSync(join(evidenceDir, file.replace(outputDir, '').replace(/^[/\\]/, '')).replace(/[/\\][^/\\]+$/, ''), { recursive: true });
-          try {
-            execSync(`cp "${file}" "${destPath}"`, { stdio: 'pipe' });
-            evidenceArtifacts.push(destPath);
-          } catch (err) {
-            logger.warn('Failed to copy artifact from container (file may have disappeared)', { containerId, path: file, error: err instanceof Error ? err.message : String(err) });
-          }
-        }
-      }
+      // 7. Capture evidence artifacts from workspace/output (names are
+      // container-controlled: no shell, no symlink following)
+      const evidenceArtifacts = existsSync(outputDir)
+        ? copyRegularFiles(outputDir, evidenceDir, (path, reason) => {
+            logger.warn('Skipped artifact from container', { containerId, path, reason });
+          })
+        : [];
 
       // 8. Destroy the container
       try {
