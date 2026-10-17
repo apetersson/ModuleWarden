@@ -1,7 +1,10 @@
-import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import type { Stats } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { extractTarballSafely } from './safe-tar.js';
+
+export { UnsafeTarballError } from './safe-tar.js';
 
 export interface FileEntry {
   path: string;
@@ -35,41 +38,63 @@ export interface LifecycleScriptDiff {
 
 /**
  * Unpack a tarball to a temp directory and return file listing.
+ *
+ * Entry names come from the package, so nothing here goes through a shell:
+ * extraction is done in-process (see safe-tar.ts) and the listing uses lstat,
+ * which never follows links. Tarballs with entries that would land outside
+ * `targetDir` are refused with UnsafeTarballError.
  */
 export function unpackTarball(tarballPath: string, targetDir: string): FileEntry[] {
   if (!existsSync(tarballPath)) {
     throw new Error(`Tarball not found: ${tarballPath}`);
   }
 
-  const entries: FileEntry[] = [];
-
   // Extract tarball
-  execSync(`tar -xzf "${tarballPath}" -C "${targetDir}" 2>/dev/null`, { stdio: 'pipe' });
+  extractTarballSafely(tarballPath, targetDir);
 
-  // List all files
-  const output = execSync(
-    `find "${targetDir}" -type f -o -type l -o -type d | sort`,
-    { encoding: 'utf-8', stdio: 'pipe' }
-  );
-
-  for (const line of output.trim().split('\n').filter(Boolean)) {
-    const fullPath = line.trim();
-    const stat = execSync(`stat -f "%Sp|%z" "${fullPath}" 2>/dev/null || stat -c "%A|%s" "${fullPath}" 2>/dev/null`, { encoding: 'utf-8' }).trim();
-    const [mode, sizeStr] = stat.split('|');
-    const relativePath = fullPath.replace(targetDir, '').replace(/^\//, '');
-    const size = parseInt(sizeStr ?? '0', 10);
-    const isDir = execSync(`test -d "${fullPath}" && echo yes || echo no`, { encoding: 'utf-8' }).trim() === 'yes';
-
+  // List all files, directories and symlinks (the target directory itself is '/')
+  const entries: FileEntry[] = [];
+  const visit = (fullPath: string, relativePath: string): void => {
+    const stats = lstatSync(fullPath);
+    const mode = formatMode(stats);
     entries.push({
       path: relativePath || '/',
-      size,
-      mode: mode ?? 'unknown',
-      isDir,
-      isExecutable: (mode?.includes('x') ?? false),
+      size: stats.size,
+      mode,
+      isDir: stats.isDirectory(),
+      isExecutable: mode.includes('x'),
     });
-  }
+    if (stats.isDirectory()) {
+      for (const name of readdirSync(fullPath)) {
+        visit(join(fullPath, name), relativePath ? `${relativePath}/${name}` : name);
+      }
+    }
+  };
+  visit(targetDir, '');
 
-  return entries;
+  // Target directory first, then by path
+  const sortKey = (entry: FileEntry): string => (entry.path === '/' ? '' : entry.path);
+  return entries.sort((a, b) => {
+    const [x, y] = [sortKey(a), sortKey(b)];
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+}
+
+/** Symbolic mode string as printed by `ls -l` (e.g. "-rwxr-xr-x"). */
+function formatMode(stats: Stats): string {
+  let type = '?';
+  if (stats.isDirectory()) type = 'd';
+  else if (stats.isSymbolicLink()) type = 'l';
+  else if (stats.isFile()) type = '-';
+  const triplet = (shift: number, specialBit: number, specialChar: string): string => {
+    const read = stats.mode & (0o4 << shift) ? 'r' : '-';
+    const write = stats.mode & (0o2 << shift) ? 'w' : '-';
+    const exec = (stats.mode & (0o1 << shift)) !== 0;
+    let execChar = exec ? 'x' : '-';
+    if (stats.mode & specialBit) execChar = exec ? specialChar : specialChar.toUpperCase();
+    return read + write + execChar;
+  };
+  return type + triplet(6, 0o4000, 's') + triplet(3, 0o2000, 's') + triplet(0, 0o1000, 't');
 }
 
 /**
