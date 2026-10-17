@@ -4,11 +4,11 @@
 // in the GitMetricCache table.
 
 import { execSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { getPrisma } from '@modulewarden/prisma-client';
 import { logger } from '@modulewarden/shared/services/logger';
+import { normalizeRepoUrl, shallowClone } from './git-clone.js';
 
 export interface GitMetricResult {
   packageName: string;
@@ -59,7 +59,7 @@ export class GitMetricExtractor {
       return { packageName, packageVersion, repoUrl: null, commitCount: 0 };
     }
 
-    const normalizedUrl = this._normalizeRepoUrl(repoUrl);
+    const normalizedUrl = normalizeRepoUrl(repoUrl);
     if (!normalizedUrl) {
       logger.info('Could not normalize repo URL', { packageName, repoUrl });
       return { packageName, packageVersion, repoUrl: null, commitCount: 0 };
@@ -69,7 +69,7 @@ export class GitMetricExtractor {
 
     let cloneDir: string | undefined;
     try {
-      cloneDir = this._shallowClone(normalizedUrl);
+      cloneDir = shallowClone(normalizedUrl, MAX_CLONE_SECONDS * 1000);
 
       const commitsSeries = this._extractMonthlyCounts(cloneDir, 'commits');
       const contributorsSeries = this._extractMonthlyContributors(cloneDir);
@@ -132,39 +132,6 @@ export class GitMetricExtractor {
         try { rmSync(cloneDir, { recursive: true, force: true }); } catch { /* best-effort */ }
       }
     }
-  }
-
-  /** Clone a repo with enough history for multi-year time-series analysis. */
-  private _shallowClone(repoUrl: string): string {
-    const dir = mkdtempSync(join(tmpdir(), 'mw-git-'));
-    try {
-      // Use --depth 500 to get at least ~40 months of history for time-series,
-      // while staying shallow enough to avoid multi-GB clones on large repos.
-      execSync(
-        `git clone --depth 500 --single-branch --no-tags "${repoUrl}" "${dir}"`,
-        {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          timeout: MAX_CLONE_SECONDS * 1000,
-          maxBuffer: 10 * 1024 * 1024,
-        },
-      );
-    } catch (err) {
-      // Try fallback: clone with --no-checkout for speed
-      try {
-        rmSync(dir, { recursive: true, force: true });
-        const fallbackDir = mkdtempSync(join(tmpdir(), 'mw-git-'));
-        execSync(
-          `git clone --depth 500 --single-branch --no-tags --no-checkout "${repoUrl}" "${fallbackDir}"`,
-          { encoding: 'utf-8', stdio: 'pipe', timeout: MAX_CLONE_SECONDS * 1000 },
-        );
-        return fallbackDir;
-      } catch {
-        try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
-        throw err;
-      }
-    }
-    return dir;
   }
 
   /**
@@ -316,28 +283,5 @@ export class GitMetricExtractor {
     }
 
     return filled;
-  }
-
-  /** Normalize a repo URL to a clonable git URL. */
-  private _normalizeRepoUrl(url: string): string | null {
-    if (!url) return null;
-
-    // Handle git+https://, git://, etc.
-    let cleaned = url.replace(/^git\+/, '').replace(/\.git$/, '');
-
-    // Normalize git:// protocol to https:// (GitHub disabled git:// in 2022)
-    cleaned = cleaned.replace(/^git:\/\//, 'https://');
-
-    // Handle GitHub shorthand: "owner/repo"
-    if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(cleaned)) {
-      cleaned = `https://github.com/${cleaned}`;
-    }
-
-    try {
-      new URL(cleaned);
-      return cleaned + '.git';
-    } catch {
-      return null;
-    }
   }
 }
